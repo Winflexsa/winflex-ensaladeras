@@ -647,9 +647,9 @@ function renderPedidos() {
       <td>${fmtD(p.entrega)}</td>
       <td style="font-size:12px">${p.despacho || '-'}</td>
       <td>${p.vendedor || '-'}</td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
+      <td style="white-space:nowrap">
         <button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 10px;font-size:11px">Editar</button>
-        <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 8px;font-size:11px" title="Eliminar pedido">×</button>
+        <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 8px;font-size:11px;margin-left:4px" title="Eliminar pedido">×</button>
       </td>
     </tr>`;
   }
