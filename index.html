@@ -253,7 +253,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="metrics" id="ped-metrics"></div>
       <div class="card">
         <div class="tbl-wrap">
-          <table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Unidades</th><th>Estado</th><th>F. Entrega</th><th>Despacho</th><th>Vendedor</th><th></th></tr></thead>
+          <table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Unidades</th><th>Estado</th><th>F. Entrega</th><th>Despacho</th><th>Vendedor</th><th style="width:100px"></th></tr></thead>
           <tbody id="ped-body"></tbody></table>
         </div>
       </div>
@@ -647,10 +647,7 @@ function renderPedidos() {
       <td>${fmtD(p.entrega)}</td>
       <td style="font-size:12px">${p.despacho || '-'}</td>
       <td>${p.vendedor || '-'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 10px;font-size:11px">Editar</button>
-        <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 8px;font-size:11px;margin-left:4px" title="Eliminar pedido">×</button>
-      </td>
+      <td><button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 9px;font-size:11px">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 7px;font-size:11px">×</button></td>
     </tr>`;
   }
   document.getElementById('ped-body').innerHTML = rows || `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
