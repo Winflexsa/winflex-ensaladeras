@@ -241,7 +241,8 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <div class="sync-dot loading" id="sync-dot"></div>
         <span id="sync-txt">Conectando...</span>
       </div>
-      <button onclick="actualizarDesdeNube()" style="margin-top:8px;width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">↻ Actualizar</button>
+      <button onclick="saveToCloud()" style="margin-top:8px;width:100%;padding:7px;border:none;border-radius:6px;background:#2d6a4f;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">☁ Guardar cambios</button>
+      <button onclick="actualizarDesdeNube()" style="margin-top:6px;width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">↻ Actualizar</button>
     </div>
   </div>
 
@@ -501,10 +502,9 @@ async function loadFromCloud() {
   setSyncState('loading', 'Cargando...');
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a/latest', {
-      headers: {'X-Master-Key': CFG.apiKey},
-      signal: AbortSignal.timeout(12000)
+      headers: {'X-Master-Key': CFG.apiKey}
     });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
     STATE.pedidos       = d.record.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
     STATE.prodRegistros = d.record.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
@@ -513,19 +513,17 @@ async function loadFromCloud() {
     setSyncState('ok', '✓ Sincronizado');
     setTimeout(() => setSyncState('idle', ''), 4000);
   } catch(e) {
-    setSyncState('err', '✗ Sin conexión');
+    setSyncState('err', '✗ Sin conexión — datos locales');
     const local = localStorage.getItem('wf_local');
     if (local) {
-      const d = JSON.parse(local);
-      STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
-      STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
-      STATE.nextId        = d.nextId         || 1;
-    } else {
-      STATE.pedidos       = JSON.parse(JSON.stringify(PEDIDOS_INIT));
-      STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
-      STATE.nextId        = 1;
+      try {
+        const d = JSON.parse(local);
+        STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+        STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
+        STATE.nextId        = d.nextId         || 1;
+      } catch(e2) {}
     }
-    setTimeout(() => setSyncState('idle', ''), 5000);
+    // Keep error visible — don't go to idle
   }
 }
 
@@ -1118,7 +1116,7 @@ async function eliminarPedido(id) {
 }
 
 async function initApp() {
-  // Render instantly with local/init data
+  // Mostrar datos locales inmediatamente si los hay
   const local = localStorage.getItem('wf_local');
   if (local) {
     try {
@@ -1136,26 +1134,25 @@ async function initApp() {
     STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
     STATE.nextId        = 1;
   }
-  renderStock(); renderPedidos(); renderAnual();
-  // Then sync from cloud
+  renderStock(); renderPedidos(); renderProduccion(); renderAnual();
+  // Luego sincronizar desde la nube
   await loadFromCloud();
-  renderStock(); renderPedidos(); renderAnual();
+  renderStock(); renderPedidos(); renderProduccion(); renderAnual();
 }
 
 async function actualizarDesdeNube() {
   setSyncState('loading', 'Actualizando...');
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a/latest', {
-      headers: {'X-Master-Key': CFG.apiKey},
-      signal: AbortSignal.timeout(12000)
+      headers: {'X-Master-Key': CFG.apiKey}
     });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
     STATE.pedidos       = d.record.pedidos       || STATE.pedidos;
     STATE.prodRegistros = d.record.prodRegistros  || STATE.prodRegistros;
     STATE.nextId        = d.record.nextId         || STATE.nextId;
     localStorage.setItem('wf_local', JSON.stringify(d.record));
-    renderStock(); renderPedidos(); renderAnual();
+    renderStock(); renderPedidos(); renderProduccion(); renderAnual();
     setSyncState('ok', '✓ Actualizado');
     toast('Datos actualizados desde la nube', 'ok');
     setTimeout(() => setSyncState('idle', ''), 4000);
