@@ -610,50 +610,62 @@ function calcStock() {
 
 function renderStock() {
   const SB = calcStock();
-  const totStock = PRODUCTOS.reduce((a, p) => a + CAJAS.reduce((x, c) => x + (SB[p].stock[c] || 0), 0), 0);
-  const totProd  = PRODUCTOS.reduce((a, p) => a + CAJAS.reduce((x, c) => x + (SB[p].prod[c]  || 0), 0), 0);
-  const e9 = CAJAS.reduce((a, c) => a + (SB['E900'].stock[c] || 0), 0);
-  const t9 = CAJAS.reduce((a, c) => a + (SB['T900'].stock[c] || 0), 0);
-  const pend = (STATE.pedidos||[]).filter(p => p.estado === 'Pendiente').reduce((a, p) =>
-    a + (p.items||[]).reduce((x, it) => x + (it.uds||0), 0), 0);
+  const totStock = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].stock[c]||0), 0), 0);
+  const totProd  = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].prod[c] ||0), 0), 0);
+  const e9 = CAJAS.reduce((a,c) => a + (SB['E900'].stock[c]||0), 0);
+  const t9 = CAJAS.reduce((a,c) => a + (SB['T900'].stock[c]||0), 0);
+  const pend = (STATE.pedidos||[]).filter(p => p.estado==='Pendiente').reduce((a,p) =>
+    a + (p.items||[]).reduce((x,it) => x+(it.uds||0), 0), 0);
 
-  // Metrics
-  document.getElementById('stock-metrics').innerHTML = `
-    <div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">${totStock.toLocaleString('es-AR')}</div><div class="metric-sub">unidades</div></div>
-    <div class="metric-card" style="${e9<0?'background:#fef2f2':''}"><div class="metric-label">E900</div><div class="metric-value" style="${e9<0?'color:#dc2626':''}">${e9.toLocaleString('es-AR')}</div><div class="metric-sub">en stock</div></div>
-    <div class="metric-card" style="${t9<0?'background:#fef2f2':''}"><div class="metric-label">T900</div><div class="metric-value" style="${t9<0?'color:#dc2626':''}">${t9.toLocaleString('es-AR')}</div><div class="metric-sub">en stock</div></div>
-    <div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">${totProd.toLocaleString('es-AR')}</div><div class="metric-sub">unidades</div></div>
-    <div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="${pend>0?'color:#d97706':''}">${pend.toLocaleString('es-AR')}</div><div class="metric-sub">unidades</div></div>
-  `;
+  document.getElementById('stock-metrics').innerHTML =
+    '<div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">' + totStock.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
+    '<div class="metric-card" style="' + (e9<0?'background:#fef2f2':'') + '"><div class="metric-label">E900</div><div class="metric-value" style="' + (e9<0?'color:#dc2626':'') + '">' + e9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
+    '<div class="metric-card" style="' + (t9<0?'background:#fef2f2':'') + '"><div class="metric-label">T900</div><div class="metric-value" style="' + (t9<0?'color:#dc2626':'') + '">' + t9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">' + totProd.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="' + (pend>0?'color:#d97706':'') + '">' + pend.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>';
 
-  // Stock table
-  const tblStock = document.getElementById('tbl-stock');
-  tblStock.innerHTML = '<thead><tr><th>Producto</th>${CAJAS.map(c=>"<th>"+c+"</th>").join("")}<th>Total</th></tr></thead><tbody>' +
-    PRODUCTOS.map(p => {
-      const hasProd = CAJAS.some(c => SB[p].prod[c] > 0);
-      if (!hasProd) return '';
-      const total = CAJAS.reduce((a,c) => a+(SB[p].stock[c]||0), 0);
-      return '<tr><td style="font-weight:600">'+p+'</td>' +
-        CAJAS.map(c => {
-          const uds = SB[p].stock[c]||0;
-          const cajas = uds ? Math.round(uds/c) + '<br><span style="font-size:10px;color:var(--text3)">'+uds.toLocaleString('es-AR')+'u</span>' : '–';
-          return '<td style="'+(uds<0?'color:#dc2626;font-weight:600':'')+'">'+cajas+'</td>';
-        }).join('') +
-        '<td style="font-weight:700;'+(total<0?'color:#dc2626':'')+'">'+total.toLocaleString('es-AR')+'</td>' +
-        '</tr>';
-    }).join('') + '</tbody>';
+  // Stock table — header with real caja values
+  var cajasHeader = '<thead><tr><th>Producto</th>';
+  CAJAS.forEach(function(c){ cajasHeader += '<th>' + c + '</th>'; });
+  cajasHeader += '<th>Total</th></tr></thead>';
+
+  var stockRows = '';
+  PRODUCTOS.forEach(function(p) {
+    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0 || (SB[p].stock[c]||0) !== 0; });
+    if (!hasProd) return;
+    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].stock[c]||0); }, 0);
+    var cells = '';
+    CAJAS.forEach(function(c) {
+      var uds = SB[p].stock[c]||0;
+      var cajas = c > 0 ? Math.round(uds/c) : 0;
+      if (uds === 0) { cells += '<td style="color:var(--text3)">–</td>'; return; }
+      cells += '<td style="' + (uds<0?'color:#dc2626;font-weight:600':'') + '">' +
+        cajas.toLocaleString('es-AR') + '<br><span style="font-size:10px;color:var(--text3)">' + uds.toLocaleString('es-AR') + 'u</span></td>';
+    });
+    stockRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
+      '<td style="font-weight:700;' + (total<0?'color:#dc2626':'') + '">' + total.toLocaleString('es-AR') + '</td></tr>';
+  });
+  document.getElementById('tbl-stock').innerHTML = cajasHeader + '<tbody>' + stockRows + '</tbody>';
 
   // Prod table
-  const tblProd = document.getElementById('tbl-prod-stock');
-  tblProd.innerHTML = '<thead><tr><th>Producto</th>${CAJAS.map(c=>"<th>"+c+"</th>").join("")}<th>Total</th></tr></thead><tbody>' +
-    PRODUCTOS.map(p => {
-      const hasProd = CAJAS.some(c => SB[p].prod[c] > 0);
-      if (!hasProd) return '';
-      const total = CAJAS.reduce((a,c) => a+(SB[p].prod[c]||0), 0);
-      return '<tr><td style="font-weight:600">'+p+'</td>' +
-        CAJAS.map(c => '<td>'+(SB[p].prod[c]||0).toLocaleString('es-AR')+'</td>').join('') +
-        '<td style="font-weight:700">'+total.toLocaleString('es-AR')+'</td></tr>';
-    }).join('') + '</tbody>';
+  var cajasHeaderP = '<thead><tr><th>Producto</th>';
+  CAJAS.forEach(function(c){ cajasHeaderP += '<th>' + c + '</th>'; });
+  cajasHeaderP += '<th>Total</th></tr></thead>';
+
+  var prodRows = '';
+  PRODUCTOS.forEach(function(p) {
+    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0; });
+    if (!hasProd) return;
+    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].prod[c]||0); }, 0);
+    var cells = '';
+    CAJAS.forEach(function(c) {
+      var v = SB[p].prod[c]||0;
+      cells += '<td>' + (v ? v.toLocaleString('es-AR') : '–') + '</td>';
+    });
+    prodRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
+      '<td style="font-weight:700">' + total.toLocaleString('es-AR') + '</td></tr>';
+  });
+  document.getElementById('tbl-prod-stock').innerHTML = cajasHeaderP + '<tbody>' + prodRows + '</tbody>';
 }
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
@@ -929,95 +941,103 @@ async function borrarProd(mes, idx) {
 
 function renderProdDetail(m) {
   document.getElementById('prod-detail-title').textContent = 'Registros — ' + m;
-  const regs = [...(STATE.prodRegistros[m] || [])].sort((a, b) =>
-    a.fecha.localeCompare(b.fecha) || ['M1','M2','N'].indexOf(a.turno) - ['M1','M2','N'].indexOf(b.turno)
-  );
-  const body = document.getElementById('prod-body');
+  var regs = (STATE.prodRegistros[m] || []).slice().sort(function(a,b){
+    var fd = a.fecha.localeCompare(b.fecha);
+    if (fd !== 0) return fd;
+    return ['M1','M2','N'].indexOf(a.turno) - ['M1','M2','N'].indexOf(b.turno);
+  });
+  var body = document.getElementById('prod-body');
   if (!regs.length) {
     body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
     return;
   }
 
-  // Group by fecha -> turno
-  const byFecha = {};
-  regs.forEach((r, idx) => {
+  // Group: fecha -> turno -> [registros]
+  var byFecha = {};
+  regs.forEach(function(r, idx) {
     if (!byFecha[r.fecha]) byFecha[r.fecha] = {};
     if (!byFecha[r.fecha][r.turno]) byFecha[r.fecha][r.turno] = [];
-    byFecha[r.fecha][r.turno].push({...r, _idx: idx});
+    byFecha[r.fecha][r.turno].push({r: r, idx: idx});
   });
 
-  let html = '';
-  Object.keys(byFecha).sort().forEach(fecha => {
-    const turnos = byFecha[fecha];
-    const fechaRegs = Object.values(turnos).flat();
-    const fechaTot = fechaRegs.reduce((a,r) => a + (r.producido||0), 0);
-    // Date header row
-    html += `<tr style="background:var(--surface2)">
-      <td colspan="11" style="font-weight:700;padding:6px 12px;font-size:12px;color:var(--text2)">${fecha} — Total: ${fechaTot.toLocaleString('es-AR')} uds</td>
-    </tr>`;
-    // Turno rows
-    ['M1','M2','N'].forEach(turno => {
-      if (!turnos[turno]) return;
-      const tRegs = turnos[turno];
-      const tTot = tRegs.reduce((a,r) => a + (r.producido||0), 0);
-      const tCajas = tRegs.reduce((a,r) => a + (r.cajas||0), 0);
-      const tKg = tRegs.reduce((a,r) => a + (r.kg||0), 0);
-      const tEfic = tRegs.length ? (tRegs.reduce((a,r) => a + (r.efic||0), 0) / tRegs.length) : 0;
-      const prods = [...new Set(tRegs.map(r=>r.prod))].join(', ');
-      const detailId = 'td-' + fecha.replace(/-/g,'') + '-' + turno;
-      html += `<tr style="cursor:pointer;user-select:none" onclick="toggleTurnoDetail('${detailId}')" title="Click para ver detalle por bobina">
-        <td style="padding-left:20px">${fecha}</td>
-        <td><span class="badge" style="background:#e0f2fe;color:#0369a1;font-weight:700">${turno}</span></td>
-        <td>${prods}</td>
-        <td style="font-weight:600">${tTot.toLocaleString('es-AR')}</td>
-        <td>—</td>
-        <td>${tCajas}</td>
-        <td style="font-size:11px">—</td>
-        <td>${tKg||'—'}</td>
-        <td>${tEfic ? (tEfic*100).toFixed(1)+'%' : '—'}</td>
-        <td></td>
-        <td style="color:var(--text3);font-size:11px">&#9660;</td>
-      </tr>
-      <tr id="${detailId}" style="display:none">
-        <td colspan="11" style="padding:0">
-          <table style="width:100%;border-collapse:collapse;background:#f8fafc">
-            <thead><tr style="background:#e2e8f0">
-              <th style="padding:6px 20px;font-size:11px;text-align:left">Bobina/Partida</th>
-              <th style="padding:6px;font-size:11px">Producto</th>
-              <th style="padding:6px;font-size:11px">Producido</th>
-              <th style="padding:6px;font-size:11px">Un/caja</th>
-              <th style="padding:6px;font-size:11px">Cajas</th>
-              <th style="padding:6px;font-size:11px">Kg</th>
-              <th style="padding:6px;font-size:11px">Efic.</th>
-              <th style="padding:6px;font-size:11px">Obs.</th>
-            </tr></thead>
-            <tbody>
-              ${tRegs.map(r => `<tr style="border-top:1px solid var(--border)">
-                <td style="padding:6px 20px;font-size:12px;font-family:monospace">${r.partida||'—'}</td>
-                <td style="padding:6px;font-size:12px;font-weight:600">${r.prod}</td>
-                <td style="padding:6px;font-size:12px">${(r.producido||0).toLocaleString('es-AR')}</td>
-                <td style="padding:6px;font-size:12px">${r.unicaja||'—'}</td>
-                <td style="padding:6px;font-size:12px">${r.cajas||'—'}</td>
-                <td style="padding:6px;font-size:12px">${r.kg||'—'}</td>
-                <td style="padding:6px;font-size:12px">${r.efic ? (r.efic*100).toFixed(1)+'%' : '—'}</td>
-                <td style="padding:6px;font-size:11px;color:var(--text2)">${r.obs||'—'}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </td>
-      </tr>`;
+  var html = '';
+  var fechas = Object.keys(byFecha).sort();
+  fechas.forEach(function(fecha) {
+    var turnos = byFecha[fecha];
+    var fechaTot = 0;
+    ['M1','M2','N'].forEach(function(t){ (turnos[t]||[]).forEach(function(x){ fechaTot += x.r.producido||0; }); });
+
+    // Date separator row
+    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
+      fecha + ' — Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
+
+    ['M1','M2','N'].forEach(function(turno) {
+      if (!turnos[turno] || !turnos[turno].length) return;
+      var tRegs = turnos[turno];
+      var tTot   = tRegs.reduce(function(a,x){ return a + (x.r.producido||0); }, 0);
+      var tCajas = tRegs.reduce(function(a,x){ return a + (x.r.cajas||0); }, 0);
+      var tKg    = tRegs.reduce(function(a,x){ return a + (x.r.kg||0); }, 0);
+      var tEficSum = tRegs.reduce(function(a,x){ return a + (x.r.efic||0); }, 0);
+      var tEfic  = tRegs.length ? tEficSum / tRegs.length : 0;
+      var prods  = tRegs.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+      var nBobinas = tRegs.length;
+      var detId  = 'td-' + fecha.replace(/-/g,'') + '-' + turno;
+
+      // Turno summary row (clickable)
+      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail('' + detId + '')">' +
+        '<td style="padding-left:18px"><span style="font-size:11px;color:var(--text3)">' + fecha + '</span></td>' +
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
+        '<td style="font-weight:600">' + prods + '</td>' +
+        '<td style="font-weight:700">' + tTot.toLocaleString('es-AR') + '</td>' +
+        '<td style="color:var(--text3)">—</td>' +
+        '<td>' + tCajas + '</td>' +
+        '<td style="font-size:11px;color:var(--text3)">' + nBobinas + ' bobinas</td>' +
+        '<td>' + (tKg||'—') + '</td>' +
+        '<td>' + (tEfic ? (tEfic*100).toFixed(1)+'%' : '—') + '</td>' +
+        '<td></td>' +
+        '<td style="color:var(--text3);font-size:12px">&#9660;</td>' +
+        '</tr>' +
+      // Detail sub-table (hidden by default)
+      '<tr id="' + detId + '" style="display:none"><td colspan="11" style="padding:0">' +
+        '<table style="width:100%;border-collapse:collapse;background:#f8fafc">' +
+          '<thead><tr style="background:#e2e8f0">' +
+            '<th style="padding:5px 18px;font-size:11px;text-align:left;font-weight:600">Bobina</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Partida</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Producto</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Producido</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Un/caja</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Cajas</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Kg</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Efic.</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Obs.</th>' +
+          '</tr></thead><tbody>' +
+          tRegs.map(function(x, bi) {
+            var r = x.r;
+            return '<tr style="border-top:1px solid var(--border)">' +
+              '<td style="padding:5px 18px;font-size:12px;font-weight:700;color:#0369a1">Bobina ' + (bi+1) + '</td>' +
+              '<td style="padding:5px;font-size:11px;font-family:monospace">' + (r.partida||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px;font-weight:600">' + r.prod + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.unicaja||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.cajas||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.kg||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '—') + '</td>' +
+              '<td style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'—') + '</td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>' +
+        '</td></tr>';
     });
   });
   body.innerHTML = html;
 }
 
 function toggleTurnoDetail(id) {
-  const row = document.getElementById(id);
+  var row = document.getElementById(id);
   if (!row) return;
-  const open = row.style.display !== 'none';
-  // Close all
-  document.querySelectorAll('[id^="td-"]').forEach(r => r.style.display = 'none');
-  document.querySelectorAll('#prod-body tr[onclick]').forEach(r => r.style.background = '');
+  var open = row.style.display !== 'none';
+  document.querySelectorAll('[id^="td-"]').forEach(function(r){ r.style.display='none'; });
+  document.querySelectorAll('#prod-body tr[onclick]').forEach(function(r){ r.style.background=''; });
   if (!open) {
     row.style.display = '';
     row.previousElementSibling.style.background = '#eff6ff';
