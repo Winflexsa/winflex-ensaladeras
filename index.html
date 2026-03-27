@@ -230,6 +230,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <div class="sync-dot loading" id="sync-dot"></div>
         <span id="sync-txt">Conectando...</span>
       </div>
+      <button onclick="actualizarDesdeNube()" style="margin-top:8px;width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">↻ Actualizar</button>
     </div>
   </div>
 
@@ -465,8 +466,10 @@ let selMes = null;
 
 // ─── Config / JSONbin ──────────────────────────────────────────
 function loadCfg() {
-  CFG.apiKey = localStorage.getItem('wf_apikey') || '';
-  CFG.binId  = localStorage.getItem('wf_binid')  || '';
+  CFG.apiKey = '$2a$10$8p4t41BnTv.9Ls.4kFLhouDMqJGQEd5LQlBYEz8n1y6nH/3dFq27G';
+  CFG.binId  = '69c18ce8b7ec241ddc96cd8a';
+  localStorage.setItem('wf_apikey', CFG.apiKey);
+  localStorage.setItem('wf_binid',  CFG.binId);
 }
 
 function saveConfig() {
@@ -490,69 +493,54 @@ function showCfgError(msg) {
 async function loadFromCloud() {
   setSyncState('loading', 'Cargando...');
   try {
-    if (!CFG.binId) {
-      // Crear bin nuevo con datos iniciales
-      STATE.pedidos = JSON.parse(JSON.stringify(PEDIDOS_INIT));
-      STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
-      STATE.nextId = 71;
-      await saveToCloud(true);
-      return;
-    }
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}/latest`, {
-      headers: { 'X-Master-Key': CFG.apiKey }
+    const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a/latest', {
+      headers: {'X-Master-Key': CFG.apiKey},
+      signal: AbortSignal.timeout(12000)
     });
-    if (!res.ok) throw new Error('Error ' + res.status);
-    const data = await res.json();
-    const record = data.record;
-    STATE.pedidos = record.pedidos || JSON.parse(JSON.stringify(PEDIDOS_INIT));
-    STATE.prodRegistros = record.prodRegistros || JSON.parse(JSON.stringify(PROD_INIT));
-    STATE.nextId = record.nextId || 71;
-    setSyncState('ok', 'Sincronizado');
-  } catch (e) {
-    setSyncState('err', 'Error de conexión');
-    toast('No se pudo conectar a JSONbin. Verificá tu API Key.', 'err');
-    // Usar datos locales si existen
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    STATE.pedidos       = d.record.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+    STATE.prodRegistros = d.record.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
+    STATE.nextId        = d.record.nextId         || 1;
+    localStorage.setItem('wf_local', JSON.stringify(d.record));
+    setSyncState('ok', '✓ Sincronizado');
+    setTimeout(() => setSyncState('idle', ''), 4000);
+  } catch(e) {
+    setSyncState('err', '✗ Sin conexión');
     const local = localStorage.getItem('wf_local');
     if (local) {
       const d = JSON.parse(local);
-      STATE.pedidos = d.pedidos;
-      STATE.prodRegistros = d.prodRegistros;
-      STATE.nextId = d.nextId;
+      STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+      STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
+      STATE.nextId        = d.nextId         || 1;
     } else {
-      STATE.pedidos = JSON.parse(JSON.stringify(PEDIDOS_INIT));
+      STATE.pedidos       = JSON.parse(JSON.stringify(PEDIDOS_INIT));
       STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
+      STATE.nextId        = 1;
     }
+    setTimeout(() => setSyncState('idle', ''), 5000);
   }
 }
 
 async function saveToCloud(isNew) {
   setSyncState('loading', 'Guardando...');
   const payload = { pedidos: STATE.pedidos, prodRegistros: STATE.prodRegistros, nextId: STATE.nextId };
-  // Guardar copia local siempre
   localStorage.setItem('wf_local', JSON.stringify(payload));
   try {
-    let res, data;
-    if (isNew || !CFG.binId) {
-      res = await fetch('https://api.jsonbin.io/v3/b', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': CFG.apiKey, 'X-Bin-Name': 'winflex-ensaladeras', 'X-Bin-Private': 'true' },
-        body: JSON.stringify(payload)
-      });
-      data = await res.json();
-      CFG.binId = data.metadata.id;
-      localStorage.setItem('wf_binid', CFG.binId);
-    } else {
-      res = await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': CFG.apiKey },
-        body: JSON.stringify(payload)
-      });
-    }
-    if (!res.ok) throw new Error('Error ' + res.status);
-    setSyncState('ok', 'Guardado ✓');
-  } catch (e) {
-    setSyncState('err', 'Error al guardar');
-    toast('Guardado localmente. Verificá tu conexión.', 'warn');
+    const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey},
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setSyncState('ok', '✓ Guardado');
+    toast('Datos guardados en la nube', 'ok');
+    setTimeout(() => setSyncState('idle', ''), 4000);
+  } catch(e) {
+    setSyncState('err', '✗ Error: ' + e.message);
+    toast('Error al guardar: ' + e.message, 'warn');
+    setTimeout(() => setSyncState('idle', ''), 6000);
   }
 }
 
@@ -904,21 +892,57 @@ async function eliminarPedido(id) {
 }
 
 async function initApp() {
+  // Render instantly with local/init data
+  const local = localStorage.getItem('wf_local');
+  if (local) {
+    try {
+      const d = JSON.parse(local);
+      STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+      STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
+      STATE.nextId        = d.nextId         || 1;
+    } catch(e) {
+      STATE.pedidos       = JSON.parse(JSON.stringify(PEDIDOS_INIT));
+      STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
+      STATE.nextId        = 1;
+    }
+  } else {
+    STATE.pedidos       = JSON.parse(JSON.stringify(PEDIDOS_INIT));
+    STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
+    STATE.nextId        = 1;
+  }
+  renderStock(); renderPedidos(); renderAnual();
+  // Then sync from cloud
   await loadFromCloud();
-  renderStock();
+  renderStock(); renderPedidos(); renderAnual();
+}
+
+async function actualizarDesdeNube() {
+  setSyncState('loading', 'Actualizando...');
+  try {
+    const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a/latest', {
+      headers: {'X-Master-Key': CFG.apiKey},
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    STATE.pedidos       = d.record.pedidos       || STATE.pedidos;
+    STATE.prodRegistros = d.record.prodRegistros  || STATE.prodRegistros;
+    STATE.nextId        = d.record.nextId         || STATE.nextId;
+    localStorage.setItem('wf_local', JSON.stringify(d.record));
+    renderStock(); renderPedidos(); renderAnual();
+    setSyncState('ok', '✓ Actualizado');
+    toast('Datos actualizados desde la nube', 'ok');
+    setTimeout(() => setSyncState('idle', ''), 4000);
+  } catch(e) {
+    setSyncState('err', '✗ Sin conexión');
+    setTimeout(() => setSyncState('idle', ''), 5000);
+  }
 }
 
 async function boot() {
   loadCfg();
-  if (!CFG.apiKey) {
-    document.getElementById('config-modal').style.display = 'flex';
-  } else {
-    document.getElementById('config-modal').style.display = 'none';
-    await initApp();
-  }
-  // Set today dates
-  document.getElementById('np-fecha').value = today();
-  document.getElementById('rp-fecha').value = today();
+  document.getElementById('config-modal').style.display = 'none';
+  await initApp();
 }
 
 boot();
