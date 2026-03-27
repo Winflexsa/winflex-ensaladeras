@@ -460,12 +460,7 @@ const CLIENTES = ['Archilli','Argon Pack','Artola','Bandex','Baumgartner','Beraj
 
 const DEPOSITOS = ['Chivilcoy','Cliente','Credifin','Derqui','Gral Rodriguez','Ituzaingo','Lanus','Lujan','Moreno','Palomar','Parque Ind. Deca','Piñeyro','Polo Ind. Ezeiza','Retira','Trans. Andina','Trans. Felice','Trans. Garmendia','Trans. Naposta','Trans. Prada','Trans. San Jose','Trans. Soumar','Trans. TLC','Transp.Allianza','Transporte'].sort();
 
-const STOCK_BASE = {
-  E900:{stock:{300:-60300,500:-41100,1000:0,100:11200,440:75680,880:0},prod:{300:289200,500:257000,1000:0,100:122300,440:108680,880:0},salidas:{300:467100,500:242000,1000:0,100:150400,440:0,880:0}},
-  T900:{stock:{300:46200,500:0,1000:75000,100:6600,440:80960,880:0},prod:{300:562300,500:0,1000:292000,100:124200,440:203720,880:0},salidas:{300:447000,500:0,1000:236500,100:150100,440:0,880:0}},
-  S900:{stock:{300:0,500:0,1000:0,100:0,440:0,880:0},prod:{300:0,500:0,1000:0,100:0,440:0,880:0},salidas:{300:0,500:0,1000:0,100:0,440:0,880:0}},
-  E910:{stock:{300:0,500:0,1000:0,100:0,440:0,880:0},prod:{300:0,500:0,1000:0,100:0,440:0,880:0},salidas:{300:0,500:0,1000:0,100:0,440:0,880:0}}
-};
+// Stock calculado dinámicamente por calcStock();
 
 const PEDIDOS_INIT = [{"id":1,"fecha":"2026-01-02","cliente":"Archilli","estado":"Entregado","entrega":"2026-01-05","despacho":"Moreno","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":24,"caja":500,"uds":12000},{"prod":"T900","cajas":12,"caja":1000,"uds":12000}]},{"id":2,"fecha":"2026-01-02","cliente":"Papelera Derqui","estado":"Entregado","entrega":"2026-01-08","despacho":"Derqui","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":12,"caja":500,"uds":6000},{"prod":"T900","cajas":6,"caja":1000,"uds":6000}]},{"id":3,"fecha":"2026-01-05","cliente":"El mundo del papel","estado":"Entregado","entrega":"2026-01-08","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":2,"caja":500,"uds":1000},{"prod":"T900","cajas":1,"caja":1000,"uds":1000}]},{"id":4,"fecha":"2026-01-05","cliente":"Dist. Embalaje Rosario","estado":"Entregado","entrega":"2026-01-13","despacho":"Trans. San Jose","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000},{"prod":"T900","cajas":50,"caja":300,"uds":15000}]},{"id":5,"fecha":"2026-01-05","cliente":"Marcos Fridel","estado":"Entregado","entrega":"2026-01-14","despacho":"Trans. Prada","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000},{"prod":"T900","cajas":50,"caja":300,"uds":15000}]},{"id":6,"fecha":"2026-01-06","cliente":"Embalar","estado":"Entregado","entrega":"2026-01-14","despacho":"Gral Rodriguez","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":12,"caja":500,"uds":6000},{"prod":"T900","cajas":6,"caja":1000,"uds":6000}]},{"id":7,"fecha":"2026-01-07","cliente":"Sebastian","estado":"Entregado","entrega":"2026-01-15","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":8,"fecha":"2026-01-07","cliente":"Costa del sur Necochea","estado":"Entregado","entrega":"2026-01-15","despacho":"Trans. Garmendia","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":9,"fecha":"2026-01-07","cliente":"El Mundo del Papel","estado":"Entregado","entrega":"2026-01-15","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":10,"fecha":"2026-01-07","cliente":"Forti Frega","estado":"Entregado","entrega":"2026-01-16","despacho":"Palomar","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":11,"fecha":"2026-01-09","cliente":"Papelera Puerto","estado":"Entregado","entrega":"2026-01-19","despacho":"Trans. Soumar","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":30,"caja":500,"uds":15000},{"prod":"T900","cajas":15,"caja":1000,"uds":15000}]},{"id":12,"fecha":"2026-01-09","cliente":"Cristian Tadeo","estado":"Entregado","entrega":"2026-01-19","despacho":"Chivilcoy","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":13,"fecha":"2026-01-09","cliente":"Argon Pack","estado":"Entregado","entrega":"2026-01-20","despacho":"Polo Ind. Ezeiza","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000}]},{"id":14,"fecha":"2026-01-10","cliente":"Morello","estado":"Entregado","entrega":"2026-01-20","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":40,"caja":300,"uds":12000},{"prod":"T900","cajas":40,"caja":300,"uds":12000}]},{"id":15,"fecha":"2026-01-11","cliente":"Papelera Manapel","estado":"Entregado","entrega":"2026-01-21","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":16,"fecha":"2026-01-11","cliente":"Comercializadora del sur","estado":"Entregado","entrega":"2026-01-21","despacho":"Retira","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":16,"caja":500,"uds":8000},{"prod":"T900","cajas":8,"caja":1000,"uds":8000}]},{"id":17,"fecha":"2026-01-11","cliente":"Jut-Sol SRL","estado":"Entregado","entrega":"2026-01-21","despacho":"Trans. Felice","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":18,"fecha":"2026-01-11","cliente":"Papelera Manapel","estado":"Entregado","entrega":"2026-02-04","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":4,"caja":500,"uds":2000},{"prod":"T900","cajas":2,"caja":1000,"uds":2000}]},{"id":19,"fecha":"2026-01-11","cliente":"Baumgartner","estado":"Entregado","entrega":"2026-02-04","despacho":"Transporte","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":6,"caja":500,"uds":3000},{"prod":"T900","cajas":3,"caja":1000,"uds":3000}]},{"id":20,"fecha":"2026-01-12","cliente":"Embalplast","estado":"Entregado","entrega":"2026-02-04","despacho":"Trans. Naposta","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":21,"fecha":"2026-01-12","cliente":"Embalajes del litoral","estado":"Entregado","entrega":"2026-02-06","despacho":"Trans. San Jose","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":200,"caja":300,"uds":60000},{"prod":"T900","cajas":200,"caja":300,"uds":60000}]},{"id":22,"fecha":"2026-01-16","cliente":"Deca","estado":"Entregado","entrega":"2026-02-06","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":23,"fecha":"2026-01-26","cliente":"Sebalen","estado":"Entregado","entrega":"2026-02-09","despacho":"Piñeyro","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":30,"caja":300,"uds":9000},{"prod":"T900","cajas":30,"caja":300,"uds":9000}]},{"id":24,"fecha":"2026-01-29","cliente":"Cemave","estado":"Entregado","entrega":"2026-02-09","despacho":"Lanus","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":25,"fecha":"2026-01-16","cliente":"Husa","estado":"Entregado","entrega":"2026-02-10","despacho":"Ituzaingo","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":70,"caja":300,"uds":21000},{"prod":"T900","cajas":70,"caja":300,"uds":21000}]},{"id":26,"fecha":"2026-01-16","cliente":"Archilli","estado":"Entregado","entrega":"2026-02-10","despacho":"Moreno","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":27,"fecha":"2026-02-06","cliente":"JyS","estado":"Entregado","entrega":"2026-02-11","despacho":"Retira","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":6,"caja":500,"uds":3000},{"prod":"T900","cajas":4,"caja":1000,"uds":4000}]},{"id":28,"fecha":"2026-01-19","cliente":"Cesar Bianchi","estado":"Entregado","entrega":"2026-02-11","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":29,"fecha":"2026-01-08","cliente":"Zabalo Federico","estado":"Entregado","entrega":"2026-03-04","despacho":"Lujan","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":9,"caja":500,"uds":4500},{"prod":"T900","cajas":4,"caja":1000,"uds":4500}]},{"id":30,"fecha":"2026-01-15","cliente":"Cuevas Cristian","estado":"Entregado","entrega":"2026-02-11","despacho":"Trans. TLC","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":31,"fecha":"2026-01-19","cliente":"Fernando Gatti","estado":"Pendiente","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":4,"caja":500,"uds":2000},{"prod":"T900","cajas":2,"caja":1000,"uds":2000}]},{"id":32,"fecha":"2026-01-20","cliente":"Morello","estado":"Pendiente","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":20,"caja":300,"uds":6000},{"prod":"T900","cajas":20,"caja":300,"uds":6000}]},{"id":33,"fecha":"2026-01-12","cliente":"Sumo Mendoza","estado":"Entregado","entrega":"2026-03-03","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":17,"caja":300,"uds":5100},{"prod":"T900","cajas":17,"caja":300,"uds":5100}]},{"id":34,"fecha":"2026-01-20","cliente":"Sumo Mendoza","estado":"Entregado","entrega":"2026-03-03","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":10,"caja":300,"uds":3000},{"prod":"T900","cajas":10,"caja":300,"uds":3000}]},{"id":35,"fecha":"2026-01-21","cliente":"Beraja","estado":"Entregado","entrega":"2026-02-11","despacho":"Retira","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":34,"caja":300,"uds":10200},{"prod":"T900","cajas":17,"caja":300,"uds":5100}]},{"id":36,"fecha":"2026-01-21","cliente":"Packing Tucuman","estado":"Entregado","entrega":"2026-02-12","despacho":"Credifin","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":30,"caja":300,"uds":9000},{"prod":"T900","cajas":30,"caja":300,"uds":9000}]},{"id":37,"fecha":"2026-01-26","cliente":"Sebalen","estado":"Entregado","entrega":"2026-02-27","despacho":"Piñeyro","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":38,"caja":300,"uds":11400},{"prod":"T900","cajas":38,"caja":300,"uds":11400}]},{"id":38,"fecha":"2026-01-29","cliente":"Cristian Tadeo","estado":"Entregado","entrega":"2026-03-06","despacho":"Chivilcoy","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":39,"fecha":"2026-02-04","cliente":"Fridel","estado":"Entregado","entrega":"2026-02-13","despacho":"Trans. Prada","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000},{"prod":"T900","cajas":50,"caja":300,"uds":15000}]},{"id":40,"fecha":"2026-02-05","cliente":"Sebastian","estado":"Entregado","entrega":"2026-03-06","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":41,"fecha":"2026-02-05","cliente":"Sebastian","estado":"Entregado","entrega":"2026-02-26","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":42,"fecha":"2026-02-05","cliente":"Monsalvo","estado":"Entregado","entrega":"2026-02-13","despacho":"Lanus","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":43,"fecha":"2026-02-05","cliente":"Mariela Ramirez","estado":"Entregado","entrega":"2026-03-03","despacho":"Lanus","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":300,"uds":6000},{"prod":"T900","cajas":20,"caja":300,"uds":6000}]},{"id":44,"fecha":"2026-02-06","cliente":"Silvia Cariati","estado":"Entregado","entrega":"2026-03-05","despacho":"Trans. Andina","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":45,"fecha":"2026-02-09","cliente":"Argon Pack","estado":"Entregado","entrega":"2026-02-24","despacho":"Polo Ind. Ezeiza","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":46,"fecha":"2026-02-11","cliente":"Artola","estado":"Entregado","entrega":"2026-03-05","despacho":"Transporte","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":40,"caja":500,"uds":20000},{"prod":"T900","cajas":15,"caja":1000,"uds":15000}]},{"id":47,"fecha":"2026-02-11","cliente":"Papelera Yrigoyen","estado":"Entregado","entrega":"2026-03-17","despacho":"Cliente","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":48,"fecha":"2026-02-18","cliente":"JyS","estado":"Entregado","entrega":"2026-02-18","despacho":"Retira","vendedor":"Nitopi","obs":"","items":[{"prod":"T900","cajas":1,"caja":1000,"uds":1000}]},{"id":49,"fecha":"2026-02-20","cliente":"Fernando Gil","estado":"Entregado","entrega":"","despacho":"Transporte","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":50,"fecha":"2026-01-01","cliente":"Envases Group","estado":"Entregado","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"oc 7070","items":[{"prod":"E900","cajas":1504,"caja":100,"uds":150400},{"prod":"T900","cajas":1501,"caja":100,"uds":150100}]},{"id":51,"fecha":"2026-01-01","cliente":"Envases Group","estado":"Pendiente","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"oc 7070","items":[{"prod":"E900","cajas":104,"caja":100,"uds":10400},{"prod":"T900","cajas":66,"caja":100,"uds":6600}]},{"id":52,"fecha":"2026-01-01","cliente":"Bandex","estado":"Pendiente","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"oc 494-495","items":[{"prod":"E900","cajas":40,"caja":440,"uds":17600},{"prod":"T900","cajas":119,"caja":440,"uds":52360}]},{"id":53,"fecha":"2026-02-25","cliente":"Sebalen","estado":"Entregado","entrega":"","despacho":"Piñeyro","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":34,"caja":300,"uds":10200},{"prod":"T900","cajas":34,"caja":300,"uds":10200}]},{"id":54,"fecha":"2026-02-24","cliente":"El Mundo del Papel","estado":"Entregado","entrega":"2026-03-02","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":10,"caja":500,"uds":5000},{"prod":"T900","cajas":5,"caja":1000,"uds":5000}]},{"id":55,"fecha":"2026-02-27","cliente":"Rotondo Marcelo","estado":"Entregado","entrega":"2026-03-12","despacho":"Cliente","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":34,"caja":300,"uds":10200},{"prod":"T900","cajas":34,"caja":300,"uds":10200}]},{"id":56,"fecha":"2026-03-02","cliente":"Argon Pack","estado":"Entregado","entrega":"2026-03-20","despacho":"Polo Ind. Ezeiza","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":57,"fecha":"2026-03-02","cliente":"Sebastian","estado":"Entregado","entrega":"2026-03-06","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":58,"fecha":"2026-03-02","cliente":"Sebastian","estado":"Entregado","entrega":"2026-03-17","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]},{"id":59,"fecha":"2026-03-03","cliente":"Peverini","estado":"Pendiente","entrega":"","despacho":"Cliente","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":70,"caja":300,"uds":21000},{"prod":"T900","cajas":70,"caja":300,"uds":21000}]},{"id":60,"fecha":"2026-03-05","cliente":"Marini Rosana","estado":"Pendiente","entrega":"","despacho":"Transp.Allianza","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":16,"caja":500,"uds":8000},{"prod":"T900","cajas":8,"caja":1000,"uds":8000}]},{"id":62,"fecha":"2026-03-06","cliente":"Papelera Manapel","estado":"Entregado","entrega":"2026-03-23","despacho":"Retira","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":6,"caja":500,"uds":3000},{"prod":"T900","cajas":3,"caja":1000,"uds":3000}]},{"id":63,"fecha":"2026-03-08","cliente":"Distrib. Mayorista del Embalaje","estado":"Pendiente","entrega":"","despacho":"Trans. San Jose","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000},{"prod":"T900","cajas":50,"caja":300,"uds":15000}]},{"id":64,"fecha":"2026-03-08","cliente":"Marcos Fridel","estado":"Pendiente","entrega":"","despacho":"Trans. Prada","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":50,"caja":300,"uds":15000},{"prod":"T900","cajas":50,"caja":300,"uds":15000}]},{"id":65,"fecha":"2026-03-09","cliente":"Marcelo Abuarrea","estado":"Entregado","entrega":"","despacho":"Retira","vendedor":"Winflex","obs":"","items":[{"prod":"E900","cajas":6,"caja":500,"uds":3000},{"prod":"T900","cajas":3,"caja":1000,"uds":3000}]},{"id":66,"fecha":"2026-03-09","cliente":"Monsalvo","estado":"Pendiente","entrega":"","despacho":"Cliente","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":10,"caja":1000,"uds":10000}]},{"id":67,"fecha":"2026-03-09","cliente":"Papelera Costa Sur","estado":"Entregado","entrega":"2026-03-17","despacho":"Transporte","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":20,"caja":500,"uds":10000},{"prod":"T900","cajas":8,"caja":1000,"uds":8000}]},{"id":68,"fecha":"2026-03-09","cliente":"Papelera Puerto","estado":"Entregado","entrega":"2026-03-17","despacho":"Transporte","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":30,"caja":500,"uds":15000},{"prod":"T900","cajas":15,"caja":1000,"uds":15000}]},{"id":69,"fecha":"2026-03-10","cliente":"Bandex","estado":"Pendiente","entrega":"","despacho":"Transporte","vendedor":"Nitopi","obs":"oc 2603-00179","items":[{"prod":"E900","cajas":350,"caja":440,"uds":154000},{"prod":"T900","cajas":350,"caja":440,"uds":154000}]},{"id":70,"fecha":"2026-03-13","cliente":"Sebastian","estado":"Pendiente","entrega":"2026-03-23","despacho":"Parque Ind. Deca","vendedor":"Nitopi","obs":"","items":[{"prod":"E900","cajas":100,"caja":300,"uds":30000},{"prod":"T900","cajas":100,"caja":300,"uds":30000}]}];
 
@@ -588,29 +583,73 @@ function goTo(name, btn) {
 }
 
 // ─── STOCK ─────────────────────────────────────────────────────
+
+function calcStock() {
+  const prod = {}, salidas = {};
+  PRODUCTOS.forEach(p => {
+    prod[p] = {}; salidas[p] = {};
+    CAJAS.forEach(c => { prod[p][c] = 0; salidas[p][c] = 0; });
+  });
+  Object.values(STATE.prodRegistros || {}).forEach(mes => {
+    (mes || []).forEach(r => {
+      if (prod[r.prod] && prod[r.prod][r.unicaja] !== undefined)
+        prod[r.prod][r.unicaja] += (r.producido || 0);
+    });
+  });
+  (STATE.pedidos || []).filter(p => ['Entregado','Entregado parcial'].includes(p.estado)).forEach(p => {
+    (p.items || []).forEach(it => {
+      if (salidas[it.prod] && salidas[it.prod][it.caja] !== undefined)
+        salidas[it.prod][it.caja] += (it.uds || 0);
+    });
+  });
+  const base = {};
+  PRODUCTOS.forEach(p => {
+    base[p] = { prod: prod[p], salidas: salidas[p], stock: {} };
+    CAJAS.forEach(c => { base[p].stock[c] = prod[p][c] - salidas[p][c]; });
+  });
+  return base;
+}
+
 function renderStock() {
+  const STOCK_BASE = calcStock();
   const totStock = PRODUCTOS.reduce((a, p) => a + CAJAS.reduce((x, c) => x + (STOCK_BASE[p].stock[c] || 0), 0), 0);
-  const totProd  = PRODUCTOS.reduce((a, p) => a + CAJAS.reduce((x, c) => x + (STOCK_BASE[p].prod[c] || 0), 0), 0);
-  const e9 = CAJAS.reduce((a, c) => a + (STOCK_BASE.E900.stock[c] || 0), 0);
-  const t9 = CAJAS.reduce((a, c) => a + (STOCK_BASE.T900.stock[c] || 0), 0);
-  const pend = STATE.pedidos.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-  document.getElementById('stock-metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">Stock total</div><div class="metric-value ${totStock < 0 ? 'neg' : 'pos'}">${fmt(totStock)}</div><div class="metric-sub">unidades</div></div>
-    <div class="metric"><div class="metric-label">E900</div><div class="metric-value ${e9 < 0 ? 'neg' : 'warn'}">${fmt(e9)}</div><div class="metric-sub">en stock</div></div>
-    <div class="metric"><div class="metric-label">T900</div><div class="metric-value ${t9 < 0 ? 'neg' : 'pos'}">${fmt(t9)}</div><div class="metric-sub">en stock</div></div>
-    <div class="metric"><div class="metric-label">Producido 2026</div><div class="metric-value">${fmt(totProd)}</div><div class="metric-sub">unidades</div></div>
-    <div class="metric"><div class="metric-label">Pedidos pendientes</div><div class="metric-value warn">${fmt(pend)}</div><div class="metric-sub">unidades</div></div>
-  `;
-  const makeTbl = key => {
-    let h = `<thead><tr><th>Producto</th>${CAJAS.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>`;
-    for (const p of PRODUCTOS) {
-      const tot = CAJAS.reduce((a, c) => a + (STOCK_BASE[p][key][c] || 0), 0);
-      h += `<tr><td style="font-weight:600">${p}</td>${CAJAS.map(c => { const v = STOCK_BASE[p][key][c] || 0; return `<td style="${v < 0 ? 'color:var(--danger)' : ''}">${v ? fmt(v) : '-'}</td>`; }).join('')}<td style="font-weight:600;${tot < 0 ? 'color:var(--danger)' : ''}">${fmt(tot)}</td></tr>`;
-    }
-    return h + '</tbody>';
-  };
-  document.getElementById('tbl-stock').innerHTML = makeTbl('stock');
-  document.getElementById('tbl-prod-stock').innerHTML = makeTbl('prod');
+  const totProd  = PRODUCTOS.reduce((a, p) => a + CAJAS.reduce((x, c) => x + (STOCK_BASE[p].prod[c]  || 0), 0), 0);
+  const e9 = CAJAS.reduce((a, c) => a + (STOCK_BASE['E900'].stock[c] || 0), 0);
+  const t9 = CAJAS.reduce((a, c) => a + (STOCK_BASE['T900'].stock[c] || 0), 0);
+  const pend = (STATE.pedidos||[]).filter(p => p.estado === 'Pendiente').reduce((a, p) =>
+    a + (p.items||[]).reduce((x, it) => x + (it.uds||0), 0), 0);
+  q('#m-stock').textContent   = totStock.toLocaleString('es-AR');
+  q('#m-e9').textContent      = e9.toLocaleString('es-AR');
+  q('#m-t9').textContent      = t9.toLocaleString('es-AR');
+  q('#m-prod').textContent    = totProd.toLocaleString('es-AR');
+  q('#m-pend').textContent    = pend.toLocaleString('es-AR');
+  q('#m-e9').closest('.metric-card').style.background = e9 < 0 ? '#fef2f2' : '';
+  q('#m-t9').closest('.metric-card').style.background = t9 < 0 ? '#fef2f2' : '';
+  // Stock table
+  const tbody = q('#stock-body');
+  tbody.innerHTML = PRODUCTOS.map(p =>
+    CAJAS.map((c, ci) => {
+      const uds = STOCK_BASE[p].stock[c] || 0;
+      const prodUds = STOCK_BASE[p].prod[c] || 0;
+      if (!prodUds && !uds) return '';
+      const cajas = c > 0 ? Math.round(uds/c) : 0;
+      const cls = uds < 0 ? 'style="color:#dc2626;font-weight:600"' : '';
+      return `<tr>
+        ${ci === 0 ? `<td rowspan="${CAJAS.filter(x=>STOCK_BASE[p].prod[x]||STOCK_BASE[p].stock[x]).length}" style="font-weight:600">${p}</td>` : ''}
+        <td>${c}</td>
+        <td ${cls}>${cajas.toLocaleString('es-AR')}</td>
+        <td ${cls}>${uds.toLocaleString('es-AR')}</td>
+      </tr>`;
+    }).join('')
+  ).join('');
+  // Prod table
+  const ptbody = q('#prod-acum-body');
+  if (ptbody) ptbody.innerHTML = PRODUCTOS.map(p =>
+    `<tr><td style="font-weight:600">${p}</td>${CAJAS.map(c => {
+      const v = STOCK_BASE[p].prod[c]||0;
+      return `<td>${v ? v.toLocaleString('es-AR') : '–'}</td>`;
+    }).join('')}<td style="font-weight:600">${CAJAS.reduce((a,c)=>a+(STOCK_BASE[p].prod[c]||0),0).toLocaleString('es-AR')}</td></tr>`
+  ).join('');
 }
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
@@ -888,18 +927,43 @@ function renderProdDetail(m) {
   document.getElementById('prod-detail-title').textContent = 'Registros — ' + m;
   const regs = [...(STATE.prodRegistros[m] || [])].sort((a, b) => a.fecha.localeCompare(b.fecha));
   const body = document.getElementById('prod-body');
-  if (!regs.length) {
-    body.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text3)">Sin registros para ${m}</td></tr>`;
-    return;
-  }
-  body.innerHTML = regs.map((r, i) => `<tr>
-    <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
-    <td>${fmt(r.producido)}</td><td>${r.unicaja || '-'}</td><td>${fmt(r.cajas)}</td>
-    <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida || '-'}</td>
-    <td>${r.kg ? fmt(r.kg) : '-'}</td><td>${pct(r.efic)}</td>
-    <td style="font-size:12px;color:var(--text2)">${r.obs || '-'}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="borrarProd('${m}',${i})">×</button></td>
+  if (!regs.length) { body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>'; return; }
+  body.innerHTML = regs.map((r, idx) => `<tr style="cursor:pointer" onclick="toggleDayDetail(this, ${idx}, '${m}')" title="Click para ver detalle">
+    <td>${r.fecha}</td>
+    <td><span class="badge" style="background:#f1f5f9;color:#475569">${r.turno}</span></td>
+    <td style="font-weight:600">${r.prod}</td>
+    <td>${(r.producido||0).toLocaleString('es-AR')}</td>
+    <td>${r.unicaja||'-'}</td>
+    <td>${r.cajas||'-'}</td>
+    <td style="font-size:11px;color:var(--text2)">${r.partida||'-'}</td>
+    <td>${r.kg||'-'}</td>
+    <td>${r.efic ? (r.efic*100).toFixed(1)+'%' : '-'}</td>
+  </tr>
+  <tr class="day-detail-row" id="day-detail-${idx}" style="display:none">
+    <td colspan="9" style="background:#f8fafc;padding:12px 20px;">
+      <div style="font-size:12px;color:var(--text2)"><strong>Observaciones:</strong> ${r.obs||'Sin observaciones'}</div>
+      <div style="display:flex;gap:24px;margin-top:8px;font-size:12px">
+        <span><strong>Partida PET:</strong> ${r.partida||'-'}</span>
+        <span><strong>Kg procesados:</strong> ${r.kg||0}</span>
+        <span><strong>Eficiencia:</strong> ${r.efic ? (r.efic*100).toFixed(1)+'%' : '-'}</span>
+        <span><strong>Cajas:</strong> ${r.cajas||0}</span>
+        <span><strong>Un/caja:</strong> ${r.unicaja||0}</span>
+      </div>
+    </td>
   </tr>`).join('');
+}
+
+function toggleDayDetail(row, idx, mes) {
+  const detail = document.getElementById('day-detail-' + idx);
+  if (!detail) return;
+  const visible = detail.style.display !== 'none';
+  // Cerrar todos primero
+  document.querySelectorAll('.day-detail-row').forEach(r => r.style.display = 'none');
+  document.querySelectorAll('#prod-body tr[onclick]').forEach(r => r.style.background = '');
+  if (!visible) {
+    detail.style.display = '';
+    row.style.background = '#eff6ff';
+  }
 }
 
 // ─── ANUAL ─────────────────────────────────────────────────────
