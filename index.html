@@ -140,7 +140,7 @@ tbody tr:hover td { background: var(--surface2); }
 .toast.err { background: var(--danger-light); color: var(--danger); border: 1px solid #fca5a5; }
 
 /* Config modal */
-.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 100; }
 .modal { background: var(--surface); border-radius: var(--radius); padding: 28px; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
 .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
 .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
@@ -186,7 +186,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 </head>
 <body>
 
-<div id="config-modal" class="modal-bg">
+<div id="config-modal" class="modal-bg" style="display:none">
   <div class="modal">
     <div class="modal-title">Configuración inicial</div>
     <div class="modal-sub">Para guardar los datos en la nube necesitás configurar JSONbin. Es gratis y tarda 5 minutos.</div>
