@@ -171,6 +171,17 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 .combo-wrap select{flex:1}
 .combo-new{display:none;flex:1;padding:7px 10px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none}
 .combo-add{padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap;font-family:inherit}
+
+/* ── Modal entrega parcial ── */
+.modal-parcial { display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center; }
+.modal-parcial.open { display:flex; }
+.modal-parcial-box { background:var(--surface);border-radius:12px;padding:28px 32px;width:460px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.18); }
+.modal-parcial-box h3 { margin:0 0 18px;font-size:16px;font-weight:700; }
+.parcial-item { display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;margin-bottom:10px;font-size:13px; }
+.parcial-item label { font-weight:500; }
+.parcial-item .max { color:var(--text3);font-size:11px; }
+.parcial-item input { width:72px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right; }
+.modal-parcial-actions { display:flex;gap:10px;margin-top:20px;justify-content:flex-end; }
 </style>
 </head>
 <body>
@@ -419,7 +430,8 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     </div>
     <div class="form-grid">
       <div class="form-group"><label>Estado</label>
-        <select id="ed-estado"><option value="Pendiente">Pendiente</option><option value="Entregado">Entregado</option></select>
+        <select id="ed-estado"><option value="Pendiente">Pendiente</option><option value="Entregado">Entregado</option>
+            <option value="Entregado parcial">Entregado parcial</option></select>
       </div>
       <div class="form-group"><label>Fecha de entrega</label><input type="date" id="ed-entrega"></div>
       <div class="form-group"><label>Cliente</label><input type="text" id="ed-cliente" list="list-clientes" placeholder="Cliente..." autocomplete="off"></div>
@@ -635,28 +647,116 @@ function renderPedidos() {
       <td style="font-weight:500">${p.cliente || '-'}</td>
       <td style="font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itemsFull}">${items || '-'}</td>
       <td style="font-weight:600">${fmt(totalUds)}</td>
-      <td><span class="badge ${p.estado === 'Pendiente' ? 'badge-pend' : 'badge-ent'}">${p.estado}</span></td>
+      <td><span class="badge ${p.estado === 'Pendiente' ? 'badge-pend' : p.estado === 'Entregado parcial' ? 'badge-parcial' : 'badge-ent'}">${p.estado}</span></td>
       <td>${fmtD(p.entrega)}</td>
       <td style="font-size:12px">${p.despacho || '-'}</td>
       <td>${p.vendedor || '-'}</td>
-      <td><button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 9px;font-size:11px">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 7px;font-size:11px">×</button></td>
+      <td style="white-space:nowrap">${p.estado !== 'Entregado' ? `<button class="btn btn-sm" onclick="abrirParcial(${p.id})" style="padding:3px 9px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ` : ''}<button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 9px;font-size:11px">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 7px;font-size:11px">×</button></td>
     </tr>`;
   }
   document.getElementById('ped-body').innerHTML = rows || `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
 }
 
+function abrirParcial(id) {
+  const p = STATE.pedidos.find(x => x.id === id);
+  if (!p) return;
+  window._parcialId = id;
+  const cont = document.getElementById('parcial-items');
+  cont.innerHTML = p.items.map((it, idx) => `
+    <div class="parcial-item">
+      <label>${it.prod} (${it.caja} un/caja)</label>
+      <span class="max">Máx: ${it.cajas} cajas</span>
+      <input type="number" id="parcial-${idx}" min="0" max="${it.cajas}" value="${it.cajas}" step="1">
+    </div>
+  `).join('');
+  document.getElementById('modal-parcial').classList.add('open');
+}
+
+function cerrarParcial() {
+  document.getElementById('modal-parcial').classList.remove('open');
+  window._parcialId = null;
+}
+
+async function confirmarParcial() {
+  const id = window._parcialId;
+  const p = STATE.pedidos.find(x => x.id === id);
+  if (!p) return;
+
+  // Leer cantidades ingresadas
+  const cantidades = p.items.map((it, idx) => {
+    const val = parseInt(document.getElementById('parcial-' + idx)?.value || '0');
+    return Math.min(Math.max(0, val), it.cajas);
+  });
+
+  const totalPedido = p.items.reduce((a, it) => a + it.cajas, 0);
+  const totalEntrega = cantidades.reduce((a, v) => a + v, 0);
+
+  if (totalEntrega === 0) { toast('Ingresá al menos una caja a entregar', 'warn'); return; }
+
+  const entregaTotal = cantidades.every((c, i) => c === p.items[i].cajas);
+
+  if (entregaTotal) {
+    // Entrega completa
+    p.estado = 'Entregado'; p.entrega = today();
+    toast('Pedido #' + id + ' entregado completo');
+  } else {
+    // Entrega parcial: marcar original como entregado parcial con las cantidades entregadas
+    const itemsEntregados = p.items.map((it, i) => ({
+      ...it, cajas: cantidades[i], uds: cantidades[i] * it.caja
+    })).filter(it => it.cajas > 0);
+
+    const itemsResto = p.items.map((it, i) => ({
+      ...it, cajas: it.cajas - cantidades[i], uds: (it.cajas - cantidades[i]) * it.caja
+    })).filter(it => it.cajas > 0);
+
+    // Actualizar pedido original: queda como entrega parcial
+    p.estado = 'Entregado parcial'; p.entrega = today();
+    p.items = itemsEntregados;
+
+    // Crear nuevo pedido pendiente con el saldo
+    if (itemsResto.length > 0) {
+      STATE.nextId = (STATE.nextId || 1);
+      const nuevo = {
+        id: STATE.nextId++,
+        fecha: p.fecha,
+        cliente: p.cliente,
+        estado: 'Pendiente',
+        entrega: p.entrega,
+        despacho: p.despacho,
+        vendedor: p.vendedor,
+        obs: '(Saldo de pedido #' + id + ')',
+        items: itemsResto
+      };
+      STATE.pedidos.push(nuevo);
+      toast('Entrega parcial registrada. Saldo guardado como nuevo pedido pendiente.');
+    }
+  }
+
+  cerrarParcial();
+  await saveToCloud();
+  renderStock();
+  renderPedidos();
+}
+
 async function entregar(id) {
   const p = STATE.pedidos.find(x => x.id === id);
-  if (p) { p.estado = 'Entregado'; p.entrega = today(); }
-  await saveToCloud();
-  renderPedidos();
-  toast(`Pedido #${id} marcado como entregado`);
+  if (!p) return;
+  // Si tiene más de un item o cajas > 1, ofrecer parcial
+  const totalCajas = p.items.reduce((a, it) => a + it.cajas, 0);
+  if (totalCajas > 1) {
+    abrirParcial(id);
+  } else {
+    p.estado = 'Entregado'; p.entrega = today();
+    await saveToCloud();
+    renderPedidos();
+    toast('Pedido #' + id + ' marcado como entregado');
+  }
 }
 
 async function revertir(id) {
   if (!confirm(`¿Revertir el pedido #${id} a Pendiente?`)) return;
   const p = STATE.pedidos.find(x => x.id === id);
-  if (p) { p.estado = 'Pendiente'; p.entrega = ''; }
+  if (p) { p.estado = 'Pendiente'; p.entrega = ''; p.entrega = ''; }
   await saveToCloud();
   renderPedidos();
   toast(`Pedido #${id} revertido a pendiente`, 'warn');
@@ -1291,5 +1391,16 @@ function exportCompleto() {
 }
 
 </script>
+
+<div class="modal-parcial" id="modal-parcial">
+  <div class="modal-parcial-box">
+    <h3>Entrega parcial</h3>
+    <div id="parcial-items"></div>
+    <div class="modal-parcial-actions">
+      <button class="btn" onclick="cerrarParcial()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarParcial()">Confirmar entrega</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
