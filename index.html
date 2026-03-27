@@ -984,7 +984,7 @@ function renderProdDetail(m) {
       var detId  = 'td-' + fecha.replace(/-/g,'') + '-' + turno;
 
       // Turno summary row (clickable)
-      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail('' + detId + '')">' +
+      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(\'' + detId + '\')">' +
         '<td style="padding-left:18px"><span style="font-size:11px;color:var(--text3)">' + fecha + '</span></td>' +
         '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
         '<td style="font-weight:600">' + prods + '</td>' +
