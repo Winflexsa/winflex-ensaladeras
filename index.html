@@ -354,7 +354,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="btn-guardar-prod" onclick="guardarProduccion()">Guardar registro</button>
+          <button class="btn btn-primary" onclick="guardarProduccion()">Guardar registro</button>
           <button class="btn" onclick="limpiarProd()">Limpiar</button>
         </div>
       </div>
@@ -609,43 +609,63 @@ function calcStock() {
 }
 
 function renderStock() {
-  var SB = calcStock();
-  var totStock = PRODUCTOS.reduce(function(a,p){ return a+CAJAS.reduce(function(x,c){ return x+(SB[p].stock[c]||0); },0); },0);
-  var totProd  = PRODUCTOS.reduce(function(a,p){ return a+CAJAS.reduce(function(x,c){ return x+(SB[p].prod[c] ||0); },0); },0);
-  var e9 = CAJAS.reduce(function(a,c){ return a+(SB['E900'].stock[c]||0); },0);
-  var t9 = CAJAS.reduce(function(a,c){ return a+(SB['T900'].stock[c]||0); },0);
-  var pend = (STATE.pedidos||[]).filter(function(p){ return p.estado==='Pendiente'; }).reduce(function(a,p){
-    return a+(p.items||[]).reduce(function(x,it){ return x+(it.uds||0); },0);
-  },0);
+  const SB = calcStock();
+  const totStock = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].stock[c]||0), 0), 0);
+  const totProd  = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].prod[c] ||0), 0), 0);
+  const e9 = CAJAS.reduce((a,c) => a + (SB['E900'].stock[c]||0), 0);
+  const t9 = CAJAS.reduce((a,c) => a + (SB['T900'].stock[c]||0), 0);
+  const pend = (STATE.pedidos||[]).filter(p => p.estado==='Pendiente').reduce((a,p) =>
+    a + (p.items||[]).reduce((x,it) => x+(it.uds||0), 0), 0);
+
   document.getElementById('stock-metrics').innerHTML =
-    '<div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">'+totStock.toLocaleString('es-AR')+'</div><div class="metric-sub">unidades</div></div>'+
-    '<div class="metric-card" style="'+(e9<0?'background:#fef2f2':'')+'"><div class="metric-label">E900</div><div class="metric-value" style="'+(e9<0?'color:#dc2626':'')+'">'+e9.toLocaleString('es-AR')+'</div><div class="metric-sub">en stock</div></div>'+
-    '<div class="metric-card" style="'+(t9<0?'background:#fef2f2':'')+'"><div class="metric-label">T900</div><div class="metric-value" style="'+(t9<0?'color:#dc2626':'')+'">'+t9.toLocaleString('es-AR')+'</div><div class="metric-sub">en stock</div></div>'+
-    '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">'+totProd.toLocaleString('es-AR')+'</div><div class="metric-sub">unidades</div></div>'+
-    '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="'+(pend>0?'color:#d97706':'')+'">'+pend.toLocaleString('es-AR')+'</div><div class="metric-sub">unidades</div></div>';
-  var hS='<thead><tr><th>Producto</th>';CAJAS.forEach(function(c){hS+='<th>'+c+' un/cj</th>';});hS+='<th>Total uds</th></tr></thead>';
-  var rS='';
-  PRODUCTOS.forEach(function(p){
-    if(!CAJAS.some(function(c){return(SB[p].prod[c]||0)>0||(SB[p].stock[c]||0)!==0;}))return;
-    var tot=CAJAS.reduce(function(a,c){return a+(SB[p].stock[c]||0);},0);
-    var cells='';
-    CAJAS.forEach(function(c){
-      var uds=SB[p].stock[c]||0;
-      if(!uds){cells+='<td style="color:var(--text3)">–</td>';return;}
-      cells+='<td style="'+(uds<0?'color:#dc2626;font-weight:600':'')+'">'+Math.round(uds/c).toLocaleString('es-AR')+' cj<br><small style="color:var(--text3)">'+uds.toLocaleString('es-AR')+' u</small></td>';
+    '<div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">' + totStock.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
+    '<div class="metric-card" style="' + (e9<0?'background:#fef2f2':'') + '"><div class="metric-label">E900</div><div class="metric-value" style="' + (e9<0?'color:#dc2626':'') + '">' + e9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
+    '<div class="metric-card" style="' + (t9<0?'background:#fef2f2':'') + '"><div class="metric-label">T900</div><div class="metric-value" style="' + (t9<0?'color:#dc2626':'') + '">' + t9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">' + totProd.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="' + (pend>0?'color:#d97706':'') + '">' + pend.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>';
+
+  // Stock table — header with real caja values
+  var cajasHeader = '<thead><tr><th>Producto</th>';
+  CAJAS.forEach(function(c){ cajasHeader += '<th>' + c + '</th>'; });
+  cajasHeader += '<th>Total</th></tr></thead>';
+
+  var stockRows = '';
+  PRODUCTOS.forEach(function(p) {
+    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0 || (SB[p].stock[c]||0) !== 0; });
+    if (!hasProd) return;
+    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].stock[c]||0); }, 0);
+    var cells = '';
+    CAJAS.forEach(function(c) {
+      var uds = SB[p].stock[c]||0;
+      var cajas = c > 0 ? Math.round(uds/c) : 0;
+      if (uds === 0) { cells += '<td style="color:var(--text3)">–</td>'; return; }
+      cells += '<td style="' + (uds<0?'color:#dc2626;font-weight:600':'') + '">' +
+        cajas.toLocaleString('es-AR') + '<br><span style="font-size:10px;color:var(--text3)">' + uds.toLocaleString('es-AR') + 'u</span></td>';
     });
-    rS+='<tr><td style="font-weight:700">'+p+'</td>'+cells+'<td style="font-weight:700;'+(tot<0?'color:#dc2626':'')+'">'+ tot.toLocaleString('es-AR')+'</td></tr>';
+    stockRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
+      '<td style="font-weight:700;' + (total<0?'color:#dc2626':'') + '">' + total.toLocaleString('es-AR') + '</td></tr>';
   });
-  document.getElementById('tbl-stock').innerHTML=hS+'<tbody>'+rS+'</tbody>';
-  var hP='<thead><tr><th>Producto</th>';CAJAS.forEach(function(c){hP+='<th>'+c+'</th>';});hP+='<th>Total</th></tr></thead>';
-  var rP='';
-  PRODUCTOS.forEach(function(p){
-    if(!CAJAS.some(function(c){return(SB[p].prod[c]||0)>0;}))return;
-    var tot=CAJAS.reduce(function(a,c){return a+(SB[p].prod[c]||0);},0);
-    var cells='';CAJAS.forEach(function(c){cells+='<td>'+((SB[p].prod[c]||0)?SB[p].prod[c].toLocaleString('es-AR'):'–')+'</td>';});
-    rP+='<tr><td style="font-weight:700">'+p+'</td>'+cells+'<td style="font-weight:700">'+tot.toLocaleString('es-AR')+'</td></tr>';
+  document.getElementById('tbl-stock').innerHTML = cajasHeader + '<tbody>' + stockRows + '</tbody>';
+
+  // Prod table
+  var cajasHeaderP = '<thead><tr><th>Producto</th>';
+  CAJAS.forEach(function(c){ cajasHeaderP += '<th>' + c + '</th>'; });
+  cajasHeaderP += '<th>Total</th></tr></thead>';
+
+  var prodRows = '';
+  PRODUCTOS.forEach(function(p) {
+    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0; });
+    if (!hasProd) return;
+    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].prod[c]||0); }, 0);
+    var cells = '';
+    CAJAS.forEach(function(c) {
+      var v = SB[p].prod[c]||0;
+      cells += '<td>' + (v ? v.toLocaleString('es-AR') : '–') + '</td>';
+    });
+    prodRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
+      '<td style="font-weight:700">' + total.toLocaleString('es-AR') + '</td></tr>';
   });
-  document.getElementById('tbl-prod-stock').innerHTML=hP+'<tbody>'+rP+'</tbody>';
+  document.getElementById('tbl-prod-stock').innerHTML = cajasHeaderP + '<tbody>' + prodRows + '</tbody>';
 }
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
@@ -911,39 +931,6 @@ function renderProduccion() {
 
 function selMonth(m) { selMes = m; renderProduccion(); }
 
-
-async function editarProd(mes, idx) {
-  var r = STATE.prodRegistros[mes] && STATE.prodRegistros[mes][idx];
-  if (!r) return;
-  document.getElementById('rp-fecha').value   = r.fecha   || '';
-  document.getElementById('rp-turno').value   = r.turno   || '';
-  document.getElementById('rp-prod').value    = r.prod    || '';
-  document.getElementById('rp-uds').value     = r.producido || 0;
-  document.getElementById('rp-unicaja').value = r.unicaja || '';
-  document.getElementById('rp-partida').value = String(r.partida||'').replace(/\s*\[B\d+\]$/, '');
-  document.getElementById('rp-kg').value      = r.kg      || 0;
-  document.getElementById('rp-efic').value    = r.efic    || 0;
-  document.getElementById('rp-obs').value     = r.obs     || '';
-  calcCajas();
-  window._editProdMes = mes;
-  window._editProdIdx = idx;
-  window._editProdMode = true;
-  goTo('registrar', document.querySelector('[onclick*="registrar"]'));
-  setTimeout(function() {
-    var btn = document.getElementById('btn-guardar-prod');
-    if (btn) { btn.textContent = 'Actualizar registro'; btn.style.background = '#d97706'; }
-    var lbl = document.getElementById('edit-prod-label');
-    if (!lbl) {
-      lbl = document.createElement('div');
-      lbl.id = 'edit-prod-label';
-      lbl.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;font-weight:600';
-      lbl.textContent = 'Editando: ' + mes + ' | ' + r.turno + ' | ' + r.fecha;
-      var btnEl = document.getElementById('btn-guardar-prod');
-      if (btnEl && btnEl.parentElement) btnEl.parentElement.insertBefore(lbl, btnEl);
-    }
-  }, 150);
-  toast('Datos cargados para editar', 'ok');
-}
 async function borrarProd(mes, idx) {
   if (!confirm('¿Eliminar este registro?')) return;
   STATE.prodRegistros[mes].splice(idx, 1);
@@ -1003,11 +990,16 @@ function renderProdDetail(m) {
         '<td style="font-weight:600;color:'+ec+'">'+(tEfic?(tEfic*100).toFixed(1)+'%':'—')+'</td>'+
         '<td></td><td style="color:var(--text3);font-size:11px">&#9660;</td></tr>';
       var detRows='';
-      items.forEach(function(x,bi){
+      items.forEach(function(x){
         var r=x.r,ri=x.ri;
+        // Extraer número de bobina real del campo partida: "4326s1t2 [B13]" -> "13"
+        var partida = r.partida || '';
+        var bobMatch = partida.match(/\[B(\d+)\]$/);
+        var bobNum   = bobMatch ? bobMatch[1] : '';
+        var partLimpia = partida.replace(/\s*\[B\d+\]$/, '');
         detRows+='<tr style="border-top:1px solid #e2e8f0">'+
-          '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">B'+(bi+1)+'</td>'+
-          '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">'+(r.partida||'—')+'</td>'+
+          '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">'+(bobNum?'Bobina '+bobNum:'—')+'</td>'+
+          '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">'+partLimpia+'</td>'+
           '<td style="padding:5px;font-weight:600">'+r.prod+'</td>'+
           '<td style="padding:5px">'+(r.producido||0).toLocaleString('es-AR')+'</td>'+
           '<td style="padding:5px">'+(r.unicaja||'—')+'</td>'+
@@ -1024,12 +1016,17 @@ function renderProdDetail(m) {
       html+='<tr id="'+detId+'" style="display:none"><td colspan="11" style="padding:0">'+
         '<table style="width:100%;border-collapse:collapse;background:#f8fafc">'+
         '<thead><tr style="background:#e2e8f0">'+
-        '<th style="padding:5px 16px;font-size:11px;text-align:left">Bob.</th>'+
-        '<th style="padding:5px;font-size:11px">Partida</th><th style="padding:5px;font-size:11px">Prod.</th>'+
-        '<th style="padding:5px;font-size:11px">Uds</th><th style="padding:5px;font-size:11px">Un/cj</th>'+
-        '<th style="padding:5px;font-size:11px">Cajas</th><th style="padding:5px;font-size:11px"></th>'+
-        '<th style="padding:5px;font-size:11px">Kg</th><th style="padding:5px;font-size:11px">Efic.</th>'+
-        '<th style="padding:5px;font-size:11px">Obs.</th><th style="padding:5px;font-size:11px">Acc.</th>'+
+        '<th style="padding:5px 16px;font-size:11px;text-align:left">N° Bobina</th>'+
+        '<th style="padding:5px;font-size:11px">Partida</th>'+
+        '<th style="padding:5px;font-size:11px">Prod.</th>'+
+        '<th style="padding:5px;font-size:11px">Uds</th>'+
+        '<th style="padding:5px;font-size:11px">Un/cj</th>'+
+        '<th style="padding:5px;font-size:11px">Cajas</th>'+
+        '<th style="padding:5px;font-size:11px"></th>'+
+        '<th style="padding:5px;font-size:11px">Kg</th>'+
+        '<th style="padding:5px;font-size:11px">Efic.</th>'+
+        '<th style="padding:5px;font-size:11px">Obs.</th>'+
+        '<th style="padding:5px;font-size:11px">Acc.</th>'+
         '</tr></thead><tbody>'+detRows+'</tbody></table></td></tr>';
     });
   });
@@ -1287,118 +1284,52 @@ document.getElementById('edit-modal').addEventListener('click', function(e) {
 let pendingImport = [];
 
 function importarXLSX(input) {
-  var file = input.files[0];
+  const file = input.files[0];
   if (!file) return;
   document.getElementById('import-status').textContent = 'Leyendo archivo...';
-  document.getElementById('import-preview').style.display = 'none';
-
-  var reader = new FileReader();
+  const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      var wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-
-      // Hoja detalle (bobina por bobina)
-      var detSheet = wb.SheetNames.find(function(n){ return n.toLowerCase().includes('detalle'); });
-      // Hoja resumen (tiene eficiencia por turno)
-      var resSheet = wb.SheetNames.find(function(n){ return !n.toLowerCase().includes('detalle'); });
-
-      // Mapa de eficiencia: "fecha_turno" -> efic
-      var eficMap = {};
-      if (resSheet) {
-        var resRows = XLSX.utils.sheet_to_json(wb.Sheets[resSheet], { defval: '' });
-        resRows.forEach(function(r) {
-          var fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
-          var turno = String(r['Turno'] || r['turno'] || '').trim();
-          var efic  = parseFloat(r['Eficiencia'] || r['eficiencia'] || 0) || 0;
-          if (fecha && turno) eficMap[fecha + '_' + turno] = efic;
-        });
-      }
-
-      // Determinar qué hoja leer
-      var sourceSheet = detSheet || resSheet;
-      if (!sourceSheet) {
-        document.getElementById('import-status').textContent = 'No se encontró la hoja de datos.';
-        return;
-      }
-
-      var rows = XLSX.utils.sheet_to_json(wb.Sheets[sourceSheet], { defval: '' });
-      if (!rows.length) {
-        document.getElementById('import-status').textContent = 'La hoja no tiene datos.';
-        return;
-      }
-
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      // Buscar hoja de resumen (primera hoja que no sea "Detalle")
+      let sheetName = wb.SheetNames.find(n => !n.toLowerCase().includes('detalle')) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { document.getElementById('import-status').textContent = 'El archivo no tiene datos.'; return; }
+      
       pendingImport = [];
-      var isDetalle = rows[0]['N° Bobina'] !== undefined || rows[0]['Unidades'] !== undefined;
-
-      if (isDetalle) {
-        // Una fila = una bobina
-        rows.forEach(function(r) {
-          var fecha  = parseFecha(r['Fecha'] || r['fecha'] || '');
-          var turno  = String(r['Turno']    || r['turno']    || '').trim();
-          var prod   = String(r['Producto'] || r['producto'] || '').trim();
-          var uds    = parseFloat(r['Unidades']       || 0) || 0;
-          var unicaj = parseFloat(r['Unidades x Caja']|| r['UnixCaja'] || 0) || 0;
-          var cajas  = parseFloat(r['Cajas']          || 0) || 0;
-          var partida= String(r['Partida'] || '').trim();
-          var kg     = parseFloat(r['Peso Kg'] || r['kg'] || 0) || 0;
-          var nBob   = String(r['N° Bobina'] || r['N Bobina'] || '').trim();
-          var obs    = String(r['Observaciones'] || r['obs'] || '').trim();
-          var efic   = eficMap[fecha + '_' + turno] || 0;
-          if (!fecha || !turno || !prod || !uds) return;
-          pendingImport.push({
-            fecha: fecha, turno: turno, prod: prod,
-            producido: uds, unicaja: unicaj, cajas: cajas,
-            partida: partida + (nBob ? ' [B' + nBob + ']' : ''),
-            kg: kg, efic: efic, obs: obs
-          });
-        });
-      } else {
-        // Hoja resumen: una fila por turno
-        rows.forEach(function(r) {
-          var fecha  = parseFecha(r['Fecha'] || r['fecha'] || '');
-          var turno  = String(r['Turno']    || r['turno']    || '').trim();
-          var prod   = String(r['Producto'] || r['producto'] || '').trim();
-          var uds    = parseFloat(r['Producido'] || r['producido'] || r['Unidades'] || 0) || 0;
-          var unicaj = parseFloat(r['UnixCaja']  || r['unicaja']  || r['Unidades x Caja'] || 0) || 0;
-          var cajas  = parseFloat(r['Cajas']     || 0) || 0;
-          var partida= String(r['Partida PET']   || r['Partida'] || '').trim();
-          var kg     = parseFloat(r['Kg Procesados'] || r['kg'] || 0) || 0;
-          var efic   = parseFloat(r['Eficiencia'] || 0) || 0;
-          var obs    = String(r['Observacion'] || r['obs'] || '').trim();
-          if (!fecha || !turno || !prod || !uds) return;
-          pendingImport.push({ fecha: fecha, turno: turno, prod: prod,
-            producido: uds, unicaja: unicaj, cajas: cajas, partida: partida, kg: kg, efic: efic, obs: obs });
-        });
+      for (const r of rows) {
+        // Mapear columnas flexiblemente
+        const fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
+        const turno = String(r['Turno'] || r['turno'] || '').trim();
+        const prod = String(r['Producto'] || r['producto'] || '').trim();
+        const producido = parseInt(r['Producido'] || r['producido'] || 0) || 0;
+        const unicaja = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || r['Unidades por Caja'] || 0) || 0;
+        const cajas = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
+        const partida = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
+        const kg = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+        const efic = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+        const obs = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
+        if (!fecha || !prod || !producido) continue;
+        pendingImport.push({ fecha, turno, prod, producido, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), partida, kg, efic, obs });
       }
-
+      
       if (!pendingImport.length) {
         document.getElementById('import-status').textContent = 'No se encontraron registros válidos.';
         return;
       }
-
-      // Rellenar preview usando import-body (el id real del tbody)
-      var tbody = document.getElementById('import-body');
-      if (tbody) {
-        tbody.innerHTML = pendingImport.map(function(r) {
-          return '<tr><td>' + r.fecha + '</td><td>' + r.turno + '</td><td>' + r.prod +
-            '</td><td>' + (r.producido||0).toLocaleString('es-AR') +
-            '</td><td>' + (r.unicaja||'—') +
-            '</td><td>' + (r.cajas||'—') +
-            '</td><td style="font-size:11px;font-family:monospace">' + (r.partida||'—') +
-            '</td><td>' + (r.kg||'—') +
-            '</td><td>' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '—') +
-            '</td><td>' + (r.obs||'') + '</td></tr>';
-        }).join('');
-      }
-
-      document.getElementById('import-preview').style.display = '';
-      document.getElementById('import-status').textContent =
-        pendingImport.length + ' registros listos (' +
-        (isDetalle ? 'bobina por bobina desde "' + sourceSheet + '"' : 'resumen') + ')';
-
-    } catch(ex) {
-      document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + ex.message;
-      document.getElementById('import-preview').style.display = 'none';
+      
+      document.getElementById('import-status').textContent = `${pendingImport.length} registros encontrados en "${sheetName}"`;
+      document.getElementById('import-preview').style.display = 'block';
+      document.getElementById('import-body').innerHTML = pendingImport.map(r => `<tr>
+        <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
+        <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
+        <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
+        <td>${r.kg?fmt(r.kg):'-'}</td><td>${pct(r.efic)}</td><td style="font-size:12px">${r.obs||'-'}</td>
+      </tr>`).join('');
+    } catch(err) {
+      document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
+      console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
