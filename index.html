@@ -940,45 +940,45 @@ async function borrarProd(mes, idx) {
 }
 
 function renderProdDetail(m) {
-  document.getElementById('prod-detail-title').textContent = 'Registros \u2014 ' + m;
-  var allRegs = STATE.prodRegistros[m] || [];
-  var indexed = allRegs.map(function(r,ri){ return {r:r,ri:ri}; });
-  indexed.sort(function(a,b){
-    var fd=a.r.fecha.localeCompare(b.r.fecha);
-    if(fd!==0)return fd;
-    return ['M1','M2','N'].indexOf(a.r.turno)-['M1','M2','N'].indexOf(b.r.turno);
+  document.getElementById('prod-detail-title').textContent = 'Registros — ' + m;
+  const allRegs = STATE.prodRegistros[m] || [];
+  const indexed = allRegs.map((r,ri)=>({r,ri}));
+  indexed.sort((a,b)=>{
+    const fd = a.r.fecha.localeCompare(b.r.fecha);
+    if(fd!==0) return fd;
+    return ['M1','M2','N'].indexOf(a.r.turno) - ['M1','M2','N'].indexOf(b.r.turno);
   });
-  var body = document.getElementById('prod-body');
+  const body = document.getElementById('prod-body');
   if (!indexed.length) {
-    body.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros en '+m+'</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros en '+m+'</td></tr>';
     return;
   }
-  var byFecha={};
-  indexed.forEach(function(x){
-    var f=x.r.fecha,t=x.r.turno;
-    if(!byFecha[f])byFecha[f]={};
-    if(!byFecha[f][t])byFecha[f][t]=[];
+  const byFecha = {};
+  indexed.forEach(x=>{
+    const f=x.r.fecha, t=x.r.turno;
+    if(!byFecha[f]) byFecha[f]={};
+    if(!byFecha[f][t]) byFecha[f][t]=[];
     byFecha[f][t].push(x);
   });
-  var html='';
-  Object.keys(byFecha).sort().forEach(function(fecha){
-    var turnos=byFecha[fecha];
-    var fechaTot=0;
-    ['M1','M2','N'].forEach(function(t){(turnos[t]||[]).forEach(function(x){fechaTot+=(x.r.producido||0);});});
-    html+='<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569">'+
-      fecha+' \u2014 Total: '+fechaTot.toLocaleString('es-AR')+' uds</td></tr>';
-    ['M1','M2','N'].forEach(function(turno){
-      var items=turnos[turno];
-      if(!items||!items.length)return;
-      var tUds  = items.reduce(function(a,x){return a+(x.r.producido||0);},0);
-      var tCajas= items.reduce(function(a,x){return a+(x.r.cajas||0);},0);
-      var tKg   = items.reduce(function(a,x){return a+(x.r.kg||0);},0);
-      var tEfic = items[0].r.efic||0;
-      var prods = items.map(function(x){return x.r.prod;}).filter(function(v,i,a){return a.indexOf(v)===i;}).join(', ');
-      var nBob  = items.length;
-      var detId = 'td'+fecha.replace(/-/g,'')+turno;
-      var ec    = tEfic>=0.8?'#16a34a':tEfic>=0.6?'#d97706':'#dc2626';
-      html+='<tr style="cursor:pointer" onclick="toggleTurnoDetail(\''+detId+'\')" title="Ver detalle bobina por bobina">'+
+  let html = '';
+  Object.keys(byFecha).sort().forEach(fecha=>{
+    const turnos = byFecha[fecha];
+    let fechaTot = 0;
+    ['M1','M2','N'].forEach(t=>{ (turnos[t]||[]).forEach(x=>{ fechaTot+=(x.r.producido||0); }); });
+    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569">'+
+      fecha+' — Total: '+fechaTot.toLocaleString('es-AR')+' uds</td></tr>';
+    ['M1','M2','N'].forEach(turno=>{
+      const items = turnos[turno];
+      if(!items||!items.length) return;
+      const tUds   = items.reduce((a,x)=>a+(x.r.producido||0),0);
+      const tCajas = items.reduce((a,x)=>a+(x.r.cajas||0),0);
+      const tKg    = items.reduce((a,x)=>a+(x.r.kg||0),0);
+      const tEfic  = items[0].r.efic||0;
+      const prods  = [...new Set(items.map(x=>x.r.prod))].join(', ');
+      const nBob   = items.length;
+      const detId  = 'td'+fecha.replace(/-/g,'')+turno;
+      const ec     = tEfic>=0.8?'#16a34a':tEfic>=0.6?'#d97706':'#dc2626';
+      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(''+detId+'')" title="Ver detalle bobina por bobina">'+
         '<td style="padding-left:18px;font-size:11px;color:var(--text3)">'+fecha+'</td>'+
         '<td><span style="display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">'+turno+'</span></td>'+
         '<td style="font-weight:600">'+prods+'</td>'+
@@ -989,15 +989,12 @@ function renderProdDetail(m) {
         '<td>'+(tKg||'—')+'</td>'+
         '<td style="font-weight:600;color:'+ec+'">'+(tEfic?(tEfic*100).toFixed(1)+'%':'—')+'</td>'+
         '<td></td><td style="color:var(--text3);font-size:11px">&#9660;</td></tr>';
-      var detRows='';
-      items.forEach(function(x){
-        var r=x.r,ri=x.ri;
-        // Extraer número de bobina real del campo partida: "4326s1t2 [B13]" -> "13"
-        var partida = r.partida || '';
-        var bobMatch = partida.match(/\[B(\d+)\]$/);
-        var bobNum   = r.nbobina || (bobMatch ? bobMatch[1] : '');
-        var partLimpia = partida.replace(/\s*\[B\d+\]$/, '');
-        detRows+='<tr style="border-top:1px solid #e2e8f0">'+
+      let detRows = '';
+      items.forEach(x=>{
+        const r=x.r, ri=x.ri;
+        const bobNum = r.nbobina || (r.partida&&r.partida.match(/[B(d+)]$/) ? r.partida.match(/[B(d+)]$/)[1] : '');
+        const partLimpia = (r.partida||'').replace(/s*[Bd+]$/,'');
+        detRows += '<tr style="border-top:1px solid #e2e8f0">'+
           '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">'+(bobNum?'Bobina '+bobNum:'—')+'</td>'+
           '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">'+partLimpia+'</td>'+
           '<td style="padding:5px;font-weight:600">'+r.prod+'</td>'+
@@ -1009,41 +1006,36 @@ function renderProdDetail(m) {
           '<td style="padding:5px;color:var(--text3)">—</td>'+
           '<td style="padding:5px;font-size:11px;color:var(--text2)">'+(r.obs||'')+'</td>'+
           '<td style="padding:5px;white-space:nowrap">'+
-            '<button onclick="editarProd(\''+m+'\','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px">✏</button>'+
-            '<button onclick="borrarProd(\''+m+'\','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer">✕</button>'+
+            '<button onclick="editarProd(''+m+'','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px">✏</button>'+
+            '<button onclick="borrarProd(''+m+'','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer">✕</button>'+
           '</td></tr>';
       });
-      html+='<tr id="'+detId+'" style="display:none"><td colspan="11" style="padding:0">'+
+      html += '<tr id="'+detId+'" style="display:none"><td colspan="11" style="padding:0">'+
         '<table style="width:100%;border-collapse:collapse;background:#f8fafc">'+
         '<thead><tr style="background:#e2e8f0">'+
         '<th style="padding:5px 16px;font-size:11px;text-align:left">N° Bobina</th>'+
-        '<th style="padding:5px;font-size:11px">Partida</th>'+
-        '<th style="padding:5px;font-size:11px">Prod.</th>'+
-        '<th style="padding:5px;font-size:11px">Uds</th>'+
-        '<th style="padding:5px;font-size:11px">Un/cj</th>'+
-        '<th style="padding:5px;font-size:11px">Cajas</th>'+
-        '<th style="padding:5px;font-size:11px"></th>'+
-        '<th style="padding:5px;font-size:11px">Kg</th>'+
-        '<th style="padding:5px;font-size:11px">Efic.</th>'+
-        '<th style="padding:5px;font-size:11px">Obs.</th>'+
-        '<th style="padding:5px;font-size:11px">Acc.</th>'+
+        '<th style="padding:5px;font-size:11px">Partida</th><th style="padding:5px;font-size:11px">Prod.</th>'+
+        '<th style="padding:5px;font-size:11px">Uds</th><th style="padding:5px;font-size:11px">Un/cj</th>'+
+        '<th style="padding:5px;font-size:11px">Cajas</th><th style="padding:5px;font-size:11px"></th>'+
+        '<th style="padding:5px;font-size:11px">Kg</th><th style="padding:5px;font-size:11px">Efic.</th>'+
+        '<th style="padding:5px;font-size:11px">Obs.</th><th style="padding:5px;font-size:11px">Acc.</th>'+
         '</tr></thead><tbody>'+detRows+'</tbody></table></td></tr>';
     });
   });
-  body.innerHTML=html;
+  body.innerHTML = html;
 }
 
 function toggleTurnoDetail(id) {
-  var row=document.getElementById(id);
-  if(!row)return;
-  var open=row.style.display!=='none';
-  document.querySelectorAll('[id^="td"]').forEach(function(r){
-    if(/^td\d{8}(M1|M2|N)$/.test(r.id))r.style.display='none';
+  const row = document.getElementById(id);
+  if(!row) return;
+  const open = row.style.display !== 'none';
+  document.querySelectorAll('[id^="td"]').forEach(r=>{
+    if(/^tdd{8}(M1|M2|N)$/.test(r.id)) r.style.display='none';
   });
-  document.querySelectorAll('#prod-body tr[onclick]').forEach(function(r){r.style.background='';});
+  document.querySelectorAll('#prod-body tr[onclick]').forEach(r=>{ r.style.background=''; });
   if(!open){
     row.style.display='';
-    if(row.previousElementSibling)row.previousElementSibling.style.background='#eff6ff';
+    if(row.previousElementSibling) row.previousElementSibling.style.background='#eff6ff';
   }
 }
 
@@ -1305,9 +1297,9 @@ function importarXLSX(input) {
           if (f && t) eficMap[f + '_' + t] = ef;
         });
       }
-      if (!detSheet) { st.textContent = 'No se encontró la hoja "Detalle Produccion".'; return; }
+      if (!detSheet) { st.textContent = 'No se encontró "Detalle Produccion".'; return; }
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[detSheet], {defval:''});
-      if (!rows.length) { st.textContent = 'La hoja de detalle no tiene datos.'; return; }
+      if (!rows.length) { st.textContent = 'Hoja de detalle vacía.'; return; }
       pendingImport = [];
       rows.forEach(r => {
         const fecha   = parseFecha(r['Fecha'] || '');
@@ -1318,27 +1310,27 @@ function importarXLSX(input) {
         const cajas   = parseFloat(r['Cajas'] || 0) || 0;
         const partida = String(r['Partida']  || '').trim();
         const kg      = parseFloat(r['Peso Kg'] || 0) || 0;
-        const nbobina = String(r['N° Bobina'] || r['N Bobina'] || r['NBobina'] || r['Bobina'] || '').trim();
+        const nbobina = String(r['° Bobina'] !== undefined ? r['N° Bobina'] : (r['N Bobina'] || r['NBobina'] || r['Bobina'] || '')).trim();
         const obs     = String(r['Observaciones'] || '').trim();
         const efic    = eficMap[fecha + '_' + turno] || 0;
         if (!fecha || !turno || !prod || !uds) return;
         pendingImport.push({ fecha, turno, prod, producido:uds, unicaja, cajas, partida, nbobina, kg, efic, obs });
       });
-      if (!pendingImport.length) { st.textContent = 'No se encontraron registros válidos.'; return; }
+      if (!pendingImport.length) { st.textContent = 'Sin registros válidos.'; return; }
       const tbody = document.getElementById('import-body');
       if (tbody) {
         tbody.innerHTML = pendingImport.map(r =>
           '<tr><td>' + r.fecha + '</td><td>' + r.turno + '</td><td>' + r.prod + '</td>' +
           '<td>' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
           '<td>' + (r.unicaja||'') + '</td><td>' + (r.cajas||'') + '</td>' +
-          '<td style="font-size:11px;font-family:monospace">' + r.partida + (r.nbobina ? ' [B'+r.nbobina+']' : '') + '</td>' +
+          '<td style="font-size:11px;font-family:monospace">' + r.partida + (r.nbobina?' [B'+r.nbobina+']':'') + '</td>' +
           '<td>' + (r.kg||'') + '</td>' +
-          '<td>' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '') + '</td>' +
+          '<td>' + (r.efic?(r.efic*100).toFixed(1)+'%':'') + '</td>' +
           '<td>' + (r.obs||'') + '</td></tr>'
         ).join('');
       }
       prev.style.display = '';
-      st.textContent = pendingImport.length + ' bobinas listas desde "' + detSheet + '"';
+      st.textContent = pendingImport.length + ' bobinas desde "' + detSheet + '"';
     } catch(ex) {
       st.textContent = 'Error: ' + ex.message;
       prev.style.display = 'none';
