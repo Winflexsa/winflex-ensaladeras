@@ -617,14 +617,12 @@ function renderStock() {
   var pend = (STATE.pedidos||[]).filter(function(p){ return p.estado==='Pendiente'; }).reduce(function(a,p){
     return a + (p.items||[]).reduce(function(x,it){ return x+(it.uds||0); }, 0);
   }, 0);
-
   document.getElementById('stock-metrics').innerHTML =
     '<div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">' + totStock.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
     '<div class="metric-card" style="' + (e9<0?'background:#fef2f2':'') + '"><div class="metric-label">E900</div><div class="metric-value" style="' + (e9<0?'color:#dc2626':'') + '">' + e9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
     '<div class="metric-card" style="' + (t9<0?'background:#fef2f2':'') + '"><div class="metric-label">T900</div><div class="metric-value" style="' + (t9<0?'color:#dc2626':'') + '">' + t9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
     '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">' + totProd.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
     '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="' + (pend>0?'color:#d97706':'') + '">' + pend.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>';
-
   var hdrStock = '<thead><tr><th>Producto</th>';
   CAJAS.forEach(function(c){ hdrStock += '<th>' + c + ' un/cj</th>'; });
   hdrStock += '<th>Total uds</th></tr></thead>';
@@ -644,7 +642,6 @@ function renderStock() {
       '<td style="font-weight:700;' + (tot<0?'color:#dc2626':'') + '">' + tot.toLocaleString('es-AR') + '</td></tr>';
   });
   document.getElementById('tbl-stock').innerHTML = hdrStock + '<tbody>' + rowsStock + '</tbody>';
-
   var hdrProd = '<thead><tr><th>Producto</th>';
   CAJAS.forEach(function(c){ hdrProd += '<th>' + c + '</th>'; });
   hdrProd += '<th>Total</th></tr></thead>';
@@ -878,43 +875,6 @@ function calcCajas() {
 }
 
 async function guardarProduccion() {
-  // Si estamos en modo edición, actualizar el registro existente
-  if (window._editProdMode) {
-    var eMes  = window._editProdMes;
-    var eIdx  = window._editProdIdx;
-    var eFecha = document.getElementById('rp-fecha').value;
-    var eTurno = document.getElementById('rp-turno').value;
-    var eProd  = document.getElementById('rp-prod').value;
-    var eUds   = parseInt(document.getElementById('rp-uds').value) || 0;
-    var eUc    = parseInt(document.getElementById('rp-unicaja').value) || 0;
-    var ePart  = document.getElementById('rp-partida').value;
-    var eKg    = parseFloat(document.getElementById('rp-kg').value) || 0;
-    var eEfic  = parseFloat(document.getElementById('rp-efic').value) || 0;
-    var eObs   = document.getElementById('rp-obs').value;
-    if (!eFecha || !eTurno || !eProd || !eUds) { toast('Completá fecha, turno, producto y unidades', 'warn'); return; }
-    // Determinar mes de la fecha editada
-    var eMesIdx = new Date(eFecha + 'T00:00:00').getMonth();
-    var eNuevoMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][eMesIdx];
-    // Si cambió el mes, mover el registro
-    if (eNuevoMes !== eMes) {
-      STATE.prodRegistros[eMes].splice(eIdx, 1);
-      if (!STATE.prodRegistros[eNuevoMes]) STATE.prodRegistros[eNuevoMes] = [];
-      STATE.prodRegistros[eNuevoMes].push({fecha:eFecha,turno:eTurno,prod:eProd,producido:eUds,unicaja:eUc,cajas:eUc>0?Math.round(eUds/eUc):0,partida:ePart,kg:eKg,efic:eEfic,obs:eObs});
-    } else {
-      STATE.prodRegistros[eMes][eIdx] = {fecha:eFecha,turno:eTurno,prod:eProd,producido:eUds,unicaja:eUc,cajas:eUc>0?Math.round(eUds/eUc):0,partida:ePart,kg:eKg,efic:eEfic,obs:eObs};
-    }
-    window._editProdMode = false; window._editProdMes = null; window._editProdIdx = null;
-    // Restaurar botón
-    var btn = document.getElementById('btn-guardar-prod');
-    if (btn) { btn.textContent = 'Guardar registro'; btn.style.background = ''; }
-    var lbl = document.getElementById('edit-prod-label');
-    if (lbl) lbl.remove();
-    limpiarProd();
-    await saveToCloud();
-    renderProduccion(); renderStock();
-    toast('Registro actualizado ✓', 'ok');
-    return;
-  }
   const fecha    = document.getElementById('rp-fecha').value;
   const turno    = document.getElementById('rp-turno').value;
   const prod     = document.getElementById('rp-prod').value;
@@ -936,14 +896,6 @@ async function guardarProduccion() {
 }
 
 function limpiarProd() {
-  // Cancelar modo edición si estaba activo
-  if (window._editProdMode) {
-    window._editProdMode = false; window._editProdMes = null; window._editProdIdx = null;
-    var btn = document.getElementById('btn-guardar-prod');
-    if (btn) { btn.textContent = 'Guardar registro'; btn.style.background = ''; }
-    var lbl = document.getElementById('edit-prod-label');
-    if (lbl) lbl.remove();
-  }
   document.getElementById('rp-fecha').value = today();
   ['rp-turno','rp-prod','rp-unicaja','rp-partida','rp-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['rp-producido','rp-kg','rp-efic'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 0; });
@@ -969,106 +921,87 @@ function selMonth(m) { selMes = m; renderProduccion(); }
 
 
 async function editarProd(mes, idx) {
-  var r = STATE.prodRegistros[mes][idx];
+  var r = STATE.prodRegistros[mes] && STATE.prodRegistros[mes][idx];
   if (!r) return;
-  // Rellenar el formulario de registro manual con los datos actuales
   document.getElementById('rp-fecha').value   = r.fecha   || '';
   document.getElementById('rp-turno').value   = r.turno   || '';
   document.getElementById('rp-prod').value    = r.prod    || '';
   document.getElementById('rp-uds').value     = r.producido || 0;
   document.getElementById('rp-unicaja').value = r.unicaja || '';
-  document.getElementById('rp-partida').value = r.partida || '';
+  var partLimpia = (r.partida||'').replace(/\s*\[B\d+\]$/, '');
+  document.getElementById('rp-partida').value = partLimpia;
   document.getElementById('rp-kg').value      = r.kg      || 0;
   document.getElementById('rp-efic').value    = r.efic    || 0;
   document.getElementById('rp-obs').value     = r.obs     || '';
-  // Calcular cajas
   calcCajas();
-  // Marcar que estamos editando
   window._editProdMes = mes;
   window._editProdIdx = idx;
   window._editProdMode = true;
-  // Ir a la sección de registro
   goTo('registrar', document.querySelector('[onclick*="registrar"]'));
-  // Mostrar indicador de edición
   setTimeout(function() {
     var btn = document.getElementById('btn-guardar-prod');
-    if (btn) {
-      btn.textContent = '✏ Actualizar registro';
-      btn.style.background = '#d97706';
-    }
+    if (btn) { btn.textContent = 'Actualizar registro'; btn.style.background = '#d97706'; }
     var lbl = document.getElementById('edit-prod-label');
     if (!lbl) {
       lbl = document.createElement('div');
       lbl.id = 'edit-prod-label';
       lbl.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;font-weight:600';
-      lbl.textContent = '✏ Editando registro — ' + eMes + ' | Turno ' + r.turno + ' | ' + r.fecha;
-      btn.parentElement.insertBefore(lbl, btn);
+      lbl.textContent = 'Editando: ' + mes + ' | ' + r.turno + ' | ' + r.fecha + ' | ' + (r.partida||'');
+      var btnEl = document.getElementById('btn-guardar-prod');
+      if (btnEl && btnEl.parentElement) btnEl.parentElement.insertBefore(lbl, btnEl);
     }
-  }, 100);
-  toast('Cargados datos del registro para editar', 'ok');
+  }, 150);
+  toast('Datos cargados para editar', 'ok');
 }
 async function borrarProd(mes, idx) {
   if (!confirm('¿Eliminar este registro?')) return;
   STATE.prodRegistros[mes].splice(idx, 1);
   await saveToCloud();
   renderProduccion();
-  renderProdDetail(mes);
-  renderStock();
   toast('Registro eliminado');
 }
 
 function renderProdDetail(m) {
   document.getElementById('prod-detail-title').textContent = 'Registros \u2014 ' + m;
-  var regs = (STATE.prodRegistros[m] || []).slice().sort(function(a,b){
-    var fd = a.fecha.localeCompare(b.fecha);
-    if (fd !== 0) return fd;
-    return ['M1','M2','N'].indexOf(a.turno) - ['M1','M2','N'].indexOf(b.turno);
+  var allRegs = STATE.prodRegistros[m] || [];
+  var indexed = allRegs.map(function(r, ri){ return {r:r, ri:ri}; });
+  indexed.sort(function(a,b){
+    var fd = a.r.fecha.localeCompare(b.r.fecha);
+    if (fd!==0) return fd;
+    return ['M1','M2','N'].indexOf(a.r.turno) - ['M1','M2','N'].indexOf(b.r.turno);
   });
   var body = document.getElementById('prod-body');
-  if (!regs.length) {
+  if (!indexed.length) {
     body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros en ' + m + '</td></tr>';
     return;
   }
-
-  // Mapear índice ordenado -> índice real en STATE.prodRegistros[m]
-  var sortedToReal = regs.map(function(r) {
-    return STATE.prodRegistros[m].indexOf(r);
-  });
-
-  // Agrupar: fecha -> turno -> [{r, realIdx}]
+  // Agrupar: fecha -> turno -> [{r, ri}]
   var byFecha = {};
-  regs.forEach(function(r, si) {
-    var ri = sortedToReal[si];
-    if (!byFecha[r.fecha]) byFecha[r.fecha] = {};
-    if (!byFecha[r.fecha][r.turno]) byFecha[r.fecha][r.turno] = [];
-    byFecha[r.fecha][r.turno].push({r: r, ri: ri});
+  indexed.forEach(function(x) {
+    var f = x.r.fecha, t = x.r.turno;
+    if (!byFecha[f]) byFecha[f] = {};
+    if (!byFecha[f][t]) byFecha[f][t] = [];
+    byFecha[f][t].push(x);
   });
-
   var html = '';
   Object.keys(byFecha).sort().forEach(function(fecha) {
     var turnos = byFecha[fecha];
     var fechaTot = 0;
-    ['M1','M2','N'].forEach(function(t){
-      (turnos[t]||[]).forEach(function(x){ fechaTot += (x.r.producido||0); });
-    });
-
+    ['M1','M2','N'].forEach(function(t){ (turnos[t]||[]).forEach(function(x){ fechaTot+=(x.r.producido||0); }); });
     html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569">' +
       fecha + ' \u2014 Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
-
     ['M1','M2','N'].forEach(function(turno) {
       var items = turnos[turno];
-      if (!items || !items.length) return;
-
+      if (!items||!items.length) return;
       var tTotUds  = items.reduce(function(a,x){ return a+(x.r.producido||0); }, 0);
       var tTotCajas= items.reduce(function(a,x){ return a+(x.r.cajas||0); }, 0);
       var tTotKg   = items.reduce(function(a,x){ return a+(x.r.kg||0); }, 0);
-      var tEfic    = items.length ? items.reduce(function(a,x){ return a+(x.r.efic||0); }, 0) / items.length : 0;
-      var prods    = items.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
-      var nBob     = items.length;
-      var detId    = 'td' + fecha.replace(/-/g,'') + turno;
-
-      var eficColor = tEfic >= 0.8 ? '#16a34a' : tEfic >= 0.6 ? '#d97706' : '#dc2626';
-
+      // Eficiencia = promedio de efic del turno (todos los items del turno tienen la misma efic)
+      var tEfic = items[0].r.efic || 0;
+      var prods = items.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+      var nBob  = items.length;
+      var detId = 'td' + fecha.replace(/-/g,'') + turno;
+      var eficColor = tEfic>=0.8?'#16a34a':tEfic>=0.6?'#d97706':'#dc2626';
       html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(\'' + detId + '\')" title="Ver detalle bobina por bobina">' +
         '<td style="padding-left:18px;font-size:11px;color:var(--text3)">' + fecha + '</td>' +
         '<td><span style="display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
@@ -1079,17 +1012,13 @@ function renderProdDetail(m) {
         '<td style="font-size:11px;color:#64748b">' + nBob + ' bobina' + (nBob>1?'s':'') + '</td>' +
         '<td>' + (tTotKg||'—') + '</td>' +
         '<td style="font-weight:600;color:' + eficColor + '">' + (tEfic?(tEfic*100).toFixed(1)+'%':'—') + '</td>' +
-        '<td></td>' +
-        '<td style="color:var(--text3);font-size:11px">&#9660;</td>' +
-        '</tr>';
-
-      // Filas detalle bobinas
+        '<td></td><td style="color:var(--text3);font-size:11px">&#9660;</td></tr>';
+      // Detalle bobinas
       var detRows = '';
       items.forEach(function(x, bi) {
         var r = x.r, ri = x.ri;
-        detRows +=
-          '<tr style="border-top:1px solid #e2e8f0">' +
-          '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">Bobina ' + (bi+1) + '</td>' +
+        detRows += '<tr style="border-top:1px solid #e2e8f0">' +
+          '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">B' + (bi+1) + '</td>' +
           '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">' + (r.partida||'—') + '</td>' +
           '<td style="padding:5px;font-weight:600">' + r.prod + '</td>' +
           '<td style="padding:5px">' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
@@ -1100,16 +1029,14 @@ function renderProdDetail(m) {
           '<td style="padding:5px;color:var(--text3)">—</td>' +
           '<td style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'') + '</td>' +
           '<td style="padding:5px;white-space:nowrap">' +
-            '<button onclick="editarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px" title="Editar">✏</button>' +
-            '<button onclick="borrarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer" title="Eliminar">✕</button>' +
-          '</td>' +
-          '</tr>';
+            '<button onclick="editarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px">✏</button>' +
+            '<button onclick="borrarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer">✕</button>' +
+          '</td></tr>';
       });
-
       html += '<tr id="' + detId + '" style="display:none"><td colspan="11" style="padding:0">' +
         '<table style="width:100%;border-collapse:collapse;background:#f8fafc">' +
         '<thead><tr style="background:#e2e8f0">' +
-        '<th style="padding:5px 16px;font-size:11px;text-align:left">Bobina</th>' +
+        '<th style="padding:5px 16px;font-size:11px;text-align:left">Bob.</th>' +
         '<th style="padding:5px;font-size:11px">Partida</th>' +
         '<th style="padding:5px;font-size:11px">Prod.</th>' +
         '<th style="padding:5px;font-size:11px">Uds</th>' +
@@ -1119,9 +1046,8 @@ function renderProdDetail(m) {
         '<th style="padding:5px;font-size:11px">Kg</th>' +
         '<th style="padding:5px;font-size:11px">Efic.</th>' +
         '<th style="padding:5px;font-size:11px">Obs.</th>' +
-        '<th style="padding:5px;font-size:11px">Acciones</th>' +
-        '</tr></thead><tbody>' + detRows + '</tbody></table>' +
-        '</td></tr>';
+        '<th style="padding:5px;font-size:11px">Acc.</th>' +
+        '</tr></thead><tbody>' + detRows + '</tbody></table></td></tr>';
     });
   });
   body.innerHTML = html;
@@ -1378,52 +1304,115 @@ document.getElementById('edit-modal').addEventListener('click', function(e) {
 let pendingImport = [];
 
 function importarXLSX(input) {
-  const file = input.files[0];
+  var file = input.files[0];
   if (!file) return;
   document.getElementById('import-status').textContent = 'Leyendo archivo...';
-  const reader = new FileReader();
+  var reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      // Buscar hoja de resumen (primera hoja que no sea "Detalle")
-      let sheetName = wb.SheetNames.find(n => !n.toLowerCase().includes('detalle')) || wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      if (!rows.length) { document.getElementById('import-status').textContent = 'El archivo no tiene datos.'; return; }
-      
-      pendingImport = [];
-      for (const r of rows) {
-        // Mapear columnas flexiblemente
-        const fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
-        const turno = String(r['Turno'] || r['turno'] || '').trim();
-        const prod = String(r['Producto'] || r['producto'] || '').trim();
-        const producido = parseInt(r['Producido'] || r['producido'] || 0) || 0;
-        const unicaja = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || r['Unidades por Caja'] || 0) || 0;
-        const cajas = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
-        const partida = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
-        const kg = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
-        const efic = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
-        const obs = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
-        if (!fecha || !prod || !producido) continue;
-        pendingImport.push({ fecha, turno, prod, producido, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), partida, kg, efic, obs });
+      var wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      // ── Hoja de detalle (una fila por bobina) ──
+      var detSheet = wb.SheetNames.find(function(n){ return n.toLowerCase().includes('detalle'); });
+      // ── Hoja de resumen (una fila por turno, tiene eficiencia) ──
+      var resSheet = wb.SheetNames.find(function(n){ return !n.toLowerCase().includes('detalle'); });
+
+      if (!detSheet && !resSheet) {
+        document.getElementById('import-status').textContent = 'No se encontró la hoja de datos.';
+        return;
       }
-      
+
+      // Construir mapa de eficiencia por fecha+turno desde hoja resumen
+      var eficMap = {};
+      if (resSheet) {
+        var resRows = XLSX.utils.sheet_to_json(wb.Sheets[resSheet], { defval: '' });
+        resRows.forEach(function(r) {
+          var fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
+          var turno = (r['Turno'] || r['turno'] || '').trim();
+          var efic  = parseFloat(r['Eficiencia'] || r['eficiencia'] || 0) || 0;
+          if (fecha && turno) eficMap[fecha + '_' + turno] = efic;
+        });
+      }
+
+      // Leer bobinas del detalle
+      var sourceSheet = detSheet || resSheet;
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[sourceSheet], { defval: '' });
+
+      if (!rows.length) {
+        document.getElementById('import-status').textContent = 'La hoja de detalle no tiene datos.';
+        return;
+      }
+
+      pendingImport = [];
+
+      // Si es hoja de detalle (tiene N° Bobina / Unidades)
+      var isDetalle = !!(rows[0]['N° Bobina'] !== undefined || rows[0]['Unidades'] !== undefined || rows[0]['N Bobina'] !== undefined);
+
+      if (isDetalle) {
+        // Una fila = una bobina
+        rows.forEach(function(r) {
+          var fecha  = parseFecha(r['Fecha'] || r['fecha'] || '');
+          var turno  = (r['Turno']   || r['turno']   || '').toString().trim();
+          var prod   = (r['Producto']|| r['producto'] || '').toString().trim();
+          var uds    = parseFloat(r['Unidades']      || r['unidades']      || 0) || 0;
+          var unicaj = parseFloat(r['Unidades x Caja']|| r['UnixCaja']    || r['unicaja'] || 0) || 0;
+          var cajas  = parseFloat(r['Cajas']         || r['cajas']         || 0) || 0;
+          var partida= (r['Partida'] || r['partida']  || '').toString().trim();
+          var kg     = parseFloat(r['Peso Kg']       || r['kg']            || 0) || 0;
+          var nBob   = (r['N° Bobina'] || r['N Bobina'] || r['bobina'] || '').toString().trim();
+          var obs    = (r['Observaciones'] || r['obs'] || '').toString().trim();
+          // Eficiencia del turno (no de la bobina)
+          var efic   = eficMap[fecha + '_' + turno] || 0;
+
+          if (!fecha || !turno || !prod || !uds) return;
+          pendingImport.push({
+            fecha: fecha, turno: turno, prod: prod,
+            producido: uds, unicaja: unicaj, cajas: cajas,
+            partida: partida + (nBob ? ' [B' + nBob + ']' : ''),
+            kg: kg, efic: efic, obs: obs
+          });
+        });
+      } else {
+        // Hoja resumen: una fila por turno (fallback)
+        rows.forEach(function(r) {
+          var fecha  = parseFecha(r['Fecha'] || r['fecha'] || '');
+          var turno  = (r['Turno']    || r['turno']    || '').toString().trim();
+          var prod   = (r['Producto'] || r['producto'] || '').toString().trim();
+          var uds    = parseFloat(r['Producido'] || r['producido'] || r['Unidades'] || 0) || 0;
+          var unicaj = parseFloat(r['UnixCaja']  || r['unicaja']  || r['Unidades x Caja'] || 0) || 0;
+          var cajas  = parseFloat(r['Cajas']     || r['cajas']    || 0) || 0;
+          var partida= (r['Partida PET'] || r['Partida'] || r['partida'] || '').toString().trim();
+          var kg     = parseFloat(r['Kg Procesados'] || r['kg'] || 0) || 0;
+          var efic   = parseFloat(r['Eficiencia'] || r['eficiencia'] || 0) || 0;
+          var obs    = (r['Observacion'] || r['obs'] || '').toString().trim();
+
+          if (!fecha || !turno || !prod || !uds) return;
+          pendingImport.push({ fecha, turno, prod, producido: uds, unicaja: unicaj, cajas, partida, kg, efic, obs });
+        });
+      }
+
       if (!pendingImport.length) {
         document.getElementById('import-status').textContent = 'No se encontraron registros válidos.';
         return;
       }
-      
-      document.getElementById('import-status').textContent = `${pendingImport.length} registros encontrados en "${sheetName}"`;
-      document.getElementById('import-preview').style.display = 'block';
-      document.getElementById('import-body').innerHTML = pendingImport.map(r => `<tr>
-        <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
-        <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
-        <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
-        <td>${r.kg?fmt(r.kg):'-'}</td><td>${pct(r.efic)}</td><td style="font-size:12px">${r.obs||'-'}</td>
-      </tr>`).join('');
-    } catch(err) {
-      document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
-      console.error(err);
+
+      // Mostrar preview
+      var tbody = document.querySelector('#import-preview tbody');
+      if (tbody) {
+        tbody.innerHTML = pendingImport.map(function(r) {
+          return '<tr><td>' + r.fecha + '</td><td>' + r.turno + '</td><td>' + r.prod +
+            '</td><td>' + (r.producido||0).toLocaleString('es-AR') + '</td><td>' + (r.unicaja||'—') +
+            '</td><td>' + (r.cajas||'—') + '</td><td style="font-size:11px;font-family:monospace">' + (r.partida||'—') +
+            '</td><td>' + (r.kg||'—') + '</td><td>' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '—') +
+            '</td><td>' + (r.obs||'') + '</td></tr>';
+        }).join('');
+      }
+      document.getElementById('import-status').textContent =
+        pendingImport.length + ' registros listos para importar (' +
+        (isDetalle ? 'bobina por bobina desde "' + sourceSheet + '"' : 'resumen desde "' + sourceSheet + '"') + ')';
+      document.getElementById('import-confirm-section').style.display = '';
+    } catch(ex) {
+      document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + ex.message;
     }
   };
   reader.readAsArrayBuffer(file);
