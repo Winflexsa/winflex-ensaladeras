@@ -444,7 +444,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <select id="cob-fil-cob" onchange="renderCobranzas()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface)">
             <option value="">Todas</option>
             <option value="Cobrado">Cobrado</option>
-            <option value="Pendiente">Por cobrar</option>
+            <option value="Por cobrar">Por cobrar</option>
           </select>
         </div>
         <div>
@@ -1363,7 +1363,7 @@ async function renderCobranzas() {
   const peds = (STATE.pedidos||[]).filter(p => {
     if (String(p.cliente||'').includes('AJUSTE')) return false;
     if (filEstado && p.estado !== filEstado) return false;
-    const cobEstado = STATE.cobranzas && STATE.cobranzas[p.id] ? STATE.cobranzas[p.id].estado : 'Por cobrar';
+    const cobEstado = (STATE.cobranzas && STATE.cobranzas[p.id]) ? STATE.cobranzas[p.id].estado : 'Por cobrar';
     if (filCob && cobEstado !== filCob) return false;
     if (filCliente && !String(p.cliente||'').toLowerCase().includes(filCliente)) return false;
     return true;
@@ -1383,37 +1383,52 @@ async function renderCobranzas() {
     });
     if (esUSD) totalUSD += usdAmt;
     const cob = (STATE.cobranzas && STATE.cobranzas[p.id]) || { estado:'Por cobrar', fecha:'' };
-    if (cob.estado === 'Cobrado') totalCobrado += totalARS;
-    else totalPorCobrar += totalARS;
+    if (cob.estado === 'Cobrado') totalCobrado += totalARS; else totalPorCobrar += totalARS;
     const catLabel = {WINFLEX:'WF',NITOPI:'NI',ENVASES_GROUP:'EG',BANDEX_USD:'BX'}[cat]||cat;
     const eC = p.estado==='Entregado'?'#16a34a':p.estado==='Pendiente'?'#d97706':'#0369a1';
     const eB = p.estado==='Entregado'?'#dcfce7':p.estado==='Pendiente'?'#fef3c7':'#e0f2fe';
     const cobrado = cob.estado === 'Cobrado';
-    const items = (p.items||[]).map(i=>i.prod.replace('E900','E').replace('T900','T')+' x'+i.caja+' ('+i.cajas+'cj)').join(' / ');
-    const vStr = totalARS>0 ? fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'') : '<span style="color:#cbd5e1">s/p</span>';
-    rows.push('<tr>'+
-      '<td style="font-size:11px;color:#94a3b8;padding:8px 6px">#'+p.id+'<br><span style="font-size:10px">'+p.fecha+'</span></td>'+
-      '<td style="padding:8px 6px"><div style="font-weight:600;font-size:13px">'+(p.cliente||'')+'</div><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
-      '<td style="font-size:11px;color:#475569;padding:8px 6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+items+'</td>'+
-      '<td style="padding:8px 6px"><span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>'+
-      '<td style="font-weight:700;text-align:right;padding:8px 6px;font-size:13px;white-space:nowrap">'+vStr+'</td>'+
-      '<td style="padding:8px 6px;text-align:center">'+
-        '<span onclick="toggleCob('+p.id+')" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;background:'+(cobrado?'#dcfce7':'#fef2f2')+';color:'+(cobrado?'#16a34a':'#dc2626')+';border:1px solid '+(cobrado?'#86efac':'#fca5a5')+'">'+
-          (cobrado?'\u2713 Cobrado':'\u29d6 Por cobrar')+
-        '</span>'+
-        (cob.fecha?'<div style="font-size:10px;color:#94a3b8;margin-top:2px">'+cob.fecha+'</div>':'')+
-      '</td>'+
-    '</tr>');
+    const detId = 'cobdet-' + p.id;
+    const vStr = totalARS>0 ? fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8;font-weight:400">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'') : '<span style="color:#cbd5e1">s/p</span>';
+    rows.push(
+      '<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">' +
+      '<td style="font-size:11px;color:#94a3b8;padding:8px 8px 8px 12px;width:36px">&#9660;</td>' +
+      '<td style="padding:8px 4px;width:90px;font-size:12px;color:#64748b">'+p.fecha+'</td>' +
+      '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>' +
+      '<td style="padding:8px 4px"><span style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>' +
+      '<td style="padding:8px 4px;font-weight:700;text-align:right;white-space:nowrap">'+vStr+'</td>' +
+      '<td style="padding:8px 12px 8px 4px;text-align:right"><span onclick="event.stopPropagation();toggleCob('+p.id+')" style="cursor:pointer;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;background:'+(cobrado?'#dcfce7':'#fef2f2')+';color:'+(cobrado?'#16a34a':'#dc2626')+';border:1px solid '+(cobrado?'#86efac':'#fca5a5')+'">'+(cobrado?'\u2713 Cobrado':'\u29d6 Por cobrar')+'</span>'+(cob.fecha?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;text-align:right">'+cob.fecha+'</div>':'')+'</td>' +
+      '</tr>'
+    );
+    const itemRows = (p.items||[]).map(it => {
+      const pr = precios && precios[it.prod] && precios[it.prod][it.caja];
+      const arsXCaja = pr ? (esUSD ? pr * tc : pr) : 0;
+      const subtotal = arsXCaja * (it.cajas||0);
+      const prStr = pr ? fmtPeso(arsXCaja)+'/cj'+(esUSD?' <small style="color:#94a3b8">(USD '+pr.toFixed(2)+')</small>':'') : '\u2014';
+      return '<tr style="background:#fafafa"><td colspan="2" style="padding:4px 12px 4px 44px;font-size:12px;color:#475569">'+it.prod+' \u00d7 '+it.caja+' un/cj</td><td style="padding:4px;font-size:12px;color:#475569">'+(it.cajas||0)+' cajas</td><td style="padding:4px;font-size:12px;color:#475569">'+((it.uds||0)||(it.cajas||0)*(it.caja||0)).toLocaleString('es-AR')+' uds</td><td style="padding:4px;font-size:12px;text-align:right">'+prStr+'</td><td style="padding:4px 12px;font-size:12px;font-weight:600;text-align:right">'+(subtotal>0?fmtPeso(subtotal):'\u2014')+'</td></tr>';
+    }).join('');
+    rows.push(
+      '<tr id="'+detId+'" style="display:none"><td colspan="6" style="padding:0;background:#fafafa;border-bottom:2px solid #e2e8f0">' +
+      '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr style="background:#f1f5f9"><th colspan="2" style="padding:6px 12px 6px 44px;font-size:11px;color:#64748b;text-align:left;font-weight:600">Producto</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Cajas</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Unidades</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Precio caja</th><th style="padding:6px 12px 6px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Subtotal</th></tr></thead>' +
+      '<tbody>'+itemRows+'</tbody>' +
+      '<tfoot><tr style="background:#f8fafc"><td colspan="4" style="padding:6px 12px 6px 44px;font-size:12px;color:#64748b;font-weight:600">Total pedido</td><td colspan="2" style="padding:6px 12px;font-size:13px;font-weight:700;text-align:right">'+(totalARS>0?fmtPeso(totalARS):'s/p')+(esUSD&&usdAmt>0?' <small style="color:#94a3b8;font-weight:400">= USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'')+'</td></tr></tfoot>' +
+      '</table>' +
+      (p.obs?'<div style="padding:6px 12px 6px 44px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0">Obs: '+p.obs+'</div>':'') +
+      '</td></tr>'
+    );
   }
   const body = document.getElementById('cob-body');
   if (body) body.innerHTML = rows.join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8">Sin resultados</td></tr>';
   const mEl = document.getElementById('cob-metrics');
   if (mEl) mEl.innerHTML =
-    '<div class="metric-card" style="border-left:3px solid #dc2626"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#dc2626">'+fmtPeso(totalPorCobrar)+'</div><div class="metric-sub">pendiente de cobro</div></div>'+
-    '<div class="metric-card" style="border-left:3px solid #16a34a"><div class="metric-label">Cobrado</div><div class="metric-value" style="color:#16a34a">'+fmtPeso(totalCobrado)+'</div><div class="metric-sub">ya ingresado</div></div>'+
-    '<div class="metric-card"><div class="metric-label">Total facturado</div><div class="metric-value">'+fmtPeso(totalCobrado+totalPorCobrar)+'</div><div class="metric-sub">2026</div></div>'+
+    '<div class="metric-card" style="border-left:3px solid #dc2626"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#dc2626">'+fmtPeso(totalPorCobrar)+'</div><div class="metric-sub">pendiente</div></div>' +
+    '<div class="metric-card" style="border-left:3px solid #16a34a"><div class="metric-label">Cobrado</div><div class="metric-value" style="color:#16a34a">'+fmtPeso(totalCobrado)+'</div><div class="metric-sub">ingresado</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Total facturado</div><div class="metric-value">'+fmtPeso(totalCobrado+totalPorCobrar)+'</div><div class="metric-sub">2026</div></div>' +
     (totalUSD>0?'<div class="metric-card" style="border-left:3px solid #0369a1"><div class="metric-label">Bandex USD</div><div class="metric-value" style="font-size:20px">USD '+Math.round(totalUSD).toLocaleString('es-AR')+'</div><div class="metric-sub">TC $'+tc.toLocaleString('es-AR')+'</div></div>':'');
 }
+
+
 
 async function toggleCob(id) {
   if (!STATE.cobranzas) STATE.cobranzas = {};
@@ -1597,7 +1612,7 @@ async function confirmarImport() {
     if (!mes) { skipped++; continue; }
     if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
     // Evitar duplicados exactos (misma fecha+turno+producto+producido)
-    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido);
+    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido && r.partida === reg.partida && String(r.nbobina||"") === String(reg.nbobina||""));
     if (!isDup) { STATE.prodRegistros[mes].push(reg); imported++; }
     else skipped++;
   }
