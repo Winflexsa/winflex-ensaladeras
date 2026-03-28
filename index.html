@@ -491,69 +491,84 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 
   <div class="page" id="pg-precios">
     <div class="page-title">Lista de Precios</div>
-    <div class="page-sub">Precios por caja · click en un valor para editarlo · se guarda el historial automáticamente</div>
+    <div class="page-sub">Precios vigentes · editables · con historial</div>
 
+    <!-- Header metrics -->
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-      <div class="metric-card" style="margin:0"><div class="metric-label">Vigencia actual</div><div class="metric-value" style="font-size:18px" id="pr-vigencia">Enero 2026</div></div>
-      <div class="metric-card" style="margin:0"><div class="metric-label">TC BNA hoy</div><div class="metric-value" style="font-size:18px" id="pr-tc">...</div><div class="metric-sub">billete vendedor</div></div>
-      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" onclick="verHistorialPrecios()" style="font-size:12px">📋 Ver historial</button>
-        <button class="btn btn-primary" onclick="guardarPrecios()">💾 Guardar como nueva vigencia</button>
+      <div class="metric-card" style="margin:0"><div class="metric-label">Vigencia</div><div class="metric-value" style="font-size:16px" id="pr-vigencia">—</div></div>
+      <div class="metric-card" style="margin:0"><div class="metric-label">TC BNA</div><div class="metric-value" style="font-size:16px" id="pr-tc">...</div><div class="metric-sub">billete vendedor</div></div>
+      <div class="metric-card" style="margin:0"><div class="metric-label">Costo PET/kg</div><div id="pr-costo-pet-wrap" style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:12px;color:#64748b">USD</span><input id="pr-costo-pet" type="number" step="0.0001" value="1.412761" oninput="renderPrecios()" style="width:80px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:14px;font-weight:700"></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center">
+        <input id="pr-nueva-vigencia" placeholder="Ej: Abril 2026" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:130px;background:var(--surface)">
+        <button class="btn btn-primary" onclick="guardarPrecios()">💾 Guardar nueva lista</button>
       </div>
     </div>
 
-    <!-- Tabs listas -->
-    <div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:2px solid #e2e8f0">
-      <button id="tab-WINFLEX" onclick="selTabPrecios('WINFLEX')" style="padding:8px 16px;border:none;background:#0369a1;color:white;border-radius:6px 6px 0 0;font-size:13px;font-weight:600;cursor:pointer">Winflex</button>
-      <button id="tab-NITOPI" onclick="selTabPrecios('NITOPI')" style="padding:8px 16px;border:none;background:#f1f5f9;color:#64748b;border-radius:6px 6px 0 0;font-size:13px;cursor:pointer">Nitopi</button>
-      <button id="tab-ENVASES_GROUP" onclick="selTabPrecios('ENVASES_GROUP')" style="padding:8px 16px;border:none;background:#f1f5f9;color:#64748b;border-radius:6px 6px 0 0;font-size:13px;cursor:pointer">Envases Group</button>
-      <button id="tab-BANDEX_USD" onclick="selTabPrecios('BANDEX_USD')" style="padding:8px 16px;border:none;background:#f1f5f9;color:#64748b;border-radius:6px 6px 0 0;font-size:13px;cursor:pointer">Bandex (USD)</button>
+    <!-- Reference: precios por millar -->
+    <div class="card" style="margin-bottom:16px;overflow-x:auto">
+      <div class="card-title" style="margin-bottom:10px">💡 Referencia — precio por millar de unidades</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="pr-millar-tabla"></table>
     </div>
 
-    <div id="precios-tabla-wrap"></div>
+    <!-- Editable grids -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" id="precios-grid"></div>
 
-    <!-- Historial modal -->
-    <div id="historial-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center">
-      <div style="background:white;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="margin:0;font-size:18px">Historial de Precios</h3>
-          <button onclick="document.getElementById('historial-modal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#94a3b8">×</button>
-        </div>
-        <div id="historial-body"></div>
-      </div>
+    <!-- Comparative analysis -->
+    <div class="card" style="margin-bottom:16px;overflow-x:auto">
+      <div class="card-title" style="margin-bottom:10px">📊 Análisis comparativo entre listas</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="pr-comparativo"></table>
+    </div>
+
+    <!-- History -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">📋 Historial de listas</div>
+      <div id="precios-historial" style="font-size:13px;color:var(--text3)">Sin historial guardado.</div>
     </div>
   </div>
   <div class="page" id="pg-costos">
-    <div class="page-title">Costos &amp; Márgenes</div>
-    <div class="page-sub">Costo en USD por producto · margen por lista de precios</div>
+    <div class="page-title">Costos y Márgenes</div>
+    <div class="page-sub">Modelo de costos por producto · Análisis de margen por lista de precios</div>
 
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-      <div class="metric-card" style="margin:0"><div class="metric-label">TC BNA hoy</div><div class="metric-value" style="font-size:18px" id="costo-tc">...</div><div class="metric-sub">billete vendedor</div></div>
-      <button class="btn btn-primary" onclick="guardarCostos()" style="margin-left:auto">💾 Guardar costos</button>
+      <div class="metric-card" style="margin:0"><div class="metric-label">TC BNA</div><div class="metric-value" style="font-size:16px" id="cos-tc">...</div><div class="metric-sub">billete vendedor</div></div>
+      <div class="metric-card" style="margin:0"><div class="metric-label">Costo PET/kg</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:12px;color:#64748b">USD</span><input id="cos-pet-kg" type="number" step="0.0001" value="1.412761" oninput="refreshMargen()" style="width:80px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:14px;font-weight:700"></div></div>
+      <div class="metric-card" style="margin:0"><div class="metric-label">MO ARS/hora/op.</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:12px;color:#64748b">$</span><input id="cos-mo-ars" type="number" step="100" value="7000" oninput="refreshMargen()" style="width:80px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:14px;font-weight:700"></div></div>
+      <button class="btn btn-primary" style="margin-left:auto" onclick="guardarCostos()">💾 Guardar parámetros</button>
     </div>
 
-    <!-- Costos por producto -->
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-title">Estructura de costos por producto (USD/millar)</div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse" id="costos-tabla">
-          <thead>
-            <tr style="background:#f8fafc">
-              <th style="padding:8px 12px;font-size:12px;color:#64748b;text-align:left;font-weight:600">Componente</th>
-              <th style="padding:8px 12px;font-size:12px;color:#64748b;text-align:right;font-weight:600">E900</th>
-              <th style="padding:8px 12px;font-size:12px;color:#64748b;text-align:right;font-weight:600">T900</th>
-            </tr>
-          </thead>
-          <tbody id="costos-body"></tbody>
-          <tfoot id="costos-foot"></tfoot>
-        </table>
-      </div>
+    <!-- Costo desglosado por producto -->
+    <div class="card" style="margin-bottom:16px;overflow-x:auto">
+      <div class="card-title" style="margin-bottom:10px">Costo de producción por producto</div>
+      <table style="width:100%;border-collapse:collapse" id="cos-tabla">
+        <thead><tr style="background:#f8fafc">
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:left">Producto</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">MP USD/un</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">MO USD/un</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Energía USD/un</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Otros USD/un</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Total USD/un</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">USD/millar</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">ARS/millar</th>
+        </tr></thead>
+        <tbody id="cos-tabla-body"></tbody>
+      </table>
     </div>
 
-    <!-- Análisis de márgenes -->
-    <div class="card">
-      <div class="card-title">Análisis de márgenes por lista de precios</div>
-      <div id="margenes-wrap"></div>
+    <!-- Margen por lista -->
+    <div class="card" style="overflow-x:auto">
+      <div class="card-title" style="margin-bottom:10px">Análisis de margen por lista de precios (precio de venta ARS/millar)</div>
+      <table style="width:100%;border-collapse:collapse" id="cos-margen-tabla">
+        <thead><tr style="background:#f8fafc">
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:left">Producto</th>
+          <th style="padding:8px;font-size:11px;color:#64748b">Costo USD/millar</th>
+          <th style="padding:8px;font-size:11px;color:#64748b">Costo ARS/millar</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Winflex</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Nitopi</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Env.Group</th>
+          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Bandex</th>
+        </tr></thead>
+        <tbody id="cos-margen-body"></tbody>
+      </table>
     </div>
   </div>
   </main>
@@ -1347,26 +1362,88 @@ async function boot() {
 // ─────────────────────────────────────────────────────────
 
 // Precios por caja (ARS) = precio/millar * unicaja/1000
+
+// ─── MODELO DE COSTOS (del archivo Excel de costos) ────────────
+const COSTOS_BASE = {
+  E900: {
+    label: 'Ensaladera Cristal',
+    pesoBruto_g:  23.8,  pesoNeto_g:  17,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+  },
+  T900: {
+    label: 'Tapa Ensaladera',
+    pesoBruto_g:  15.95, pesoNeto_g:  11,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+  },
+  E910: {
+    label: 'Ensaladera Negra',
+    pesoBruto_g:  23.8,  pesoNeto_g:  17,   // mismas dimensiones que E900
+    tasaRecup:    0.90,
+    petNegroFactor: 1.10,                    // 10% más caro el PET negro
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+  },
+  S900: {
+    label: 'Separador Ensaladera',
+    pesoBruto_g:  9.75,  pesoNeto_g:  6.5,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.08,
+  }
+};
+
+function calcCostoMillar(prod, costoPET_kg, tc) {
+  const b = COSTOS_BASE[prod];
+  if (!b) return null;
+  const petFactor   = b.petNegroFactor || 1;
+  const petKg       = costoPET_kg * petFactor;
+  const desper      = (b.pesoBruto_g - b.pesoNeto_g) / 1000;
+  const noRecup     = desper * (1 - b.tasaRecup);
+  const mpUtil      = b.pesoNeto_g/1000 + noRecup;
+  const costoMP     = mpUtil * petKg;
+  const moTotal     = b.moARS_hora * b.operarios * (1 + b.cargasSoc);
+  const costoMO_usd = (moTotal / b.udsHora) / tc;
+  const costoEn     = b.energiaUSD_kg * mpUtil;
+  const costoOtros  = b.otrosUSD_kg   * mpUtil;
+  const costoUnit   = costoMP + costoMO_usd + costoEn + costoOtros;
+  return {
+    costoMP, costoMO_usd, costoEn, costoOtros,
+    costoUnit, costoMillar: costoUnit * 1000,
+    mpUtil, petKg
+  };
+}
 const PRECIOS = {
   WINFLEX: {
-    // E900: $84.000/millar, T900: $58.800/millar
-    E900: { 100: 8400,   300: 25200,   440: 36960,   500: 42000,   1000: 84000  },
-    T900: { 100: 5880,   300: 17640,   440: 25872,   500: 29400,   1000: 58800  }
+    // E900: $84.000/millar, T900: $58.800/millar, E910: $90.720/millar (+8% PET negro)
+    E900: { 100: 8400,    300: 25200,   440: 36960,   500: 42000,   1000: 84000   },
+    T900: { 100: 5880,    300: 17640,   440: 25872,   500: 29400,   1000: 58800   },
+    E910: { 100: 9072,    300: 27216,   440: 39917,   500: 45360,   1000: 90720   }
   },
   NITOPI: {
-    // E900: $67.405/millar, T900: $47.183/millar
-    E900: { 100: 6740.5, 300: 20221.5, 440: 29658.2, 500: 33702.5, 1000: 67405  },
-    T900: { 100: 4718.3, 300: 14154.9, 440: 20760.52,500: 23591.5, 1000: 47183  }
+    // E900: $67.405/millar, T900: $47.183/millar, E910: $72.797/millar (+8%)
+    E900: { 100: 6740.5,  300: 20221.5, 440: 29658.2, 500: 33702.5, 1000: 67405  },
+    T900: { 100: 4718.3,  300: 14154.9, 440: 20760.5, 500: 23591.5, 1000: 47183  },
+    E910: { 100: 7279.7,  300: 21839.2, 440: 32030.9, 500: 36398.7, 1000: 72797  }
   },
   ENVASES_GROUP: {
-    // E900: $75.961,40/millar, T900: $53.173/millar
-    E900: { 100: 7596.14,300: 22788.42,440: 33423.02,500: 37980.70,1000: 75961.4},
-    T900: { 100: 5317.30,300: 15951.90,440: 23396.12,500: 26586.50,1000: 53173  }
+    // E900: $75.961/millar, T900: $53.173/millar, E910: $82.038/millar (+8%)
+    E900: { 100: 7596.14, 300: 22788.4, 440: 33423,   500: 37980.7, 1000: 75961.4},
+    T900: { 100: 5317.3,  300: 15951.9, 440: 23396.1, 500: 26586.5, 1000: 53173  },
+    E910: { 100: 8203.8,  300: 24611.5, 440: 36099.8, 500: 41019.2, 1000: 82038  }
   },
   BANDEX_USD: {
-    // USD por millar: E900=50, T900=34  (se multiplica por TC al calcular)
-    E900: { 100: 5,      300: 15,      440: 22,      500: 25,      1000: 50     },
-    T900: { 100: 3.40,   300: 10.20,   440: 14.96,   500: 17,      1000: 34     }
+    // USD por millar: E900=50, T900=34, E910=54 (como indicado)
+    E900: { 100: 5,       300: 15,      440: 22,      500: 25,      1000: 50     },
+    T900: { 100: 3.40,    300: 10.20,   440: 14.96,   500: 17,      1000: 34     },
+    E910: { 100: 5.40,    300: 16.20,   440: 23.76,   500: 27,      1000: 54     }
   }
 };
 
@@ -1651,55 +1728,7 @@ async function calcPrecioPreview() {
   }
 }
 
-async function renderPrecios() {
-  const tc = await fetchTCBNA();
-  const tcEl = document.getElementById('pr-tc');
-  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
-  if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
-  const cats = [
-    { key:'WINFLEX',       label:'Winflex',       color:'#0369a1', bg:'#e0f2fe' },
-    { key:'NITOPI',        label:'Nitopi',         color:'#7c3aed', bg:'#ede9fe' },
-    { key:'ENVASES_GROUP', label:'Envases Group',  color:'#0891b2', bg:'#ecfeff' },
-    { key:'BANDEX_USD',    label:'Bandex (USD)',   color:'#b45309', bg:'#fef3c7' },
-  ];
-  const CAJAS_LIST  = [100, 300, 440, 500, 1000];
-  const CAJAS_LABEL = { 100:'x100', 300:'x300', 440:'x440', 500:'x500', 1000:'x1000' };
-  const PRODS       = ['E900', 'T900'];
-  const grid = document.getElementById('precios-grid');
-  if (!grid) return;
-  grid.innerHTML = cats.map(function(cat) {
-    const pv    = STATE.preciosVigentes[cat.key];
-    const esUSD = cat.key === 'BANDEX_USD';
-    const rows  = PRODS.map(function(prod) {
-      const cells = CAJAS_LIST.map(function(c) {
-        const v      = pv && pv[prod] && pv[prod][c];
-        const ars    = v ? (esUSD ? v * tc : v) : 0;
-        const inputV = v ? v : '';
-        const id     = 'pr_' + cat.key + '_' + prod + '_' + c;
-        return '<td style="padding:4px 6px;text-align:right">' +
-          '<input id="' + id + '" type="number" value="' + inputV + '" ' +
-          'oninput="previewPrecio(\'' + id + '\',' + (esUSD?1:0) + ',' + tc + ')" ' +
-          'style="width:90px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right;background:white">' +
-          (ars > 0 ? '<div style="font-size:10px;color:#94a3b8;text-align:right">' + fmtPeso(ars) + (esUSD ? '/cj' : '') + '</div>' : '') +
-          '</td>';
-      }).join('');
-      return '<tr><td style="padding:4px 8px;font-weight:700;font-size:13px">' + prod + '</td>' + cells + '</tr>';
-    }).join('');
-    return '<div class="card" style="padding:0;overflow:hidden">' +
-      '<div style="padding:10px 14px;background:' + cat.bg + ';border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px">' +
-        '<span style="font-weight:700;font-size:14px;color:' + cat.color + '">' + cat.label + '</span>' +
-        (esUSD ? '<span style="font-size:10px;color:#92400e">USD/millar → ARS al TC del día</span>' : '<span style="font-size:10px;color:#64748b">ARS por caja</span>') +
-      '</div>' +
-      '<div style="overflow-x:auto;padding:8px"><table style="width:100%;border-collapse:collapse">' +
-        '<thead><tr style="background:#f8fafc">' +
-          '<th style="padding:4px 8px;font-size:11px;color:#64748b;text-align:left">Prod.</th>' +
-          CAJAS_LIST.map(function(c){ return '<th style="padding:4px 6px;font-size:11px;color:#64748b;text-align:right">' + CAJAS_LABEL[c] + '</th>'; }).join('') +
-        '</tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-      '</table></div>' +
-    '</div>';
-  }).join('');
-}
+
 
 
 
@@ -1828,69 +1857,9 @@ function selTabPrecios(cat, tc, listas) {
     '</div>';
 }
 
-function previewPrecio(id, esUSD, tc) {
-  const el   = document.getElementById(id);
-  const prev = document.getElementById(id + '_prev');
-  if (!el || !prev) return;
-  const v    = parseFloat(el.value) || 0;
-  const ars  = esUSD ? v * tc : v;
-  prev.textContent = ars > 0 ? fmtPeso(ars) + (esUSD ? '/cj' : '') : '';
-}
 
-async function guardarPrecios() {
-  const tc = parseFloat(document.getElementById('pr-tc').textContent.replace(/[^0-9.]/g,'')) || await fetchTCBNA();
-  if (!STATE.historialPrecios) STATE.historialPrecios = [];
 
-  // Collect from all tabs
-  const cats  = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
-  const cajas = [100,300,440,500,1000];
-  const prods = ['E900','T900'];
-  const newListas = {};
 
-  // For tabs not currently shown, use last known values
-  const ultima = STATE.historialPrecios.length ? STATE.historialPrecios[STATE.historialPrecios.length-1].listas : PRECIOS;
-  cats.forEach(function(cat) {
-    newListas[cat] = {};
-    prods.forEach(function(prod) {
-      newListas[cat][prod] = {};
-      cajas.forEach(function(c) {
-        const id = 'prv_' + cat + '_' + prod + '_' + c;
-        const el = document.getElementById(id);
-        if (el) {
-          newListas[cat][prod][c] = parseFloat(el.value) || 0;
-        } else if (ultima[cat] && ultima[cat][prod]) {
-          newListas[cat][prod][c] = ultima[cat][prod][c] || 0;
-        }
-      });
-    });
-  });
-
-  // Vigencia label
-  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const now   = new Date();
-  const vigLabel = meses[now.getMonth()] + ' ' + now.getFullYear();
-
-  STATE.historialPrecios.push({
-    fecha:    now.toISOString().split('T')[0],
-    vigencia: vigLabel,
-    listas:   newListas
-  });
-
-  // Update live PRECIOS
-  cats.forEach(function(cat) {
-    prods.forEach(function(prod) {
-      cajas.forEach(function(c) {
-        if (PRECIOS[cat] && PRECIOS[cat][prod]) {
-          PRECIOS[cat][prod][c] = newListas[cat][prod][c] || 0;
-        }
-      });
-    });
-  });
-
-  await saveToCloud();
-  toast('Precios guardados · vigencia ' + vigLabel + ' ✓', 'ok');
-  renderPrecios();
-}
 
 function verHistorialPrecios() {
   const hist = STATE.historialPrecios || [];
@@ -1933,58 +1902,7 @@ const COSTO_COMPONENTES = [
   { key:'otros',       label:'Otros (embalaje, scrap)',  color:'#d97706' },
 ];
 
-async function renderCostos() {
-  const tc = await fetchTCBNA();
-  const tcEl = document.getElementById('costo-tc');
-  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
 
-  if (!STATE.costosProductos) {
-    STATE.costosProductos = {
-      E900: { materia: 0, pelicula: 0, conversion: 0, otros: 0 },
-      T900: { materia: 0, pelicula: 0, conversion: 0, otros: 0 }
-    };
-  }
-  const cp = STATE.costosProductos;
-  const prods = ['E900','T900'];
-
-  // Cost table
-  const bodyEl = document.getElementById('costos-body');
-  const footEl = document.getElementById('costos-foot');
-  if (!bodyEl || !footEl) return;
-
-  bodyEl.innerHTML = COSTO_COMPONENTES.map(function(comp) {
-    return '<tr style="border-top:1px solid #f1f5f9">' +
-      '<td style="padding:8px 12px;font-size:13px;color:' + comp.color + ';font-weight:600">' + comp.label + '</td>' +
-      prods.map(function(prod) {
-        const v = cp[prod] && cp[prod][comp.key] ? cp[prod][comp.key] : 0;
-        const id = 'costo_' + prod + '_' + comp.key;
-        return '<td style="padding:6px 12px;text-align:right">' +
-          '<input id="' + id + '" type="number" value="' + v + '" min="0" step="0.01" ' +
-          'oninput="actualizarTotalesCosto()" ' +
-          'style="width:90px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:13px;font-weight:600;text-align:right"> ' +
-          '<span style="font-size:11px;color:#94a3b8">USD/mil</span></td>';
-      }).join('') +
-    '</tr>';
-  }).join('');
-
-  // Totals row
-  const totales = prods.map(function(prod) {
-    return COSTO_COMPONENTES.reduce(function(a,c){ return a + (cp[prod]&&cp[prod][c.key]?cp[prod][c.key]:0); }, 0);
-  });
-  footEl.innerHTML = '<tr style="background:#f1f5f9;border-top:2px solid #e2e8f0">' +
-    '<td style="padding:8px 12px;font-weight:700;font-size:13px">TOTAL COSTO</td>' +
-    prods.map(function(prod, i) {
-      const tot = totales[i];
-      return '<td id="costo_total_' + prod + '" style="padding:8px 12px;text-align:right;font-weight:700;font-size:14px">' +
-        tot.toFixed(3) + ' USD/mil' +
-        '<div style="font-size:11px;color:#94a3b8">' + fmtPeso(tot * tc / 1000) + '/u</div>' +
-        '</td>';
-    }).join('') +
-  '</tr>';
-
-  // Márgenes
-  renderMargenes(tc, totales, prods);
-}
 
 function actualizarTotalesCosto() {
   const prods = ['E900','T900'];
@@ -2056,18 +1974,336 @@ function renderMargenes(tc, costosTotales, prods) {
     '<p style="font-size:11px;color:#94a3b8;margin-top:8px;padding:0 4px">* Margen = (Precio - Costo) / Precio · verde ≥40% · amarillo ≥20% · rojo &lt;20%</p>';
 }
 
-async function guardarCostos() {
-  if (!STATE.costosProductos) STATE.costosProductos = {};
-  const prods = ['E900','T900'];
-  prods.forEach(function(prod) {
-    if (!STATE.costosProductos[prod]) STATE.costosProductos[prod] = {};
-    COSTO_COMPONENTES.forEach(function(comp) {
-      const el = document.getElementById('costo_' + prod + '_' + comp.key);
-      if (el) STATE.costosProductos[prod][comp.key] = parseFloat(el.value) || 0;
+
+
+// ─── PRECIOS - RENDER COMPLETO ─────────────────────────────────
+
+async function renderPrecios() {
+  const tc = await fetchTCBNA();
+  const tcEl = document.getElementById('pr-tc');
+  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
+
+  const costoPetEl = document.getElementById('pr-costo-pet');
+  const costoPET = costoPetEl ? parseFloat(costoPetEl.value)||1.412761 : 1.412761;
+
+  if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
+  const pv = STATE.preciosVigentes;
+
+  const vigEl = document.getElementById('pr-vigencia');
+  const lastH = STATE.historicoPrecios && STATE.historicoPrecios.length ? STATE.historicoPrecios[STATE.historicoPrecios.length-1] : null;
+  if (vigEl) vigEl.textContent = lastH ? lastH.vigencia : 'Enero 2026 (base)';
+
+  const CATS = [
+    { key:'WINFLEX',       label:'Winflex',       color:'#0369a1', bg:'#e0f2fe', note:'ARS/caja' },
+    { key:'NITOPI',        label:'Nitopi',         color:'#7c3aed', bg:'#ede9fe', note:'ARS/caja' },
+    { key:'ENVASES_GROUP', label:'Envases Group',  color:'#0891b2', bg:'#ecfeff', note:'ARS/caja' },
+    { key:'BANDEX_USD',    label:'Bandex',         color:'#b45309', bg:'#fef3c7', note:'USD/millar' },
+  ];
+  const PRODS     = ['E900','T900','E910'];
+  const CAJAS_L   = [100, 300, 440, 500, 1000];
+  const CAJAS_LBL = { 100:'x100', 300:'x300', 440:'x440', 500:'x500', 1000:'x1000' };
+
+  // Tabla de referencia por millar
+  const tMillar = document.getElementById('pr-millar-tabla');
+  if (tMillar) {
+    const hdrs = '<thead><tr style="background:#f8fafc"><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
+      CATS.map(c=>'<th style="padding:6px 10px;font-size:11px;color:'+c.color+';text-align:right">'+c.label+'</th>').join('') +
+      '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">Costo USD/mil</th>' +
+      '</tr></thead>';
+    const rows = PRODS.map(prod => {
+      const cos = calcCostoMillar(prod, costoPET, tc);
+      const cells = CATS.map(cat => {
+        const esUSD = cat.key === 'BANDEX_USD';
+        const catPV = (STATE.preciosVigentes[cat.key]||{})[prod]||{};
+        // Get representative millar price from the most common box
+        const refCaja = {WINFLEX:300, NITOPI:300, ENVASES_GROUP:100, BANDEX_USD:440}[cat.key];
+        const prCaja = catPV[refCaja];
+        if (!prCaja) return '<td style="padding:6px 10px;text-align:right;color:#cbd5e1">—</td>';
+        const pvMillar = esUSD ? prCaja/refCaja*1000*tc : prCaja/refCaja*1000;
+        const pvMillarRef = esUSD ? prCaja/refCaja*1000 : null;
+        return '<td style="padding:6px 10px;text-align:right;font-weight:600">' +
+          (pvMillar).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) +
+          (esUSD ? '<br><small style="color:#94a3b8;font-weight:400">USD '+pvMillarRef.toFixed(0)+'/mil</small>' : '') +
+        '</td>';
+      }).join('');
+      return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:700">'+prod+'</td>' + cells +
+        '<td style="padding:6px 10px;text-align:right;color:#475569">' + (cos?cos.costoMillar.toFixed(2)+' USD':'—') + '</td>' +
+      '</tr>';
+    }).join('');
+    tMillar.innerHTML = hdrs + '<tbody>' + rows + '</tbody>';
+  }
+
+  // Editable grids
+  const grid = document.getElementById('precios-grid');
+  if (grid) {
+    grid.innerHTML = CATS.map(cat => {
+      const catPV = pv[cat.key] || {};
+      const esUSD = cat.key === 'BANDEX_USD';
+      const rows  = PRODS.map(prod => {
+        const cells = CAJAS_L.map(c => {
+          const v   = catPV[prod] && catPV[prod][c] ? catPV[prod][c] : 0;
+          const ars = v ? (esUSD ? v * tc : v) : 0;
+          const id  = 'pr_' + cat.key + '_' + prod + '_' + c;
+          return '<td style="padding:3px 5px;text-align:right">' +
+            '<input id="'+id+'" type="number" step="0.01" value="'+(v||'')+'" ' +
+            'oninput="previewPrecio(\''+id+'\','+(esUSD?1:0)+','+tc+')" ' +
+            'style="width:80px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-weight:600;text-align:right">' +
+            '<div style="font-size:9px;color:#94a3b8;margin-top:1px;text-align:right">' + (ars>0?ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—') + '</div>' +
+          '</td>';
+        }).join('');
+        return '<tr><td style="padding:3px 8px;font-weight:700;font-size:12px">'+prod+'</td>' + cells + '</tr>';
+      }).join('');
+      return '<div class="card" style="padding:0;overflow:hidden">' +
+        '<div style="padding:8px 12px;background:'+cat.bg+';border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-weight:700;font-size:13px;color:'+cat.color+'">'+cat.label+'</span>' +
+          '<span style="font-size:10px;color:#64748b">'+cat.note+'</span>' +
+        '</div>' +
+        '<div style="overflow-x:auto;padding:6px"><table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>' +
+          CAJAS_L.map(c=>'<th style="padding:3px 5px;font-size:10px;color:#64748b;text-align:right">'+CAJAS_LBL[c]+'</th>').join('') +
+          '</tr></thead><tbody>' + rows + '</tbody>' +
+        '</table></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Análisis comparativo
+  renderComparativoPrecios(tc, costoPET);
+  renderHistorialPrecios();
+}
+
+function renderComparativoPrecios(tc, costoPET) {
+  const tComp = document.getElementById('pr-comparativo');
+  if (!tComp) return;
+  const PRODS  = ['E900','T900','E910'];
+  const CATS   = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
+  const LABELS = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex'};
+  const REF    = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
+
+  const hdrs = '<thead><tr style="background:#f8fafc">' +
+    '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
+    '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">Costo ARS/millar</th>' +
+    CATS.map(c=>'<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">'+LABELS[c]+' ARS/mil</th><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:center">Margen</th>').join('') +
+  '</tr></thead>';
+
+  const rows = PRODS.map(prod => {
+    const cos = calcCostoMillar(prod, costoPET||1.412761, tc||1405);
+    const cosARS = cos ? cos.costoMillar * tc : 0;
+    const cells = CATS.map(cat => {
+      const esUSD  = cat.key === 'BANDEX_USD';
+      const catPV  = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||{})[prod]||{};
+      const rc     = REF[cat.key];
+      const prCaja = catPV[rc];
+      if (!prCaja || !cos) return '<td colspan="2" style="padding:6px;text-align:center;color:#cbd5e1">—</td>';
+      const pvMillar = (esUSD ? prCaja/rc*1000*tc : prCaja/rc*1000);
+      const margen   = cosARS > 0 ? (pvMillar - cosARS) / pvMillar * 100 : 0;
+      const mc = margen >= 45?'#16a34a':margen>=30?'#d97706':'#dc2626';
+      const mb = margen >= 45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
+      return '<td style="padding:6px 8px;text-align:right;font-weight:600">' +
+          pvMillar.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) +
+        '</td><td style="padding:6px 8px;text-align:center">' +
+          '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span>' +
+        '</td>';
+    }).join('');
+    return '<tr style="border-top:1px solid #f1f5f9">' +
+      '<td style="padding:6px 10px;font-weight:700">'+prod+'</td>' +
+      '<td style="padding:6px 10px;text-align:right;color:#475569">' + (cosARS>0?cosARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—') + '</td>' +
+      cells + '</tr>';
+  }).join('');
+  tComp.innerHTML = hdrs + '<tbody>' + rows + '</tbody>';
+}
+
+function previewPrecio(id, esUSD, tc) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const v = parseFloat(el.value) || 0;
+  const ars = esUSD ? v * tc : v;
+  const next = el.nextElementSibling;
+  if (next) next.textContent = ars > 0 ? ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+}
+
+async function guardarPrecios() {
+  if (!STATE.preciosVigentes) STATE.preciosVigentes = {};
+  const CATS  = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
+  const PRODS = ['E900','T900','E910'];
+  const CAJAS = [100,300,440,500,1000];
+  CATS.forEach(cat => {
+    if (!STATE.preciosVigentes[cat]) STATE.preciosVigentes[cat] = {};
+    PRODS.forEach(prod => {
+      if (!STATE.preciosVigentes[cat][prod]) STATE.preciosVigentes[cat][prod] = {};
+      CAJAS.forEach(c => {
+        const el = document.getElementById('pr_'+cat+'_'+prod+'_'+c);
+        if (el) {
+          const v = parseFloat(el.value)||0;
+          STATE.preciosVigentes[cat][prod][c] = v;
+          if (!PRECIOS[cat]) PRECIOS[cat]={};
+          if (!PRECIOS[cat][prod]) PRECIOS[cat][prod]={};
+          PRECIOS[cat][prod][c] = v;
+        }
+      });
     });
   });
+  const vigInput = document.getElementById('pr-nueva-vigencia');
+  const vigencia = (vigInput&&vigInput.value.trim()) || (() => {
+    const m = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const n = new Date();
+    return m[n.getMonth()] + ' ' + n.getFullYear();
+  })();
+  if (!STATE.historicoPrecios) STATE.historicoPrecios = [];
+  STATE.historicoPrecios.push({
+    fecha: new Date().toISOString().split('T')[0],
+    vigencia,
+    precios: JSON.parse(JSON.stringify(STATE.preciosVigentes))
+  });
+  if (vigInput) vigInput.value = '';
   await saveToCloud();
-  toast('Costos guardados ✓', 'ok');
+  toast('Lista "'+vigencia+'" guardada ✓', 'ok');
+  renderPrecios();
+  if (document.getElementById('pg-costos').classList.contains('active')) renderCostos();
+}
+
+function renderHistorialPrecios() {
+  const el = document.getElementById('precios-historial');
+  if (!el) return;
+  const hist = STATE.historicoPrecios || [];
+  if (!hist.length) { el.innerHTML = '<span style="color:var(--text3)">Sin historial guardado.</span>'; return; }
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' +
+    [...hist].reverse().map((h,idx) => {
+      const isLast = idx===0;
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:'+(isLast?'#f0fdf4':'#f8fafc')+';border:1px solid '+(isLast?'#86efac':'#e2e8f0')+';border-radius:8px">' +
+        '<div style="flex:1"><b style="font-size:13px">'+h.vigencia+'</b><span style="font-size:11px;color:#94a3b8;margin-left:8px">'+h.fecha+'</span>'+(isLast?'<span style="font-size:11px;color:#16a34a;margin-left:8px;font-weight:600">✓ vigente</span>':'')+'</div>' +
+        '<button onclick="restaurarListaPrecios('+(hist.length-1-idx)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Restaurar</button>' +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+function restaurarListaPrecios(idx) {
+  const h = STATE.historicoPrecios&&STATE.historicoPrecios[idx];
+  if (!h) return;
+  STATE.preciosVigentes = JSON.parse(JSON.stringify(h.precios));
+  Object.keys(h.precios).forEach(cat => {
+    Object.keys(h.precios[cat]).forEach(prod => {
+      if (!PRECIOS[cat]) PRECIOS[cat]={};
+      if (!PRECIOS[cat][prod]) PRECIOS[cat][prod]={};
+      Object.assign(PRECIOS[cat][prod], h.precios[cat][prod]);
+    });
+  });
+  toast('Lista "'+h.vigencia+'" restaurada ✓','ok');
+  renderPrecios();
+}
+
+// ─── COSTOS ────────────────────────────────────────────────────
+
+async function renderCostos() {
+  const tc = await fetchTCBNA();
+  const tcEl = document.getElementById('cos-tc');
+  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
+  if (!STATE.costos) STATE.costos = {};
+  // Load saved params or use defaults
+  const petEl = document.getElementById('cos-pet-kg');
+  const moEl  = document.getElementById('cos-mo-ars');
+  if (petEl && STATE.costos.petKg)  petEl.value = STATE.costos.petKg;
+  if (moEl  && STATE.costos.moARS)  moEl.value  = STATE.costos.moARS;
+  refreshMargen(tc);
+}
+
+async function refreshMargen(tc) {
+  if (!tc) tc = await fetchTCBNA();
+  const petEl  = document.getElementById('cos-pet-kg');
+  const moEl   = document.getElementById('cos-mo-ars');
+  const costoPET = petEl ? parseFloat(petEl.value)||1.412761 : 1.412761;
+  const moARS    = moEl  ? parseFloat(moEl.value) ||7000      : 7000;
+
+  // Temporarily override MO in COSTOS_BASE for calculation
+  const PRODS = ['E900','T900','E910','S900'];
+  const tbody = document.getElementById('cos-tabla-body');
+  if (tbody) {
+    tbody.innerHTML = PRODS.map(prod => {
+      const b = COSTOS_BASE[prod];
+      if (!b) return '';
+      // Recalc with current MO
+      const moTotal    = moARS * b.operarios * (1 + b.cargasSoc);
+      const moUsdUnit  = (moTotal / b.udsHora) / tc;
+      const petFactor  = b.petNegroFactor || 1;
+      const petKg      = costoPET * petFactor;
+      const desper     = (b.pesoBruto_g - b.pesoNeto_g) / 1000;
+      const noRecup    = desper * (1 - b.tasaRecup);
+      const mpUtil     = b.pesoNeto_g/1000 + noRecup;
+      const costoMP    = mpUtil * petKg;
+      const costoEn    = b.energiaUSD_kg * mpUtil;
+      const costoOtros = b.otrosUSD_kg * mpUtil;
+      const costoUnit  = costoMP + moUsdUnit + costoEn + costoOtros;
+      const costoMil   = costoUnit * 1000;
+      const costoMilARS= costoMil * tc;
+      return '<tr style="border-top:1px solid #f1f5f9">' +
+        '<td style="padding:8px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+b.label+'</small></td>' +
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoMP.toFixed(5)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+moUsdUnit.toFixed(5)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoEn.toFixed(5)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoOtros.toFixed(5)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-weight:700;font-size:13px">'+costoUnit.toFixed(5)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-weight:700;color:#0369a1">'+costoMil.toFixed(2)+' USD</td>' +
+        '<td style="padding:8px;text-align:right;font-weight:700">'+costoMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // Margen table
+  const PROD_SHOW = ['E900','T900','E910'];
+  const CATS = [
+    {key:'WINFLEX',label:'Winflex',ref:300},
+    {key:'NITOPI',label:'Nitopi',ref:300},
+    {key:'ENVASES_GROUP',label:'Env.Group',ref:100},
+    {key:'BANDEX_USD',label:'Bandex',ref:440},
+  ];
+  const mBody = document.getElementById('cos-margen-body');
+  if (mBody) {
+    mBody.innerHTML = PROD_SHOW.map(prod => {
+      const b = COSTOS_BASE[prod]; if (!b) return '';
+      const petFactor = b.petNegroFactor||1;
+      const petKg = costoPET*petFactor;
+      const moTotal = moARS*b.operarios*(1+b.cargasSoc);
+      const moUsdUnit = (moTotal/b.udsHora)/tc;
+      const desper = (b.pesoBruto_g-b.pesoNeto_g)/1000;
+      const mpUtil = b.pesoNeto_g/1000 + desper*(1-b.tasaRecup);
+      const costoUnit = mpUtil*petKg + moUsdUnit + b.energiaUSD_kg*mpUtil + b.otrosUSD_kg*mpUtil;
+      const costoMil = costoUnit*1000;
+      const costoMilARS = costoMil*tc;
+
+      const cells = CATS.map(cat => {
+        const esUSD = cat.key==='BANDEX_USD';
+        const catPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||{})[prod]||{};
+        const prCaja = catPV[cat.ref];
+        if (!prCaja) return '<td style="padding:8px;text-align:right;color:#cbd5e1">—</td>';
+        const pvMilARS = esUSD ? prCaja/cat.ref*1000*tc : prCaja/cat.ref*1000;
+        const margen = (pvMilARS-costoMilARS)/pvMilARS*100;
+        const mc = margen>=45?'#16a34a':margen>=30?'#d97706':'#dc2626';
+        const mb = margen>=45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
+        return '<td style="padding:8px;text-align:right">' +
+          '<div style="font-weight:600;font-size:13px">'+pvMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div>' +
+          '<div style="margin-top:3px"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span></div>' +
+        '</td>';
+      }).join('');
+      return '<tr style="border-top:1px solid #f1f5f9">' +
+        '<td style="padding:8px;font-weight:700">'+prod+'</td>' +
+        '<td style="padding:8px;text-align:center;font-family:monospace">'+costoMil.toFixed(2)+' USD</td>' +
+        '<td style="padding:8px;text-align:center;color:#475569">'+costoMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>' +
+        cells + '</tr>';
+    }).join('');
+  }
+}
+
+async function guardarCostos() {
+  if (!STATE.costos) STATE.costos = {};
+  const petEl = document.getElementById('cos-pet-kg');
+  const moEl  = document.getElementById('cos-mo-ars');
+  STATE.costos.petKg = petEl ? parseFloat(petEl.value)||1.412761 : 1.412761;
+  STATE.costos.moARS = moEl  ? parseFloat(moEl.value) ||7000     : 7000;
+  // Also sync to precios page
+  const prPetEl = document.getElementById('pr-costo-pet');
+  if (prPetEl) prPetEl.value = STATE.costos.petKg;
+  await saveToCloud();
+  toast('Parámetros de costo guardados ✓', 'ok');
 }
 boot();
 
