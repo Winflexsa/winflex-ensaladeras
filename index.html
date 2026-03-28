@@ -236,6 +236,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <button class="nav-item" onclick="goTo('graficos',this)"><span class="icon">📈</span> Gráficos</button>
       <button class="nav-item" onclick="goTo('exportar',this)"><span class="icon">⬇</span> Exportar Excel</button>
       <button class="nav-item" onclick="goTo('cobranzas',this)"><span class="icon">💰</span> Cobranzas</button>
+      <button class="nav-item" onclick="goTo('precios',this)"><span class="icon">🏷</span> Precios</button>
     </nav>
     <div class="sync-area">
       <div class="sync-pill">
@@ -285,7 +286,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <div class="form-grid">
           <div class="form-group"><label>Fecha del pedido</label><input type="date" id="np-fecha"></div>
           <div class="form-group"><label>Fecha entrega estimada</label><input type="date" id="np-entrega"></div>
-          <div class="form-group"><label>Cliente</label><input type="text" id="np-cliente" list="list-clientes" placeholder="Cliente..." autocomplete="off"><datalist id="list-clientes"></datalist></div>
+          <div class="form-group"><label>Cliente</label><input type="text" id="np-cliente" onchange="calcPrecioPreview()" onblur="calcPrecioPreview()" list="list-clientes" placeholder="Cliente..." autocomplete="off"><datalist id="list-clientes"></datalist></div>
           <div class="form-group"><label>Lugar de despacho</label><input type="text" id="np-despacho" list="list-despachos" placeholder="Despacho..." autocomplete="off"><datalist id="list-despachos"></datalist></div>
           <div class="form-group"><label>Vendedor</label><select id="np-vendedor"><option value="">— Seleccionar —</option><option>Nitopi</option><option>Winflex</option></select></div>
           <div class="form-group"><label>Observaciones / N° OC</label><input type="text" id="np-obs" placeholder="OC 1234, nota..."></div>
@@ -465,6 +466,18 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       </div>
     </div>
   </div>
+
+  <div class="page" id="pg-precios">
+    <div class="page-title">Lista de Precios</div>
+    <div class="page-sub">Precios vigentes por producto y presentación · Enero 2026</div>
+
+    <div id="precios-metrics" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="metric-card"><div class="metric-label">Vigencia</div><div class="metric-value" style="font-size:20px">Enero 2026</div><div class="metric-sub">última actualización</div></div>
+      <div class="metric-card"><div class="metric-label">TC Bandex hoy</div><div class="metric-value" style="font-size:20px" id="pr-tc">...</div><div class="metric-sub">BNA billete vendedor</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" id="precios-grid"></div>
+  </div>
   </main>
 </div>
 
@@ -623,7 +636,7 @@ function goTo(name, btn) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById('pg-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
-  const renders = { stock: renderStock, pedidos: renderPedidos, nuevo: initNuevoForm, produccion: renderProduccion, anual: renderAnual, graficos: renderGraficos, cobranzas: renderCobranzas };
+  const renders = { stock: renderStock, pedidos: renderPedidos, nuevo: initNuevoForm, produccion: renderProduccion, anual: renderAnual, graficos: renderGraficos, cobranzas: renderCobranzas, precios: renderPrecios };
   if (renders[name]) renders[name]();
 }
 
@@ -889,6 +902,10 @@ function initNuevoForm() {
       cc.oninput = calc; sc.onchange = calc;
     });
   }
+
+  // Live price preview
+  document.getElementById('np-items-body').addEventListener('change', function(){ setTimeout(calcPrecioPreview, 50); });
+  document.getElementById('np-items-body').addEventListener('input', function(){ setTimeout(calcPrecioPreview, 50); });
 }
 
 async function guardarPedido() {
@@ -1469,17 +1486,55 @@ async function toggleCob(id) {
   if (!STATE.cobranzas) STATE.cobranzas = {};
   const cur = (STATE.cobranzas[id]||{}).estado || 'Por cobrar';
   const hoy = new Date().toISOString().split('T')[0];
-  STATE.cobranzas[id] = cur === 'Cobrado'
-    ? { estado:'Por cobrar', fecha:'' }
-    : { estado:'Cobrado', fecha: hoy };
+  if (cur === 'Cobrado') {
+    STATE.cobranzas[id] = { estado:'Por cobrar', fecha:'' };
+  } else {
+    STATE.cobranzas[id] = { estado:'Cobrado', fecha: hoy };
+  }
   await saveToCloud();
   renderCobranzas();
+  toast((STATE.cobranzas[id].estado === 'Cobrado' ? '✓ Marcado como cobrado' : 'Marcado como por cobrar'), 'ok');
 }
 
 
 
 
 
+
+async function exportarCobranzas() {
+  const tc = await fetchTCBNA();
+  const rows = [['#','Fecha','Cliente','Lista','Producto','Cajas','Unidades','Precio Caja ARS','Subtotal ARS','USD Subtotal','Estado Entrega','Estado Cobranza','Fecha Cobro']];
+  const peds = (STATE.pedidos||[])
+    .filter(p => !String(p.cliente||'').includes('AJUSTE'))
+    .sort((a,b) => String(a.fecha||'').localeCompare(String(b.fecha||'')));
+  for (const p of peds) {
+    const cat = getClienteCat(p.cliente, p.listaPrecio);
+    const precios = PRECIOS[cat];
+    const esUSD = cat === 'BANDEX_USD';
+    const cob = (STATE.cobranzas&&STATE.cobranzas[p.id])||{estado:'Por cobrar',fecha:''};
+    const catLabel = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex USD'}[cat]||cat;
+    if (!p.items||!p.items.length) {
+      rows.push([p.id,p.fecha,p.cliente,catLabel,'','','','','','',p.estado,cob.estado,cob.fecha||'']);
+      continue;
+    }
+    p.items.forEach(it => {
+      const pr = precios&&precios[it.prod]&&precios[it.prod][it.caja];
+      const arsXcj = pr ? (esUSD ? pr*tc : pr) : 0;
+      const sub = arsXcj*(it.cajas||0);
+      const usdSub = esUSD&&pr ? pr*(it.cajas||0) : '';
+      rows.push([p.id,p.fecha,p.cliente,catLabel,it.prod+' x'+it.caja,it.cajas||0,it.uds||(it.cajas||0)*(it.caja||0),arsXcj||'',sub||'',usdSub,p.estado,cob.estado,cob.fecha||'']);
+    });
+  }
+  // Build CSV
+  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cobranzas_winflex_'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a); a.click(); URL.revokeObjectURL(url);
+  toast('Cobranzas exportadas ✓');
+}
 boot();
 
 
@@ -1837,6 +1892,8 @@ function exportCompleto() {
     </div>
   </div>
 </div>
+
+  
 
   
 </body>
