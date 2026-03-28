@@ -527,48 +527,68 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
   </div>
   <div class="page" id="pg-costos">
     <div class="page-title">Costos y Márgenes</div>
-    <div class="page-sub">Modelo de costos por producto · Análisis de margen por lista de precios</div>
+    <div class="page-sub">Modelo de costos detallado · Análisis de markup por lista de precios</div>
 
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-      <div class="metric-card" style="margin:0"><div class="metric-label">TC BNA</div><div class="metric-value" style="font-size:16px" id="cos-tc">...</div><div class="metric-sub">billete vendedor</div></div>
-      <div class="metric-card" style="margin:0"><div class="metric-label">Costo PET/kg</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:12px;color:#64748b">USD</span><input id="cos-pet-kg" type="number" step="0.0001" value="1.412761" oninput="refreshMargen()" style="width:80px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:14px;font-weight:700"></div></div>
-      <div class="metric-card" style="margin:0"><div class="metric-label">MO ARS/hora/op.</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:12px;color:#64748b">$</span><input id="cos-mo-ars" type="number" step="100" value="7000" oninput="refreshMargen()" style="width:80px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:14px;font-weight:700"></div></div>
-      <button class="btn btn-primary" style="margin-left:auto" onclick="guardarCostos()">💾 Guardar parámetros</button>
+    <!-- Parámetros globales -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:stretch">
+      <div class="metric-card" style="margin:0">
+        <div class="metric-label">TC BNA billete vendedor</div>
+        <div class="metric-value" style="font-size:18px" id="cos-tc">...</div>
+      </div>
+      <div class="metric-card" style="margin:0">
+        <div class="metric-label">Costo PET/kg (USD)</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <input id="cos-pet-kg" type="number" step="0.0001" value="1.412761" oninput="refreshMargen()"
+            style="width:100px;padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:15px;font-weight:700">
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">PET cristal. E910 lleva +10%</div>
+      </div>
+      <div class="metric-card" style="margin:0">
+        <div class="metric-label">MO ARS/hora/operario</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <input id="cos-mo-ars" type="number" step="100" value="7000" oninput="refreshMargen()"
+            style="width:100px;padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:15px;font-weight:700">
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">3 operarios · 50% cargas soc.</div>
+      </div>
+      <div style="display:flex;align-items:center;margin-left:auto">
+        <button class="btn btn-primary" onclick="guardarCostos()">💾 Guardar parámetros</button>
+      </div>
     </div>
 
-    <!-- Costo desglosado por producto -->
-    <div class="card" style="margin-bottom:16px;overflow-x:auto">
-      <div class="card-title" style="margin-bottom:10px">Costo de producción por producto</div>
-      <table style="width:100%;border-collapse:collapse" id="cos-tabla">
+    <!-- Tabla de costos con expand -->
+    <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden">
+      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <span style="font-weight:700;font-size:14px">Costo de producción por producto</span>
+        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Click en una fila para ver el desglose completo</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#f8fafc">
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:left">Producto</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">MP USD/un</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">MO USD/un</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Energía USD/un</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Otros USD/un</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Total USD/un</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">USD/millar</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">ARS/millar</th>
+          <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left;width:24px"></th>
+          <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left">Producto</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">USD/millar</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">ARS/millar</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">USD/unidad</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">% MP</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">% MO</th>
+          <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:right">% Otros</th>
         </tr></thead>
         <tbody id="cos-tabla-body"></tbody>
       </table>
     </div>
 
-    <!-- Margen por lista -->
-    <div class="card" style="overflow-x:auto">
-      <div class="card-title" style="margin-bottom:10px">Análisis de margen por lista de precios (precio de venta ARS/millar)</div>
-      <table style="width:100%;border-collapse:collapse" id="cos-margen-tabla">
-        <thead><tr style="background:#f8fafc">
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:left">Producto</th>
-          <th style="padding:8px;font-size:11px;color:#64748b">Costo USD/millar</th>
-          <th style="padding:8px;font-size:11px;color:#64748b">Costo ARS/millar</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Winflex</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Nitopi</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Env.Group</th>
-          <th style="padding:8px;font-size:11px;color:#64748b;text-align:right">Bandex</th>
-        </tr></thead>
-        <tbody id="cos-margen-body"></tbody>
-      </table>
+    <!-- Análisis markup/margen completo -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <span style="font-weight:700;font-size:14px">Análisis de markup y margen por lista de precios</span>
+        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio referencia: caja de 300 uds (Bandex: x440)</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:700px">
+          <thead id="cos-margen-head"></thead>
+          <tbody id="cos-margen-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
   </main>
@@ -1777,25 +1797,7 @@ async function calcPrecioPreview() {
 
 let _tabPrecios = 'WINFLEX';
 
-async function renderPrecios() {
-  const tc = await fetchTCBNA();
-  const tcEl = document.getElementById('pr-tc');
-  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
 
-  // Use latest vigente or PRECIOS default
-  if (!STATE.historialPrecios || !STATE.historialPrecios.length) {
-    STATE.historialPrecios = [{
-      fecha: new Date().toISOString().split('T')[0],
-      vigencia: 'Enero 2026',
-      listas: JSON.parse(JSON.stringify(PRECIOS))
-    }];
-  }
-  const vigente = STATE.historialPrecios[STATE.historialPrecios.length - 1];
-  const vigEl = document.getElementById('pr-vigencia');
-  if (vigEl) vigEl.textContent = vigente.vigencia || vigente.fecha;
-
-  selTabPrecios(_tabPrecios, tc, vigente.listas);
-}
 
 function selTabPrecios(cat, tc, listas) {
   _tabPrecios = cat;
@@ -2072,238 +2074,381 @@ async function renderPrecios() {
   renderHistorialPrecios();
 }
 
+
+
+
+
+
+
+
+
+
+
+// ─── COSTOS ────────────────────────────────────────────────────
+
+
+
+
+
+
+
+// ════════════════════════════════════════════════════════════
+// PRECIOS
+// ════════════════════════════════════════════════════════════
+
+async function renderPrecios() {
+  const tc = await fetchTCBNA();
+  const tcEl = document.getElementById('pr-tc');
+  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
+  const costoPetEl = document.getElementById('pr-costo-pet');
+  const costoPET = costoPetEl ? parseFloat(costoPetEl.value)||1.412761 : 1.412761;
+  if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
+  const pv = STATE.preciosVigentes;
+  const vigEl = document.getElementById('pr-vigencia');
+  const lastH = STATE.historicoPrecios && STATE.historicoPrecios.length ? STATE.historicoPrecios[STATE.historicoPrecios.length-1] : null;
+  if (vigEl) vigEl.textContent = lastH ? lastH.vigencia : 'Enero 2026 (base)';
+  const CATS = [
+    { key:'WINFLEX',       label:'Winflex',      color:'#0369a1', bg:'#e0f2fe', note:'ARS/caja' },
+    { key:'NITOPI',        label:'Nitopi',        color:'#7c3aed', bg:'#ede9fe', note:'ARS/caja' },
+    { key:'ENVASES_GROUP', label:'Env.Group',     color:'#0891b2', bg:'#ecfeff', note:'ARS/caja' },
+    { key:'BANDEX_USD',    label:'Bandex',        color:'#b45309', bg:'#fef3c7', note:'USD/millar' },
+  ];
+  const PRODS = ['E900','T900','E910']; const CAJAS_L = [100,300,440,500,1000];
+  const CAJAS_LBL = {100:'x100',300:'x300',440:'x440',500:'x500',1000:'x1000'};
+  const REF = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
+
+  // Tabla referencia por millar
+  const tMillar = document.getElementById('pr-millar-tabla');
+  if (tMillar) {
+    const hdrs = '<thead><tr style="background:#f8fafc"><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
+      CATS.map(c=>'<th style="padding:6px 8px;font-size:11px;color:'+c.color+';text-align:right;font-weight:700">'+c.label+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400">ARS/millar</span></th>').join('') +
+      CATS.map(c=>'<th style="padding:6px 8px;font-size:11px;color:'+c.color+';text-align:right">'+c.label+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400">USD/millar</span></th>').join('') +
+      '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">Costo USD/mil</th>' +
+      '</tr></thead>';
+    const rows = PRODS.map(prod => {
+      const cos = calcCostoMillar(prod, costoPET, tc);
+      const arsMillarCells = CATS.map(cat => {
+        const catPV = (pv[cat.key]||{})[prod]||{};
+        const rc = REF[cat.key]; const prCaja = catPV[rc];
+        if (!prCaja) return '<td style="padding:6px 8px;text-align:right;color:#cbd5e1">—</td>';
+        const pvM = cat.key==='BANDEX_USD' ? prCaja/rc*1000*tc : prCaja/rc*1000;
+        return '<td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px">'+pvM.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>';
+      }).join('');
+      const usdMillarCells = CATS.map(cat => {
+        const catPV = (pv[cat.key]||{})[prod]||{};
+        const rc = REF[cat.key]; const prCaja = catPV[rc];
+        if (!prCaja) return '<td style="padding:6px 8px;text-align:right;color:#cbd5e1">—</td>';
+        const pvUSD = cat.key==='BANDEX_USD' ? prCaja/rc*1000 : prCaja/rc*1000/tc;
+        return '<td style="padding:6px 8px;text-align:right;font-size:12px;color:#475569">'+pvUSD.toFixed(1)+'</td>';
+      }).join('');
+      return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:700">'+prod+'</td>'+arsMillarCells+usdMillarCells+
+        '<td style="padding:6px 10px;text-align:right;color:#475569">'+(cos?cos.costoMillar.toFixed(2)+' USD':'—')+'</td></tr>';
+    }).join('');
+    tMillar.innerHTML = hdrs + '<tbody>'+rows+'</tbody>';
+  }
+
+  // Grids editables
+  const grid = document.getElementById('precios-grid');
+  if (grid) {
+    grid.innerHTML = CATS.map(cat => {
+      const catPV = pv[cat.key]||{}; const esUSD = cat.key==='BANDEX_USD';
+      const rows = PRODS.map(prod => {
+        const cells = CAJAS_L.map(c => {
+          const v = catPV[prod]&&catPV[prod][c] ? catPV[prod][c] : 0;
+          const ars = v ? (esUSD?v*tc:v) : 0;
+          const id = 'pr_'+cat.key+'_'+prod+'_'+c;
+          return '<td style="padding:3px 4px;text-align:right">'+
+            '<input id="'+id+'" type="number" step="0.01" value="'+(v||'')+'" oninput="previewPrecio(\''+id+'\','+(esUSD?1:0)+','+tc+')" '+
+            'style="width:78px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-weight:600;text-align:right">'+
+            '<div style="font-size:9px;color:#94a3b8;margin-top:1px">'+(ars>0?ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—')+'</div></td>';
+        }).join('');
+        return '<tr><td style="padding:3px 8px;font-weight:700;font-size:12px">'+prod+'</td>'+cells+'</tr>';
+      }).join('');
+      return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:8px 12px;background:'+cat.bg+';border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">'+
+        '<span style="font-weight:700;font-size:13px;color:'+cat.color+'">'+cat.label+'</span><span style="font-size:10px;color:#64748b">'+cat.note+'</span></div>'+
+        '<div style="overflow-x:auto;padding:5px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>'+
+        CAJAS_L.map(c=>'<th style="padding:3px 4px;font-size:10px;color:#64748b;text-align:right">'+CAJAS_LBL[c]+'</th>').join('')+
+        '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    }).join('');
+  }
+
+  renderComparativoPrecios(tc, costoPET);
+  renderHistorialPrecios();
+}
+
 function renderComparativoPrecios(tc, costoPET) {
   const tComp = document.getElementById('pr-comparativo');
   if (!tComp) return;
-  const PRODS  = ['E900','T900','E910'];
-  const CATS   = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
-  const LABELS = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex'};
-  const REF    = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
-
-  const hdrs = '<thead><tr style="background:#f8fafc">' +
-    '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
-    '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">Costo ARS/millar</th>' +
-    CATS.map(c=>'<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">'+LABELS[c]+' ARS/mil</th><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:center">Margen</th>').join('') +
+  const PRODS = ['E900','T900','E910'];
+  const CATS = [
+    {key:'WINFLEX',label:'Winflex',ref:300},{key:'NITOPI',label:'Nitopi',ref:300},
+    {key:'ENVASES_GROUP',label:'Env.Group',ref:100},{key:'BANDEX_USD',label:'Bandex',ref:440},
+  ];
+  const hdrs = '<thead><tr style="background:#f8fafc"><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>'+
+    '<th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:right">Costo ARS/mil</th>'+
+    CATS.map(c=>'<th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:right">'+c.label+'</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center">Margen</th>').join('')+
   '</tr></thead>';
-
   const rows = PRODS.map(prod => {
     const cos = calcCostoMillar(prod, costoPET||1.412761, tc||1405);
-    const cosARS = cos ? cos.costoMillar * tc : 0;
+    const cosARS = cos ? cos.costoMillar*tc : 0;
     const cells = CATS.map(cat => {
-      const esUSD  = cat.key === 'BANDEX_USD';
-      const catPV  = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||{})[prod]||{};
-      const rc     = REF[cat.key];
-      const prCaja = catPV[rc];
-      if (!prCaja || !cos) return '<td colspan="2" style="padding:6px;text-align:center;color:#cbd5e1">—</td>';
-      const pvMillar = (esUSD ? prCaja/rc*1000*tc : prCaja/rc*1000);
-      const margen   = cosARS > 0 ? (pvMillar - cosARS) / pvMillar * 100 : 0;
-      const mc = margen >= 45?'#16a34a':margen>=30?'#d97706':'#dc2626';
-      const mb = margen >= 45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
-      return '<td style="padding:6px 8px;text-align:right;font-weight:600">' +
-          pvMillar.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) +
-        '</td><td style="padding:6px 8px;text-align:center">' +
-          '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span>' +
-        '</td>';
+      const esUSD = cat.key==='BANDEX_USD';
+      const catPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||{})[prod]||{};
+      const prCaja = catPV[cat.ref];
+      if (!prCaja||!cos) return '<td colspan="2" style="padding:6px;text-align:center;color:#cbd5e1">—</td>';
+      const pvM = esUSD ? prCaja/cat.ref*1000*tc : prCaja/cat.ref*1000;
+      const margen = (pvM-cosARS)/pvM*100;
+      const mc = margen>=45?'#16a34a':margen>=30?'#d97706':'#dc2626';
+      const mb = margen>=45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
+      return '<td style="padding:6px 8px;text-align:right;font-weight:600;font-size:12px">'+pvM.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+        '<td style="padding:6px 8px;text-align:center"><span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span></td>';
     }).join('');
-    return '<tr style="border-top:1px solid #f1f5f9">' +
-      '<td style="padding:6px 10px;font-weight:700">'+prod+'</td>' +
-      '<td style="padding:6px 10px;text-align:right;color:#475569">' + (cosARS>0?cosARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—') + '</td>' +
-      cells + '</tr>';
+    return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:700">'+prod+'</td>'+
+      '<td style="padding:6px 8px;text-align:right;color:#475569">'+(cosARS>0?cosARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—')+'</td>'+cells+'</tr>';
   }).join('');
-  tComp.innerHTML = hdrs + '<tbody>' + rows + '</tbody>';
+  tComp.innerHTML = hdrs+'<tbody>'+rows+'</tbody>';
 }
 
 function previewPrecio(id, esUSD, tc) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const v = parseFloat(el.value) || 0;
-  const ars = esUSD ? v * tc : v;
+  const el = document.getElementById(id); if(!el) return;
+  const v = parseFloat(el.value)||0; const ars = esUSD?v*tc:v;
   const next = el.nextElementSibling;
-  if (next) next.textContent = ars > 0 ? ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+  if(next) next.textContent = ars>0?ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—';
 }
 
 async function guardarPrecios() {
-  if (!STATE.preciosVigentes) STATE.preciosVigentes = {};
-  const CATS  = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
-  const PRODS = ['E900','T900','E910'];
-  const CAJAS = [100,300,440,500,1000];
-  CATS.forEach(cat => {
-    if (!STATE.preciosVigentes[cat]) STATE.preciosVigentes[cat] = {};
-    PRODS.forEach(prod => {
-      if (!STATE.preciosVigentes[cat][prod]) STATE.preciosVigentes[cat][prod] = {};
-      CAJAS.forEach(c => {
-        const el = document.getElementById('pr_'+cat+'_'+prod+'_'+c);
-        if (el) {
-          const v = parseFloat(el.value)||0;
-          STATE.preciosVigentes[cat][prod][c] = v;
-          if (!PRECIOS[cat]) PRECIOS[cat]={};
-          if (!PRECIOS[cat][prod]) PRECIOS[cat][prod]={};
-          PRECIOS[cat][prod][c] = v;
-        }
+  if(!STATE.preciosVigentes) STATE.preciosVigentes = {};
+  const CATS=['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
+  const PRODS=['E900','T900','E910']; const CAJAS=[100,300,440,500,1000];
+  CATS.forEach(cat=>{
+    if(!STATE.preciosVigentes[cat]) STATE.preciosVigentes[cat]={};
+    PRODS.forEach(prod=>{
+      if(!STATE.preciosVigentes[cat][prod]) STATE.preciosVigentes[cat][prod]={};
+      CAJAS.forEach(c=>{
+        const el=document.getElementById('pr_'+cat+'_'+prod+'_'+c);
+        if(el){const v=parseFloat(el.value)||0; STATE.preciosVigentes[cat][prod][c]=v;
+          if(!PRECIOS[cat])PRECIOS[cat]={}; if(!PRECIOS[cat][prod])PRECIOS[cat][prod]={};
+          PRECIOS[cat][prod][c]=v;}
       });
     });
   });
-  const vigInput = document.getElementById('pr-nueva-vigencia');
-  const vigencia = (vigInput&&vigInput.value.trim()) || (() => {
-    const m = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const n = new Date();
-    return m[n.getMonth()] + ' ' + n.getFullYear();
+  const vigInput=document.getElementById('pr-nueva-vigencia');
+  const vigencia=(vigInput&&vigInput.value.trim())||(()=>{
+    const m=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const n=new Date(); return m[n.getMonth()]+' '+n.getFullYear();
   })();
-  if (!STATE.historicoPrecios) STATE.historicoPrecios = [];
-  STATE.historicoPrecios.push({
-    fecha: new Date().toISOString().split('T')[0],
-    vigencia,
-    precios: JSON.parse(JSON.stringify(STATE.preciosVigentes))
-  });
-  if (vigInput) vigInput.value = '';
+  if(!STATE.historicoPrecios) STATE.historicoPrecios=[];
+  STATE.historicoPrecios.push({fecha:new Date().toISOString().split('T')[0],vigencia,precios:JSON.parse(JSON.stringify(STATE.preciosVigentes))});
+  if(vigInput) vigInput.value='';
   await saveToCloud();
-  toast('Lista "'+vigencia+'" guardada ✓', 'ok');
+  toast('Lista "'+vigencia+'" guardada ✓','ok');
   renderPrecios();
-  if (document.getElementById('pg-costos').classList.contains('active')) renderCostos();
+  if(document.getElementById('pg-costos').classList.contains('active')) renderCostos();
 }
 
 function renderHistorialPrecios() {
-  const el = document.getElementById('precios-historial');
-  if (!el) return;
-  const hist = STATE.historicoPrecios || [];
-  if (!hist.length) { el.innerHTML = '<span style="color:var(--text3)">Sin historial guardado.</span>'; return; }
-  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' +
-    [...hist].reverse().map((h,idx) => {
-      const isLast = idx===0;
-      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:'+(isLast?'#f0fdf4':'#f8fafc')+';border:1px solid '+(isLast?'#86efac':'#e2e8f0')+';border-radius:8px">' +
-        '<div style="flex:1"><b style="font-size:13px">'+h.vigencia+'</b><span style="font-size:11px;color:#94a3b8;margin-left:8px">'+h.fecha+'</span>'+(isLast?'<span style="font-size:11px;color:#16a34a;margin-left:8px;font-weight:600">✓ vigente</span>':'')+'</div>' +
-        '<button onclick="restaurarListaPrecios('+(hist.length-1-idx)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Restaurar</button>' +
+  const el=document.getElementById('precios-historial'); if(!el) return;
+  const hist=STATE.historicoPrecios||[];
+  if(!hist.length){el.innerHTML='<span style="color:var(--text3)">Sin historial guardado.</span>';return;}
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
+    [...hist].reverse().map((h,idx)=>{
+      const isLast=idx===0;
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:'+(isLast?'#f0fdf4':'#f8fafc')+';border:1px solid '+(isLast?'#86efac':'#e2e8f0')+';border-radius:8px">'+
+        '<div style="flex:1"><b style="font-size:13px">'+h.vigencia+'</b><span style="font-size:11px;color:#94a3b8;margin-left:8px">'+h.fecha+'</span>'+(isLast?'<span style="font-size:11px;color:#16a34a;margin-left:8px;font-weight:600">✓ vigente</span>':'')+'</div>'+
+        '<button onclick="restaurarListaPrecios('+(hist.length-1-idx)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Restaurar</button>'+
       '</div>';
-    }).join('') + '</div>';
+    }).join('')+'</div>';
 }
 
 function restaurarListaPrecios(idx) {
-  const h = STATE.historicoPrecios&&STATE.historicoPrecios[idx];
-  if (!h) return;
-  STATE.preciosVigentes = JSON.parse(JSON.stringify(h.precios));
-  Object.keys(h.precios).forEach(cat => {
-    Object.keys(h.precios[cat]).forEach(prod => {
-      if (!PRECIOS[cat]) PRECIOS[cat]={};
-      if (!PRECIOS[cat][prod]) PRECIOS[cat][prod]={};
-      Object.assign(PRECIOS[cat][prod], h.precios[cat][prod]);
-    });
-  });
+  const h=STATE.historicoPrecios&&STATE.historicoPrecios[idx]; if(!h) return;
+  STATE.preciosVigentes=JSON.parse(JSON.stringify(h.precios));
+  Object.keys(h.precios).forEach(cat=>{Object.keys(h.precios[cat]).forEach(prod=>{
+    if(!PRECIOS[cat])PRECIOS[cat]={}; if(!PRECIOS[cat][prod])PRECIOS[cat][prod]={};
+    Object.assign(PRECIOS[cat][prod],h.precios[cat][prod]);
+  });});
   toast('Lista "'+h.vigencia+'" restaurada ✓','ok');
   renderPrecios();
 }
 
-// ─── COSTOS ────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// COSTOS
+// ════════════════════════════════════════════════════════════
 
 async function renderCostos() {
   const tc = await fetchTCBNA();
   const tcEl = document.getElementById('cos-tc');
   if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
-  if (!STATE.costos) STATE.costos = {};
-  // Load saved params or use defaults
-  const petEl = document.getElementById('cos-pet-kg');
-  const moEl  = document.getElementById('cos-mo-ars');
-  if (petEl && STATE.costos.petKg)  petEl.value = STATE.costos.petKg;
-  if (moEl  && STATE.costos.moARS)  moEl.value  = STATE.costos.moARS;
+  if (STATE.costos) {
+    const petEl=document.getElementById('cos-pet-kg');
+    const moEl=document.getElementById('cos-mo-ars');
+    if(petEl&&STATE.costos.petKg) petEl.value=STATE.costos.petKg;
+    if(moEl&&STATE.costos.moARS) moEl.value=STATE.costos.moARS;
+  }
   refreshMargen(tc);
 }
 
 async function refreshMargen(tc) {
   if (!tc) tc = await fetchTCBNA();
-  const petEl  = document.getElementById('cos-pet-kg');
-  const moEl   = document.getElementById('cos-mo-ars');
-  const costoPET = petEl ? parseFloat(petEl.value)||1.412761 : 1.412761;
-  const moARS    = moEl  ? parseFloat(moEl.value) ||7000      : 7000;
+  const costoPET = parseFloat((document.getElementById('cos-pet-kg')||{}).value)||1.412761;
+  const moARS    = parseFloat((document.getElementById('cos-mo-ars')||{}).value)||7000;
+  const PRODS    = ['E900','T900','E910','S900'];
 
-  // Temporarily override MO in COSTOS_BASE for calculation
-  const PRODS = ['E900','T900','E910','S900'];
+  // Cost summary table
   const tbody = document.getElementById('cos-tabla-body');
   if (tbody) {
     tbody.innerHTML = PRODS.map(prod => {
-      const b = COSTOS_BASE[prod];
-      if (!b) return '';
-      // Recalc with current MO
-      const moTotal    = moARS * b.operarios * (1 + b.cargasSoc);
-      const moUsdUnit  = (moTotal / b.udsHora) / tc;
-      const petFactor  = b.petNegroFactor || 1;
-      const petKg      = costoPET * petFactor;
-      const desper     = (b.pesoBruto_g - b.pesoNeto_g) / 1000;
-      const noRecup    = desper * (1 - b.tasaRecup);
-      const mpUtil     = b.pesoNeto_g/1000 + noRecup;
-      const costoMP    = mpUtil * petKg;
-      const costoEn    = b.energiaUSD_kg * mpUtil;
-      const costoOtros = b.otrosUSD_kg * mpUtil;
-      const costoUnit  = costoMP + moUsdUnit + costoEn + costoOtros;
-      const costoMil   = costoUnit * 1000;
-      const costoMilARS= costoMil * tc;
-      return '<tr style="border-top:1px solid #f1f5f9">' +
-        '<td style="padding:8px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+b.label+'</small></td>' +
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoMP.toFixed(5)+'</td>' +
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+moUsdUnit.toFixed(5)+'</td>' +
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoEn.toFixed(5)+'</td>' +
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px">'+costoOtros.toFixed(5)+'</td>' +
-        '<td style="padding:8px;text-align:right;font-weight:700;font-size:13px">'+costoUnit.toFixed(5)+'</td>' +
-        '<td style="padding:8px;text-align:right;font-weight:700;color:#0369a1">'+costoMil.toFixed(2)+' USD</td>' +
-        '<td style="padding:8px;text-align:right;font-weight:700">'+costoMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>' +
-      '</tr>';
+      const b = COSTOS_BASE[prod]; if (!b) return '';
+      const petFactor = b.petNegroFactor||1;
+      const petKg     = costoPET * petFactor;
+      const moTotal   = moARS * b.operarios * (1+b.cargasSoc);
+      const moUsdUnit = (moTotal/b.udsHora)/tc;
+      const desper    = (b.pesoBruto_g-b.pesoNeto_g)/1000;
+      const mpUtil    = b.pesoNeto_g/1000 + desper*(1-b.tasaRecup);
+      const cosMP     = mpUtil*petKg;
+      const cosEn     = b.energiaUSD_kg*mpUtil;
+      const cosOt     = b.otrosUSD_kg*mpUtil;
+      const cosUnit   = cosMP+moUsdUnit+cosEn+cosOt;
+      const cosMil    = cosUnit*1000;
+      const cosMilARS = cosMil*tc;
+      const pctMP = cosUnit>0 ? cosMP/cosUnit*100 : 0;
+      const pctMO = cosUnit>0 ? moUsdUnit/cosUnit*100 : 0;
+      const pctOt = cosUnit>0 ? (cosEn+cosOt)/cosUnit*100 : 0;
+      const detId = 'cosdet-'+prod;
+
+      return '<tr onclick="toggleCosDetail(\''+detId+'\')" style="cursor:pointer;border-top:1px solid #f1f5f9">'+
+        '<td style="padding:8px 12px;color:#94a3b8;font-size:13px" id="cosarr-'+prod+'">▶</td>'+
+        '<td style="padding:8px 12px"><div style="font-weight:700">'+prod+'</div><div style="font-size:11px;color:#64748b">'+b.label+'</div></td>'+
+        '<td style="padding:8px;text-align:right;font-weight:700;color:#0369a1;font-size:13px">'+cosMil.toFixed(2)+' USD</td>'+
+        '<td style="padding:8px;text-align:right;font-weight:700;font-size:13px">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+        '<td style="padding:8px;text-align:right;font-size:12px;font-family:monospace">'+cosUnit.toFixed(5)+'</td>'+
+        '<td style="padding:8px;text-align:right"><div style="background:#e0f2fe;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctMP.toFixed(0)+'%</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="background:#ede9fe;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctMO.toFixed(0)+'%</div></td>'+
+        '<td style="padding:8px 12px;text-align:right"><div style="background:#f0fdf4;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctOt.toFixed(0)+'%</div></td>'+
+      '</tr>'+
+      // Detail row (hidden)
+      '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;background:#f8fafc;border-top:1px solid #e2e8f0">'+
+      '<div style="padding:16px 48px">'+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">'+
+          '<div style="background:white;border:1px solid #e0f2fe;border-radius:8px;padding:10px 14px">'+
+            '<div style="font-size:10px;color:#0369a1;font-weight:600;margin-bottom:4px">🧱 MATERIA PRIMA</div>'+
+            '<div style="font-size:13px;font-weight:700">'+cosMP.toFixed(5)+' USD/un</div>'+
+            '<div style="font-size:11px;color:#64748b;margin-top:4px">Peso neto: '+b.pesoNeto_g+'g · Bruto: '+b.pesoBruto_g+'g</div>'+
+            '<div style="font-size:11px;color:#64748b">MP utilizada: '+(mpUtil*1000).toFixed(2)+'g/un</div>'+
+            '<div style="font-size:11px;color:#64748b">PET: '+petKg.toFixed(4)+' USD/kg'+(petFactor>1?' (+'+((petFactor-1)*100).toFixed(0)+'% PET negro)':'')+'</div>'+
+            '<div style="font-size:12px;font-weight:600;color:#0369a1;margin-top:4px">'+pctMP.toFixed(1)+'% del costo total</div>'+
+          '</div>'+
+          '<div style="background:white;border:1px solid #ede9fe;border-radius:8px;padding:10px 14px">'+
+            '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:4px">👷 MANO DE OBRA</div>'+
+            '<div style="font-size:13px;font-weight:700">'+moUsdUnit.toFixed(5)+' USD/un</div>'+
+            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.operarios+' operarios · $'+moARS.toLocaleString('es-AR')+'/hora</div>'+
+            '<div style="font-size:11px;color:#64748b">'+b.udsHora.toLocaleString('es-AR')+' uds/hora</div>'+
+            '<div style="font-size:11px;color:#64748b">Cargas soc.: '+(b.cargasSoc*100)+'%</div>'+
+            '<div style="font-size:12px;font-weight:600;color:#7c3aed;margin-top:4px">'+pctMO.toFixed(1)+'% del costo total</div>'+
+          '</div>'+
+          '<div style="background:white;border:1px solid #fef3c7;border-radius:8px;padding:10px 14px">'+
+            '<div style="font-size:10px;color:#b45309;font-weight:600;margin-bottom:4px">⚡ ENERGÍA</div>'+
+            '<div style="font-size:13px;font-weight:700">'+cosEn.toFixed(5)+' USD/un</div>'+
+            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.energiaUSD_kg+' USD/kg</div>'+
+            '<div style="font-size:11px;color:#64748b">Base: MP utilizada</div>'+
+            '<div style="font-size:12px;font-weight:600;color:#b45309;margin-top:4px">'+(cosEn/cosUnit*100).toFixed(1)+'% del costo total</div>'+
+          '</div>'+
+          '<div style="background:white;border:1px solid #f0fdf4;border-radius:8px;padding:10px 14px">'+
+            '<div style="font-size:10px;color:#166534;font-weight:600;margin-bottom:4px">📦 OTROS</div>'+
+            '<div style="font-size:13px;font-weight:700">'+cosOt.toFixed(5)+' USD/un</div>'+
+            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.otrosUSD_kg+' USD/kg</div>'+
+            '<div style="font-size:12px;font-weight:600;color:#166534;margin-top:4px">'+(cosOt/cosUnit*100).toFixed(1)+'% del costo total</div>'+
+          '</div>'+
+        '</div>'+
+        '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px">'+
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center">'+
+            '<div><div style="font-size:11px;color:#64748b">Costo por unidad</div><div style="font-size:18px;font-weight:700">'+cosUnit.toFixed(4)+' USD</div></div>'+
+            '<div><div style="font-size:11px;color:#64748b">Costo por millar</div><div style="font-size:18px;font-weight:700;color:#0369a1">'+cosMil.toFixed(2)+' USD</div></div>'+
+            '<div><div style="font-size:11px;color:#64748b">Costo ARS/millar al TC</div><div style="font-size:18px;font-weight:700">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
+          '</div>'+
+        '</div>'+
+      '</div></td></tr>';
     }).join('');
   }
 
-  // Margen table
+  // Markup analysis table — ALL lists + markup + margen
   const PROD_SHOW = ['E900','T900','E910'];
-  const CATS = [
-    {key:'WINFLEX',label:'Winflex',ref:300},
-    {key:'NITOPI',label:'Nitopi',ref:300},
-    {key:'ENVASES_GROUP',label:'Env.Group',ref:100},
-    {key:'BANDEX_USD',label:'Bandex',ref:440},
+  const CATS_SHOW = [
+    {key:'WINFLEX',label:'Winflex',ref:300},{key:'NITOPI',label:'Nitopi',ref:300},
+    {key:'ENVASES_GROUP',label:'Env.Group',ref:100},{key:'BANDEX_USD',label:'Bandex',ref:440},
   ];
+
+  const mHead = document.getElementById('cos-margen-head');
   const mBody = document.getElementById('cos-margen-body');
+  if (mHead) {
+    mHead.innerHTML = '<tr style="background:#f8fafc">'+
+      '<th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left">Producto</th>'+
+      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo<br>USD/mil</th>'+
+      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo<br>ARS/mil</th>'+
+      CATS_SHOW.map(c=>
+        '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">'+c.label+'<br><span style="font-weight:400">PV ARS/mil</span></th>'+
+        '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:center">'+c.label+'<br><span style="font-weight:400">Margen</span></th>'+
+        '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:center">'+c.label+'<br><span style="font-weight:400">Markup</span></th>'
+      ).join('')+
+    '</tr>';
+  }
   if (mBody) {
     mBody.innerHTML = PROD_SHOW.map(prod => {
       const b = COSTOS_BASE[prod]; if (!b) return '';
-      const petFactor = b.petNegroFactor||1;
-      const petKg = costoPET*petFactor;
+      const petFactor = b.petNegroFactor||1; const petKg = costoPET*petFactor;
       const moTotal = moARS*b.operarios*(1+b.cargasSoc);
       const moUsdUnit = (moTotal/b.udsHora)/tc;
       const desper = (b.pesoBruto_g-b.pesoNeto_g)/1000;
-      const mpUtil = b.pesoNeto_g/1000 + desper*(1-b.tasaRecup);
-      const costoUnit = mpUtil*petKg + moUsdUnit + b.energiaUSD_kg*mpUtil + b.otrosUSD_kg*mpUtil;
-      const costoMil = costoUnit*1000;
-      const costoMilARS = costoMil*tc;
-
-      const cells = CATS.map(cat => {
+      const mpUtil = b.pesoNeto_g/1000+desper*(1-b.tasaRecup);
+      const cosUnit = mpUtil*petKg+moUsdUnit+b.energiaUSD_kg*mpUtil+b.otrosUSD_kg*mpUtil;
+      const cosMil = cosUnit*1000; const cosMilARS = cosMil*tc;
+      const cells = CATS_SHOW.map(cat => {
         const esUSD = cat.key==='BANDEX_USD';
         const catPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||{})[prod]||{};
         const prCaja = catPV[cat.ref];
-        if (!prCaja) return '<td style="padding:8px;text-align:right;color:#cbd5e1">—</td>';
+        if (!prCaja) return '<td colspan="3" style="padding:8px;text-align:center;color:#cbd5e1">sin precio</td>';
         const pvMilARS = esUSD ? prCaja/cat.ref*1000*tc : prCaja/cat.ref*1000;
-        const margen = (pvMilARS-costoMilARS)/pvMilARS*100;
+        const margen  = (pvMilARS-cosMilARS)/pvMilARS*100;   // % sobre PV
+        const markup  = cosMilARS>0 ? (pvMilARS-cosMilARS)/cosMilARS*100 : 0; // % sobre costo
         const mc = margen>=45?'#16a34a':margen>=30?'#d97706':'#dc2626';
         const mb = margen>=45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
-        return '<td style="padding:8px;text-align:right">' +
-          '<div style="font-weight:600;font-size:13px">'+pvMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div>' +
-          '<div style="margin-top:3px"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span></div>' +
-        '</td>';
+        return '<td style="padding:8px;text-align:right;font-weight:600;font-size:12px">'+pvMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+          '<td style="padding:8px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span></td>'+
+          '<td style="padding:8px;text-align:center"><span style="font-size:12px;font-weight:700;color:'+mc+'">'+markup.toFixed(0)+'%</span></td>';
       }).join('');
-      return '<tr style="border-top:1px solid #f1f5f9">' +
-        '<td style="padding:8px;font-weight:700">'+prod+'</td>' +
-        '<td style="padding:8px;text-align:center;font-family:monospace">'+costoMil.toFixed(2)+' USD</td>' +
-        '<td style="padding:8px;text-align:center;color:#475569">'+costoMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>' +
-        cells + '</tr>';
+      return '<tr style="border-top:1px solid #f1f5f9">'+
+        '<td style="padding:8px 12px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+b.label+'</small></td>'+
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px;color:#0369a1;font-weight:700">'+cosMil.toFixed(2)+'</td>'+
+        '<td style="padding:8px;text-align:right;color:#475569;font-size:12px">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+        cells+'</tr>';
     }).join('');
+  }
+}
+
+function toggleCosDetail(id) {
+  const row = document.getElementById(id); if (!row) return;
+  const prod = id.replace('cosdet-','');
+  const arr  = document.getElementById('cosarr-'+prod);
+  const open = row.style.display !== 'none';
+  // Close all
+  document.querySelectorAll('[id^="cosdet-"]').forEach(r => r.style.display='none');
+  document.querySelectorAll('[id^="cosarr-"]').forEach(a => { if(a) a.textContent='▶'; });
+  if (!open) {
+    row.style.display = '';
+    if (arr) arr.textContent = '▼';
   }
 }
 
 async function guardarCostos() {
   if (!STATE.costos) STATE.costos = {};
-  const petEl = document.getElementById('cos-pet-kg');
-  const moEl  = document.getElementById('cos-mo-ars');
+  const petEl=document.getElementById('cos-pet-kg');
+  const moEl=document.getElementById('cos-mo-ars');
   STATE.costos.petKg = petEl ? parseFloat(petEl.value)||1.412761 : 1.412761;
-  STATE.costos.moARS = moEl  ? parseFloat(moEl.value) ||7000     : 7000;
-  // Also sync to precios page
+  STATE.costos.moARS = moEl  ? parseFloat(moEl.value)||7000     : 7000;
   const prPetEl = document.getElementById('pr-costo-pet');
   if (prPetEl) prPetEl.value = STATE.costos.petKg;
   await saveToCloud();
-  toast('Parámetros de costo guardados ✓', 'ok');
+  toast('Parámetros guardados ✓','ok');
 }
 boot();
 
