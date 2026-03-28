@@ -368,7 +368,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="metrics" id="anual-metrics"></div>
       <div class="card-grid">
         <div class="card"><div class="card-title">Producción mensual</div><table><thead><tr><th>Mes</th><th>E900</th><th>T900</th><th>Total</th><th>Efic. prom.</th></tr></thead><tbody id="anual-prod"></tbody></table></div>
-        <div class="card"><div class="card-title">Pedidos por vendedor</div><table><thead><tr><th>Vendedor</th><th>Total uds</th><th>Entregado</th><th>Pendiente</th></tr></thead><tbody id="anual-vend"></tbody></table></div>
+        <div class="card"><div class="card-title">Pedidos por vendedor</div><table><thead><tr><th>Vendedor</th><th>Valor</th><th>Total uds</th><th>Entregado</th><th>Pendiente</th></tr></thead><tbody id="anual-vend"></tbody></table></div>
       </div>
     </div>
 
@@ -707,9 +707,10 @@ function renderPedidos() {
       <td style="font-size:12px">${p.despacho || '-'}</td>
       <td>${p.vendedor || '-'}</td>
       <td style="white-space:nowrap">${p.estado !== 'Entregado' ? `<button class="btn btn-sm" onclick="abrirParcial(${p.id})" style="padding:3px 9px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ` : ''}<button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 9px;font-size:11px">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 7px;font-size:11px">×</button></td>
+    <td id="val-${p.id}" style="font-size:12px;white-space:nowrap;font-weight:600"><span style="color:var(--text3)">...</span></td>
     </tr>`;
   }
-  document.getElementById('ped-body').innerHTML = rows || `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
+  document.getElementById('ped-body').innerHTML = rows || `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
 }
 
 function abrirParcial(id) {
@@ -790,7 +791,7 @@ async function confirmarParcial() {
   cerrarParcial();
   await saveToCloud();
   renderStock();
-  renderPedidos();
+  renderPedidos(); setTimeout(loadValoresPedidos, 100);
 }
 
 async function entregar(id) {
@@ -803,7 +804,7 @@ async function entregar(id) {
   } else {
     p.estado = 'Entregado'; p.entrega = today();
     await saveToCloud();
-    renderPedidos();
+    renderPedidos(); setTimeout(loadValoresPedidos, 100);
     toast('Pedido #' + id + ' marcado como entregado');
   }
 }
@@ -813,7 +814,7 @@ async function revertir(id) {
   const p = STATE.pedidos.find(x => x.id === id);
   if (p) { p.estado = 'Pendiente'; p.entrega = ''; p.entrega = ''; }
   await saveToCloud();
-  renderPedidos();
+  renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast(`Pedido #${id} revertido a pendiente`, 'warn');
 }
 
@@ -941,105 +942,108 @@ async function borrarProd(mes, idx) {
 
 function renderProdDetail(m) {
   document.getElementById('prod-detail-title').textContent = 'Registros — ' + m;
-  const allRegs = STATE.prodRegistros[m] || [];
-  const indexed = allRegs.map((r,ri)=>({r,ri}));
-  indexed.sort((a,b)=>{
-    const fd = a.r.fecha.localeCompare(b.r.fecha);
-    if(fd!==0) return fd;
-    return ['M1','M2','N'].indexOf(a.r.turno) - ['M1','M2','N'].indexOf(b.r.turno);
+  var regs = (STATE.prodRegistros[m] || []).slice().sort(function(a,b){
+    var fd = a.fecha.localeCompare(b.fecha);
+    if (fd !== 0) return fd;
+    return ['M1','M2','N'].indexOf(a.turno) - ['M1','M2','N'].indexOf(b.turno);
   });
-  const body = document.getElementById('prod-body');
-  if (!indexed.length) {
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros en '+m+'</td></tr>';
+  var body = document.getElementById('prod-body');
+  if (!regs.length) {
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
     return;
   }
-  const byFecha = {};
-  indexed.forEach(x=>{
-    const f=x.r.fecha, t=x.r.turno;
-    if(!byFecha[f]) byFecha[f]={};
-    if(!byFecha[f][t]) byFecha[f][t]=[];
-    byFecha[f][t].push(x);
+
+  // Group: fecha -> turno -> [registros]
+  var byFecha = {};
+  regs.forEach(function(r, idx) {
+    if (!byFecha[r.fecha]) byFecha[r.fecha] = {};
+    if (!byFecha[r.fecha][r.turno]) byFecha[r.fecha][r.turno] = [];
+    byFecha[r.fecha][r.turno].push({r: r, idx: idx});
   });
-  let html = '';
-  Object.keys(byFecha).sort().forEach(fecha=>{
-    const turnos = byFecha[fecha];
-    let fechaTot = 0;
-    ['M1','M2','N'].forEach(t=>{ (turnos[t]||[]).forEach(x=>{ fechaTot+=(x.r.producido||0); }); });
-    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569">'+
-      fecha+' — Total: '+fechaTot.toLocaleString('es-AR')+' uds</td></tr>';
-    ['M1','M2','N'].forEach(turno=>{
-      const items = turnos[turno];
-      if(!items||!items.length) return;
-      const tUds   = items.reduce((a,x)=>a+(x.r.producido||0),0);
-      const tCajas = items.reduce((a,x)=>a+(x.r.cajas||0),0);
-      const tKg    = items.reduce((a,x)=>a+(x.r.kg||0),0);
-      const tEfic  = items[0].r.efic||0;
-      const prods  = [...new Set(items.map(x=>x.r.prod))].join(', ');
-      const nBob   = items.length;
-      const detId  = 'td'+fecha.replace(/-/g,'')+turno;
-      const ec     = tEfic>=0.8?'#16a34a':tEfic>=0.6?'#d97706':'#dc2626';
-      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(''+detId+'')" title="Ver detalle bobina por bobina">'+
-        '<td style="padding-left:18px;font-size:11px;color:var(--text3)">'+fecha+'</td>'+
-        '<td><span style="display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">'+turno+'</span></td>'+
-        '<td style="font-weight:600">'+prods+'</td>'+
-        '<td style="font-weight:700">'+tUds.toLocaleString('es-AR')+'</td>'+
-        '<td style="color:var(--text3)">—</td>'+
-        '<td>'+tCajas+'</td>'+
-        '<td style="font-size:11px;color:#64748b">'+nBob+' bobina'+(nBob>1?'s':'')+'</td>'+
-        '<td>'+(tKg||'—')+'</td>'+
-        '<td style="font-weight:600;color:'+ec+'">'+(tEfic?(tEfic*100).toFixed(1)+'%':'—')+'</td>'+
-        '<td></td><td style="color:var(--text3);font-size:11px">&#9660;</td></tr>';
-      let detRows = '';
-      items.forEach(x=>{
-        const r=x.r, ri=x.ri;
-        const bobNum = r.nbobina || (r.partida&&r.partida.match(/[B(d+)]$/) ? r.partida.match(/[B(d+)]$/)[1] : '');
-        const partLimpia = (r.partida||'').replace(/s*[Bd+]$/,'');
-        detRows += '<tr style="border-top:1px solid #e2e8f0">'+
-          '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">'+(bobNum?'Bobina '+bobNum:'—')+'</td>'+
-          '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">'+partLimpia+'</td>'+
-          '<td style="padding:5px;font-weight:600">'+r.prod+'</td>'+
-          '<td style="padding:5px">'+(r.producido||0).toLocaleString('es-AR')+'</td>'+
-          '<td style="padding:5px">'+(r.unicaja||'—')+'</td>'+
-          '<td style="padding:5px">'+(r.cajas||'—')+'</td>'+
-          '<td style="padding:5px;font-size:11px;color:#64748b">—</td>'+
-          '<td style="padding:5px">'+(r.kg||'—')+'</td>'+
-          '<td style="padding:5px;color:var(--text3)">—</td>'+
-          '<td style="padding:5px;font-size:11px;color:var(--text2)">'+(r.obs||'')+'</td>'+
-          '<td style="padding:5px;white-space:nowrap">'+
-            '<button onclick="editarProd(''+m+'','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px">✏</button>'+
-            '<button onclick="borrarProd(''+m+'','+ri+')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer">✕</button>'+
-          '</td></tr>';
-      });
-      html += '<tr id="'+detId+'" style="display:none"><td colspan="11" style="padding:0">'+
-        '<table style="width:100%;border-collapse:collapse;background:#f8fafc">'+
-        '<thead><tr style="background:#e2e8f0">'+
-        '<th style="padding:5px 16px;font-size:11px;text-align:left">N° Bobina</th>'+
-        '<th style="padding:5px;font-size:11px">Partida</th><th style="padding:5px;font-size:11px">Prod.</th>'+
-        '<th style="padding:5px;font-size:11px">Uds</th><th style="padding:5px;font-size:11px">Un/cj</th>'+
-        '<th style="padding:5px;font-size:11px">Cajas</th><th style="padding:5px;font-size:11px"></th>'+
-        '<th style="padding:5px;font-size:11px">Kg</th><th style="padding:5px;font-size:11px">Efic.</th>'+
-        '<th style="padding:5px;font-size:11px">Obs.</th><th style="padding:5px;font-size:11px">Acc.</th>'+
-        '</tr></thead><tbody>'+detRows+'</tbody></table></td></tr>';
+
+  var html = '';
+  var fechas = Object.keys(byFecha).sort();
+  fechas.forEach(function(fecha) {
+    var turnos = byFecha[fecha];
+    var fechaTot = 0;
+    ['M1','M2','N'].forEach(function(t){ (turnos[t]||[]).forEach(function(x){ fechaTot += x.r.producido||0; }); });
+
+    // Date separator row
+    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
+      fecha + ' — Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
+
+    ['M1','M2','N'].forEach(function(turno) {
+      if (!turnos[turno] || !turnos[turno].length) return;
+      var tRegs = turnos[turno];
+      var tTot   = tRegs.reduce(function(a,x){ return a + (x.r.producido||0); }, 0);
+      var tCajas = tRegs.reduce(function(a,x){ return a + (x.r.cajas||0); }, 0);
+      var tKg    = tRegs.reduce(function(a,x){ return a + (x.r.kg||0); }, 0);
+      var tEficSum = tRegs.reduce(function(a,x){ return a + (x.r.efic||0); }, 0);
+      var tEfic  = tRegs.length ? tEficSum / tRegs.length : 0;
+      var prods  = tRegs.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+      var nBobinas = tRegs.length;
+      var detId  = 'td-' + fecha.replace(/-/g,'') + '-' + turno;
+
+      // Turno summary row (clickable)
+      html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(\'' + detId + '\')">' +
+        '<td style="padding-left:18px"><span style="font-size:11px;color:var(--text3)">' + fecha + '</span></td>' +
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
+        '<td style="font-weight:600">' + prods + '</td>' +
+        '<td style="font-weight:700">' + tTot.toLocaleString('es-AR') + '</td>' +
+        '<td style="color:var(--text3)">—</td>' +
+        '<td>' + tCajas + '</td>' +
+        '<td style="font-size:11px;color:var(--text3)">' + nBobinas + ' bobinas</td>' +
+        '<td>' + (tKg||'—') + '</td>' +
+        '<td>' + (tEfic ? (tEfic*100).toFixed(1)+'%' : '—') + '</td>' +
+        '<td></td>' +
+        '<td style="color:var(--text3);font-size:12px">&#9660;</td>' +
+        '</tr>' +
+      // Detail sub-table (hidden by default)
+      '<tr id="' + detId + '" style="display:none"><td colspan="11" style="padding:0">' +
+        '<table style="width:100%;border-collapse:collapse;background:#f8fafc">' +
+          '<thead><tr style="background:#e2e8f0">' +
+            '<th style="padding:5px 18px;font-size:11px;text-align:left;font-weight:600">Bobina</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Partida</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Producto</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Producido</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Un/caja</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Cajas</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Kg</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Efic.</th>' +
+            '<th style="padding:5px;font-size:11px;font-weight:600">Obs.</th>' +
+          '</tr></thead><tbody>' +
+          tRegs.map(function(x, bi) {
+            var r = x.r;
+            return '<tr style="border-top:1px solid var(--border)">' +
+              '<td style="padding:5px 18px;font-size:12px;font-weight:700;color:#0369a1">Bobina ' + (bi+1) + '</td>' +
+              '<td style="padding:5px;font-size:11px;font-family:monospace">' + (r.partida||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px;font-weight:600">' + r.prod + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.unicaja||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.cajas||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.kg||'—') + '</td>' +
+              '<td style="padding:5px;font-size:12px">' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '—') + '</td>' +
+              '<td style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'—') + '</td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>' +
+        '</td></tr>';
     });
   });
   body.innerHTML = html;
 }
 
 function toggleTurnoDetail(id) {
-  const row = document.getElementById(id);
-  if(!row) return;
-  const open = row.style.display !== 'none';
-  document.querySelectorAll('[id^="td"]').forEach(r=>{
-    if(/^tdd{8}(M1|M2|N)$/.test(r.id)) r.style.display='none';
-  });
-  document.querySelectorAll('#prod-body tr[onclick]').forEach(r=>{ r.style.background=''; });
-  if(!open){
-    row.style.display='';
-    if(row.previousElementSibling) row.previousElementSibling.style.background='#eff6ff';
+  var row = document.getElementById(id);
+  if (!row) return;
+  var open = row.style.display !== 'none';
+  document.querySelectorAll('[id^="td-"]').forEach(function(r){ r.style.display='none'; });
+  document.querySelectorAll('#prod-body tr[onclick]').forEach(function(r){ r.style.background=''; });
+  if (!open) {
+    row.style.display = '';
+    row.previousElementSibling.style.background = '#eff6ff';
   }
 }
-
-
 
 
 
@@ -1128,7 +1132,7 @@ async function eliminarPedido(id) {
   if(!confirm('¿Eliminar el pedido #' + id + '? Esta acción no se puede deshacer.')) return;
   STATE.pedidos = STATE.pedidos.filter(x=>x.id!==id);
   await saveToCloud();
-  renderPedidos();
+  renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast('Pedido #' + id + ' eliminado');
 }
 
@@ -1151,10 +1155,10 @@ async function initApp() {
     STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
     STATE.nextId        = 1;
   }
-  renderStock(); renderPedidos(); renderProduccion(); renderAnual();
+  renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
   // Luego sincronizar desde la nube
   await loadFromCloud();
-  renderStock(); renderPedidos(); renderProduccion(); renderAnual();
+  renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
 }
 
 async function actualizarDesdeNube() {
@@ -1169,7 +1173,7 @@ async function actualizarDesdeNube() {
     STATE.prodRegistros = d.record.prodRegistros  || STATE.prodRegistros;
     STATE.nextId        = d.record.nextId         || STATE.nextId;
     localStorage.setItem('wf_local', JSON.stringify(d.record));
-    renderStock(); renderPedidos(); renderProduccion(); renderAnual();
+    renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
     setSyncState('ok', '✓ Actualizado');
     toast('Datos actualizados desde la nube', 'ok');
     setTimeout(() => setSyncState('idle', ''), 4000);
@@ -1185,6 +1189,103 @@ async function boot() {
   await initApp();
 }
 
+
+// ─────────────────────────────────────────────────────────
+// SISTEMA DE PRECIOS
+// ─────────────────────────────────────────────────────────
+
+// Precios por caja (ARS) = precio/millar * unicaja/1000
+const PRECIOS = {
+  WINFLEX: {
+    // E900: $84.000/millar, T900: $58.800/millar
+    E900: { 100: 8400,   300: 25200,   440: 36960,   500: 42000,   1000: 84000  },
+    T900: { 100: 5880,   300: 17640,   440: 25872,   500: 29400,   1000: 58800  }
+  },
+  NITOPI: {
+    // E900: $67.405/millar, T900: $47.183/millar
+    E900: { 100: 6740.5, 300: 20221.5, 440: 29658.2, 500: 33702.5, 1000: 67405  },
+    T900: { 100: 4718.3, 300: 14154.9, 440: 20760.52,500: 23591.5, 1000: 47183  }
+  },
+  ENVASES_GROUP: {
+    // E900: $75.961,40/millar, T900: $53.173/millar
+    E900: { 100: 7596.14,300: 22788.42,440: 33423.02,500: 37980.70,1000: 75961.4},
+    T900: { 100: 5317.30,300: 15951.90,440: 23396.12,500: 26586.50,1000: 53173  }
+  },
+  BANDEX_USD: {
+    // USD por millar: E900=50, T900=34  (se multiplica por TC al calcular)
+    E900: { 100: 5,      300: 15,      440: 22,      500: 25,      1000: 50     },
+    T900: { 100: 3.40,   300: 10.20,   440: 14.96,   500: 17,      1000: 34     }
+  }
+};
+
+// Asignación cliente → categoría de precio
+const CLIENTE_CAT = {
+  // Winflex lista propia
+  'Morello':            'WINFLEX',
+  'Fernando Gatti':     'WINFLEX',
+  'Sumo Mendoza':       'WINFLEX',
+  'Papelera Manapel':   'WINFLEX',
+  'El Mundo del Papel': 'WINFLEX',
+  'El mundo del papel': 'WINFLEX',
+  'Cesar Bianchi':      'WINFLEX',
+  'Marcelo Abuarrea':   'WINFLEX',
+  // Clientes especiales
+  'Envases Group':      'ENVASES_GROUP',
+  'Bandex':             'BANDEX_USD',
+  // Todos los demás → NITOPI (default)
+};
+
+function getClienteCat(cliente) {
+  return CLIENTE_CAT[cliente] || 'NITOPI';
+}
+
+// TC BNA billete vendedor (se cachea por sesión)
+let _tcBNA = null;
+async function fetchTCBNA() {
+  if (_tcBNA) return _tcBNA;
+  try {
+    const r = await fetch('https://dolarapi.com/v1/dolares/oficial');
+    const d = await r.json();
+    _tcBNA = d.venta || 1405;
+  } catch(e) {
+    _tcBNA = 1405; // fallback
+  }
+  return _tcBNA;
+}
+
+// Calcular valor de un pedido en ARS
+
+async function loadValoresPedidos() {
+  const peds = STATE.pedidos.filter(p => !String(p.cliente||'').includes('AJUSTE'));
+  for (const p of peds) {
+    const el = document.getElementById('val-' + p.id);
+    if (!el) continue;
+    try {
+      const v = await calcValorPedido(p);
+      if (v.total <= 0) { el.innerHTML = '<span style="color:var(--text3)">s/p</span>'; continue; }
+      const usd = v.esUSD ? ' <small style="color:var(--text3)">(USD ' + (v.total/v.tc).toLocaleString('es-AR', {maximumFractionDigits:0}) + ')</small>' : '';
+      el.innerHTML = '<span style="font-weight:600">' + fmtPeso(v.total) + '</span>' + usd;
+    } catch(e) { el.innerHTML = '-'; }
+  }
+}
+async function calcValorPedido(pedido) {
+  const cat = getClienteCat(pedido.cliente);
+  const precios = PRECIOS[cat];
+  const esUSD = cat === 'BANDEX_USD';
+  const tc = esUSD ? await fetchTCBNA() : 1;
+  let total = 0;
+  (pedido.items || []).forEach(it => {
+    const pCaja = precios && precios[it.prod] && precios[it.prod][it.caja];
+    if (!pCaja || !it.cajas) return;
+    total += pCaja * it.cajas * tc;
+  });
+  return { total, cat, esUSD, tc };
+}
+
+// Formatear valor pedido como string
+function fmtPeso(n) {
+  return n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+}
 boot();
 
 
@@ -1263,7 +1364,7 @@ async function guardarEditar() {
 
   await saveToCloud();
   cerrarEditar();
-  renderPedidos();
+  renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast(`Pedido #${editingId} actualizado`);
 }
 
@@ -1278,62 +1379,50 @@ let pendingImport = [];
 function importarXLSX(input) {
   const file = input.files[0];
   if (!file) return;
-  const st = document.getElementById('import-status');
-  const prev = document.getElementById('import-preview');
-  st.textContent = 'Leyendo archivo...';
-  prev.style.display = 'none';
+  document.getElementById('import-status').textContent = 'Leyendo archivo...';
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      const resSheet = wb.SheetNames.find(n => !n.toLowerCase().includes('detalle'));
-      const detSheet = wb.SheetNames.find(n => n.toLowerCase().includes('detalle'));
-      const eficMap = {};
-      if (resSheet) {
-        XLSX.utils.sheet_to_json(wb.Sheets[resSheet], {defval:''}).forEach(r => {
-          const f = parseFecha(r['Fecha'] || '');
-          const t = String(r['Turno'] || '').trim();
-          const ef = parseFloat(r['Eficiencia'] || 0) || 0;
-          if (f && t) eficMap[f + '_' + t] = ef;
-        });
-      }
-      if (!detSheet) { st.textContent = 'No se encontró "Detalle Produccion".'; return; }
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[detSheet], {defval:''});
-      if (!rows.length) { st.textContent = 'Hoja de detalle vacía.'; return; }
+      // Buscar hoja de resumen (primera hoja que no sea "Detalle")
+      let sheetName = wb.SheetNames.find(n => !n.toLowerCase().includes('detalle')) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { document.getElementById('import-status').textContent = 'El archivo no tiene datos.'; return; }
+      
       pendingImport = [];
-      rows.forEach(r => {
-        const fecha   = parseFecha(r['Fecha'] || '');
-        const turno   = String(r['Turno']    || '').trim();
-        const prod    = String(r['Producto'] || '').trim();
-        const uds     = parseFloat(r['Unidades'] || 0) || 0;
-        const unicaja = parseFloat(r['Unidades x Caja'] || 0) || 0;
-        const cajas   = parseFloat(r['Cajas'] || 0) || 0;
-        const partida = String(r['Partida']  || '').trim();
-        const kg      = parseFloat(r['Peso Kg'] || 0) || 0;
-        const nbobina = String(r['° Bobina'] !== undefined ? r['N° Bobina'] : (r['N Bobina'] || r['NBobina'] || r['Bobina'] || '')).trim();
-        const obs     = String(r['Observaciones'] || '').trim();
-        const efic    = eficMap[fecha + '_' + turno] || 0;
-        if (!fecha || !turno || !prod || !uds) return;
-        pendingImport.push({ fecha, turno, prod, producido:uds, unicaja, cajas, partida, nbobina, kg, efic, obs });
-      });
-      if (!pendingImport.length) { st.textContent = 'Sin registros válidos.'; return; }
-      const tbody = document.getElementById('import-body');
-      if (tbody) {
-        tbody.innerHTML = pendingImport.map(r =>
-          '<tr><td>' + r.fecha + '</td><td>' + r.turno + '</td><td>' + r.prod + '</td>' +
-          '<td>' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
-          '<td>' + (r.unicaja||'') + '</td><td>' + (r.cajas||'') + '</td>' +
-          '<td style="font-size:11px;font-family:monospace">' + r.partida + (r.nbobina?' [B'+r.nbobina+']':'') + '</td>' +
-          '<td>' + (r.kg||'') + '</td>' +
-          '<td>' + (r.efic?(r.efic*100).toFixed(1)+'%':'') + '</td>' +
-          '<td>' + (r.obs||'') + '</td></tr>'
-        ).join('');
+      for (const r of rows) {
+        // Mapear columnas flexiblemente
+        const fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
+        const turno = String(r['Turno'] || r['turno'] || '').trim();
+        const prod = String(r['Producto'] || r['producto'] || '').trim();
+        const producido = parseInt(r['Producido'] || r['producido'] || 0) || 0;
+        const unicaja = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || r['Unidades por Caja'] || 0) || 0;
+        const cajas = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
+        const partida = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
+        const kg = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+        const efic = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+        const obs = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
+        if (!fecha || !prod || !producido) continue;
+        pendingImport.push({ fecha, turno, prod, producido, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), partida, kg, efic, obs });
       }
-      prev.style.display = '';
-      st.textContent = pendingImport.length + ' bobinas desde "' + detSheet + '"';
-    } catch(ex) {
-      st.textContent = 'Error: ' + ex.message;
-      prev.style.display = 'none';
+      
+      if (!pendingImport.length) {
+        document.getElementById('import-status').textContent = 'No se encontraron registros válidos.';
+        return;
+      }
+      
+      document.getElementById('import-status').textContent = `${pendingImport.length} registros encontrados en "${sheetName}"`;
+      document.getElementById('import-preview').style.display = 'block';
+      document.getElementById('import-body').innerHTML = pendingImport.map(r => `<tr>
+        <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
+        <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
+        <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
+        <td>${r.kg?fmt(r.kg):'-'}</td><td>${pct(r.efic)}</td><td style="font-size:12px">${r.obs||'-'}</td>
+      </tr>`).join('');
+    } catch(err) {
+      document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
+      console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1364,7 +1453,7 @@ async function confirmarImport() {
     if (!mes) { skipped++; continue; }
     if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
     // Evitar duplicados exactos (misma fecha+turno+producto+producido)
-    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido && r.partida === reg.partida && (r.nbobina||'')=== (reg.nbobina||''));
+    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido);
     if (!isDup) { STATE.prodRegistros[mes].push(reg); imported++; }
     else skipped++;
   }
