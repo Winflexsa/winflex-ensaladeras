@@ -354,7 +354,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" onclick="guardarProduccion()">Guardar registro</button>
+          <button class="btn btn-primary" id="btn-guardar-prod" onclick="guardarProduccion()">Guardar registro</button>
           <button class="btn" onclick="limpiarProd()">Limpiar</button>
         </div>
       </div>
@@ -625,7 +625,6 @@ function renderStock() {
     '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">' + totProd.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
     '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="' + (pend>0?'color:#d97706':'') + '">' + pend.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>';
 
-  // Tabla stock
   var hdrStock = '<thead><tr><th>Producto</th>';
   CAJAS.forEach(function(c){ hdrStock += '<th>' + c + ' un/cj</th>'; });
   hdrStock += '<th>Total uds</th></tr></thead>';
@@ -646,7 +645,6 @@ function renderStock() {
   });
   document.getElementById('tbl-stock').innerHTML = hdrStock + '<tbody>' + rowsStock + '</tbody>';
 
-  // Tabla producción acumulada
   var hdrProd = '<thead><tr><th>Producto</th>';
   CAJAS.forEach(function(c){ hdrProd += '<th>' + c + '</th>'; });
   hdrProd += '<th>Total</th></tr></thead>';
@@ -655,7 +653,7 @@ function renderStock() {
     if (!CAJAS.some(function(c){ return (SB[p].prod[c]||0)>0; })) return;
     var tot = CAJAS.reduce(function(a,c){ return a+(SB[p].prod[c]||0); }, 0);
     var cells = '';
-    CAJAS.forEach(function(c){ cells += '<td>' + ((SB[p].prod[c]||0) ? (SB[p].prod[c]).toLocaleString('es-AR') : '–') + '</td>'; });
+    CAJAS.forEach(function(c){ cells += '<td>' + ((SB[p].prod[c]||0)?SB[p].prod[c].toLocaleString('es-AR'):'–') + '</td>'; });
     rowsProd += '<tr><td style="font-weight:700">' + p + '</td>' + cells + '<td style="font-weight:700">' + tot.toLocaleString('es-AR') + '</td></tr>';
   });
   document.getElementById('tbl-prod-stock').innerHTML = hdrProd + '<tbody>' + rowsProd + '</tbody>';
@@ -880,6 +878,43 @@ function calcCajas() {
 }
 
 async function guardarProduccion() {
+  // Si estamos en modo edición, actualizar el registro existente
+  if (window._editProdMode) {
+    var eMes  = window._editProdMes;
+    var eIdx  = window._editProdIdx;
+    var eFecha = document.getElementById('rp-fecha').value;
+    var eTurno = document.getElementById('rp-turno').value;
+    var eProd  = document.getElementById('rp-prod').value;
+    var eUds   = parseInt(document.getElementById('rp-uds').value) || 0;
+    var eUc    = parseInt(document.getElementById('rp-unicaja').value) || 0;
+    var ePart  = document.getElementById('rp-partida').value;
+    var eKg    = parseFloat(document.getElementById('rp-kg').value) || 0;
+    var eEfic  = parseFloat(document.getElementById('rp-efic').value) || 0;
+    var eObs   = document.getElementById('rp-obs').value;
+    if (!eFecha || !eTurno || !eProd || !eUds) { toast('Completá fecha, turno, producto y unidades', 'warn'); return; }
+    // Determinar mes de la fecha editada
+    var eMesIdx = new Date(eFecha + 'T00:00:00').getMonth();
+    var eNuevoMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][eMesIdx];
+    // Si cambió el mes, mover el registro
+    if (eNuevoMes !== eMes) {
+      STATE.prodRegistros[eMes].splice(eIdx, 1);
+      if (!STATE.prodRegistros[eNuevoMes]) STATE.prodRegistros[eNuevoMes] = [];
+      STATE.prodRegistros[eNuevoMes].push({fecha:eFecha,turno:eTurno,prod:eProd,producido:eUds,unicaja:eUc,cajas:eUc>0?Math.round(eUds/eUc):0,partida:ePart,kg:eKg,efic:eEfic,obs:eObs});
+    } else {
+      STATE.prodRegistros[eMes][eIdx] = {fecha:eFecha,turno:eTurno,prod:eProd,producido:eUds,unicaja:eUc,cajas:eUc>0?Math.round(eUds/eUc):0,partida:ePart,kg:eKg,efic:eEfic,obs:eObs};
+    }
+    window._editProdMode = false; window._editProdMes = null; window._editProdIdx = null;
+    // Restaurar botón
+    var btn = document.getElementById('btn-guardar-prod');
+    if (btn) { btn.textContent = 'Guardar registro'; btn.style.background = ''; }
+    var lbl = document.getElementById('edit-prod-label');
+    if (lbl) lbl.remove();
+    limpiarProd();
+    await saveToCloud();
+    renderProduccion(); renderStock();
+    toast('Registro actualizado ✓', 'ok');
+    return;
+  }
   const fecha    = document.getElementById('rp-fecha').value;
   const turno    = document.getElementById('rp-turno').value;
   const prod     = document.getElementById('rp-prod').value;
@@ -901,6 +936,14 @@ async function guardarProduccion() {
 }
 
 function limpiarProd() {
+  // Cancelar modo edición si estaba activo
+  if (window._editProdMode) {
+    window._editProdMode = false; window._editProdMes = null; window._editProdIdx = null;
+    var btn = document.getElementById('btn-guardar-prod');
+    if (btn) { btn.textContent = 'Guardar registro'; btn.style.background = ''; }
+    var lbl = document.getElementById('edit-prod-label');
+    if (lbl) lbl.remove();
+  }
   document.getElementById('rp-fecha').value = today();
   ['rp-turno','rp-prod','rp-unicaja','rp-partida','rp-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['rp-producido','rp-kg','rp-efic'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 0; });
@@ -924,11 +967,53 @@ function renderProduccion() {
 
 function selMonth(m) { selMes = m; renderProduccion(); }
 
+
+async function editarProd(mes, idx) {
+  var r = STATE.prodRegistros[mes][idx];
+  if (!r) return;
+  // Rellenar el formulario de registro manual con los datos actuales
+  document.getElementById('rp-fecha').value   = r.fecha   || '';
+  document.getElementById('rp-turno').value   = r.turno   || '';
+  document.getElementById('rp-prod').value    = r.prod    || '';
+  document.getElementById('rp-uds').value     = r.producido || 0;
+  document.getElementById('rp-unicaja').value = r.unicaja || '';
+  document.getElementById('rp-partida').value = r.partida || '';
+  document.getElementById('rp-kg').value      = r.kg      || 0;
+  document.getElementById('rp-efic').value    = r.efic    || 0;
+  document.getElementById('rp-obs').value     = r.obs     || '';
+  // Calcular cajas
+  calcCajas();
+  // Marcar que estamos editando
+  window._editProdMes = mes;
+  window._editProdIdx = idx;
+  window._editProdMode = true;
+  // Ir a la sección de registro
+  goTo('registrar', document.querySelector('[onclick*="registrar"]'));
+  // Mostrar indicador de edición
+  setTimeout(function() {
+    var btn = document.getElementById('btn-guardar-prod');
+    if (btn) {
+      btn.textContent = '✏ Actualizar registro';
+      btn.style.background = '#d97706';
+    }
+    var lbl = document.getElementById('edit-prod-label');
+    if (!lbl) {
+      lbl = document.createElement('div');
+      lbl.id = 'edit-prod-label';
+      lbl.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;font-weight:600';
+      lbl.textContent = '✏ Editando registro — ' + eMes + ' | Turno ' + r.turno + ' | ' + r.fecha;
+      btn.parentElement.insertBefore(lbl, btn);
+    }
+  }, 100);
+  toast('Cargados datos del registro para editar', 'ok');
+}
 async function borrarProd(mes, idx) {
   if (!confirm('¿Eliminar este registro?')) return;
   STATE.prodRegistros[mes].splice(idx, 1);
   await saveToCloud();
   renderProduccion();
+  renderProdDetail(mes);
+  renderStock();
   toast('Registro eliminado');
 }
 
@@ -941,16 +1026,22 @@ function renderProdDetail(m) {
   });
   var body = document.getElementById('prod-body');
   if (!regs.length) {
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros en ' + m + '</td></tr>';
     return;
   }
 
-  // Agrupar: fecha -> turno -> [bobinas]
+  // Mapear índice ordenado -> índice real en STATE.prodRegistros[m]
+  var sortedToReal = regs.map(function(r) {
+    return STATE.prodRegistros[m].indexOf(r);
+  });
+
+  // Agrupar: fecha -> turno -> [{r, realIdx}]
   var byFecha = {};
-  regs.forEach(function(r) {
+  regs.forEach(function(r, si) {
+    var ri = sortedToReal[si];
     if (!byFecha[r.fecha]) byFecha[r.fecha] = {};
     if (!byFecha[r.fecha][r.turno]) byFecha[r.fecha][r.turno] = [];
-    byFecha[r.fecha][r.turno].push(r);
+    byFecha[r.fecha][r.turno].push({r: r, ri: ri});
   });
 
   var html = '';
@@ -958,28 +1049,26 @@ function renderProdDetail(m) {
     var turnos = byFecha[fecha];
     var fechaTot = 0;
     ['M1','M2','N'].forEach(function(t){
-      (turnos[t]||[]).forEach(function(r){ fechaTot += (r.producido||0); });
+      (turnos[t]||[]).forEach(function(x){ fechaTot += (x.r.producido||0); });
     });
 
-    // Separador de fecha
-    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
+    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569">' +
       fecha + ' \u2014 Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
 
     ['M1','M2','N'].forEach(function(turno) {
-      var bobinas = turnos[turno];
-      if (!bobinas || !bobinas.length) return;
+      var items = turnos[turno];
+      if (!items || !items.length) return;
 
-      // Totales del turno
-      var tTotUds  = bobinas.reduce(function(a,r){ return a+(r.producido||0); }, 0);
-      var tTotCajas= bobinas.reduce(function(a,r){ return a+(r.cajas||0); }, 0);
-      var tTotKg   = bobinas.reduce(function(a,r){ return a+(r.kg||0); }, 0);
-      // Eficiencia del turno = promedio de bobinas (o se puede calcular como ratio total)
-      var tEfic    = bobinas.length ? bobinas.reduce(function(a,r){ return a+(r.efic||0); }, 0) / bobinas.length : 0;
-      var prods    = bobinas.map(function(r){ return r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
-      var nBobinas = bobinas.length;
+      var tTotUds  = items.reduce(function(a,x){ return a+(x.r.producido||0); }, 0);
+      var tTotCajas= items.reduce(function(a,x){ return a+(x.r.cajas||0); }, 0);
+      var tTotKg   = items.reduce(function(a,x){ return a+(x.r.kg||0); }, 0);
+      var tEfic    = items.length ? items.reduce(function(a,x){ return a+(x.r.efic||0); }, 0) / items.length : 0;
+      var prods    = items.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+      var nBob     = items.length;
       var detId    = 'td' + fecha.replace(/-/g,'') + turno;
 
-      // Fila resumen del turno (clickeable)
+      var eficColor = tEfic >= 0.8 ? '#16a34a' : tEfic >= 0.6 ? '#d97706' : '#dc2626';
+
       html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(\'' + detId + '\')" title="Ver detalle bobina por bobina">' +
         '<td style="padding-left:18px;font-size:11px;color:var(--text3)">' + fecha + '</td>' +
         '<td><span style="display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
@@ -987,17 +1076,19 @@ function renderProdDetail(m) {
         '<td style="font-weight:700">' + tTotUds.toLocaleString('es-AR') + '</td>' +
         '<td style="color:var(--text3)">—</td>' +
         '<td>' + tTotCajas + '</td>' +
-        '<td style="font-size:11px;color:#64748b">' + nBobinas + ' bobina' + (nBobinas>1?'s':'') + '</td>' +
+        '<td style="font-size:11px;color:#64748b">' + nBob + ' bobina' + (nBob>1?'s':'') + '</td>' +
         '<td>' + (tTotKg||'—') + '</td>' +
-        '<td style="font-weight:600;color:' + (tEfic>=0.8?'#16a34a':tEfic>=0.6?'#d97706':'#dc2626') + '">' + (tEfic?(tEfic*100).toFixed(1)+'%':'—') + '</td>' +
+        '<td style="font-weight:600;color:' + eficColor + '">' + (tEfic?(tEfic*100).toFixed(1)+'%':'—') + '</td>' +
         '<td></td>' +
         '<td style="color:var(--text3);font-size:11px">&#9660;</td>' +
         '</tr>';
 
-      // Fila detalle bobinas (oculta por defecto)
+      // Filas detalle bobinas
       var detRows = '';
-      bobinas.forEach(function(r, bi) {
-        detRows += '<tr style="border-top:1px solid #e2e8f0">' +
+      items.forEach(function(x, bi) {
+        var r = x.r, ri = x.ri;
+        detRows +=
+          '<tr style="border-top:1px solid #e2e8f0">' +
           '<td style="padding:5px 16px;font-size:12px;font-weight:700;color:#0369a1">Bobina ' + (bi+1) + '</td>' +
           '<td style="padding:5px;font-size:11px;font-family:monospace;color:#475569">' + (r.partida||'—') + '</td>' +
           '<td style="padding:5px;font-weight:600">' + r.prod + '</td>' +
@@ -1007,7 +1098,11 @@ function renderProdDetail(m) {
           '<td style="padding:5px;font-size:11px;color:#64748b">—</td>' +
           '<td style="padding:5px">' + (r.kg||'—') + '</td>' +
           '<td style="padding:5px;color:var(--text3)">—</td>' +
-          '<td colspan="2" style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'') + '</td>' +
+          '<td style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'') + '</td>' +
+          '<td style="padding:5px;white-space:nowrap">' +
+            '<button onclick="editarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #d97706;background:#fef3c7;color:#92400e;border-radius:4px;cursor:pointer;margin-right:3px" title="Editar">✏</button>' +
+            '<button onclick="borrarProd(\'' + m + '\',' + ri + ')" style="padding:2px 7px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer" title="Eliminar">✕</button>' +
+          '</td>' +
           '</tr>';
       });
 
@@ -1023,7 +1118,8 @@ function renderProdDetail(m) {
         '<th style="padding:5px;font-size:11px"></th>' +
         '<th style="padding:5px;font-size:11px">Kg</th>' +
         '<th style="padding:5px;font-size:11px">Efic.</th>' +
-        '<th colspan="2" style="padding:5px;font-size:11px">Obs.</th>' +
+        '<th style="padding:5px;font-size:11px">Obs.</th>' +
+        '<th style="padding:5px;font-size:11px">Acciones</th>' +
         '</tr></thead><tbody>' + detRows + '</tbody></table>' +
         '</td></tr>';
     });
@@ -1035,7 +1131,6 @@ function toggleTurnoDetail(id) {
   var row = document.getElementById(id);
   if (!row) return;
   var open = row.style.display !== 'none';
-  // Cerrar todos
   document.querySelectorAll('[id^="td"]').forEach(function(r){
     if (/^td\d{8}(M1|M2|N)$/.test(r.id)) r.style.display = 'none';
   });
