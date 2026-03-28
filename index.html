@@ -950,7 +950,7 @@ function renderProdDetail(m) {
   });
   var body = document.getElementById('prod-body');
   if (!regs.length) {
-    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
     return;
   }
 
@@ -970,7 +970,7 @@ function renderProdDetail(m) {
     ['M1','M2','N'].forEach(function(t){ (turnos[t]||[]).forEach(function(x){ fechaTot += x.r.producido||0; }); });
 
     // Date separator row
-    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
+    html += '<tr style="background:#f1f5f9"><td colspan="10" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
       fecha + ' — Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
 
     ['M1','M2','N'].forEach(function(turno) {
@@ -1000,7 +1000,7 @@ function renderProdDetail(m) {
         '<td style="color:var(--text3);font-size:12px">&#9660;</td>' +
         '</tr>' +
       // Detail sub-table (hidden by default)
-      '<tr id="' + detId + '" style="display:none"><td colspan="11" style="padding:0">' +
+      '<tr id="' + detId + '" style="display:none"><td colspan="10" style="padding:0">' +
         '<table style="width:100%;border-collapse:collapse;background:#f8fafc">' +
           '<thead><tr style="background:#e2e8f0">' +
             '<th style="padding:5px 18px;font-size:11px;text-align:left;font-weight:600">Bobina</th>' +
@@ -1159,6 +1159,16 @@ async function initApp() {
   renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
   // Luego sincronizar desde la nube
   await loadFromCloud();
+
+  // Inicializar cobranzas: Entregado→Cobrado, otros→Por cobrar
+  if (!STATE.cobranzas) STATE.cobranzas = {};
+  (STATE.pedidos||[]).forEach(p => {
+    if (STATE.cobranzas[p.id]) return;
+    STATE.cobranzas[p.id] = p.estado === 'Entregado'
+      ? { estado: 'Cobrado', fecha: p.entrega || p.fecha || '' }
+      : { estado: 'Por cobrar', fecha: '' };
+  });
+
   renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
 }
 
@@ -1296,116 +1306,99 @@ function getEstadoCob(id) {
   return (STATE.cobranzas && STATE.cobranzas[id]) || { estado: 'Pendiente', fecha: '', obs: '' };
 }
 
+
 async function renderCobranzas() {
-  // Get TC BNA
   const tc = await fetchTCBNA();
-  document.getElementById('cob-tc-label').textContent = 'TC BNA billete vendedor: $' + tc.toLocaleString('es-AR');
+  const tcLabel = document.getElementById('cob-tc-label');
+  if (tcLabel) tcLabel.textContent = 'TC BNA: $' + tc.toLocaleString('es-AR');
 
-  const filEstado  = document.getElementById('cob-fil-estado').value;
-  const filCob     = document.getElementById('cob-fil-cob').value;
-  const filCliente = (document.getElementById('cob-fil-cliente').value || '').toLowerCase();
+  const filEstado  = (document.getElementById('cob-fil-estado')||{}).value || '';
+  const filCob     = (document.getElementById('cob-fil-cob')||{}).value || '';
+  const filCliente = ((document.getElementById('cob-fil-cliente')||{}).value || '').toLowerCase();
 
-  const peds = (STATE.pedidos || []).filter(p => {
+  const peds = (STATE.pedidos||[]).filter(p => {
     if (String(p.cliente||'').includes('AJUSTE')) return false;
-    if (filEstado  && p.estado !== filEstado) return false;
-    const cob = getEstadoCob(p.id);
-    if (filCob && cob.estado !== filCob) return false;
+    if (filEstado && p.estado !== filEstado) return false;
+    const cobEstado = STATE.cobranzas && STATE.cobranzas[p.id] ? STATE.cobranzas[p.id].estado : 'Por cobrar';
+    if (filCob && cobEstado !== filCob) return false;
     if (filCliente && !String(p.cliente||'').toLowerCase().includes(filCliente)) return false;
     return true;
   }).sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
 
-  // Calculate values
+  let totalCobrado = 0, totalPorCobrar = 0, totalUSD = 0;
   const rows = [];
-  let totalPorCobrar = 0, totalCobrado = 0, totalUSD = 0;
+
   for (const p of peds) {
     const cat = getClienteCat(p.cliente);
     const precios = PRECIOS[cat];
     const esUSD = cat === 'BANDEX_USD';
-    let totalARS = 0, totalUSDpedido = 0;
-    (p.items || []).forEach(it => {
-      const prCaja = precios && precios[it.prod] && precios[it.prod][it.caja];
-      if (!prCaja || !it.cajas) return;
-      if (esUSD) {
-        totalUSDpedido += prCaja * it.cajas;
-        totalARS += prCaja * it.cajas * tc;
-      } else {
-        totalARS += prCaja * it.cajas;
-      }
+    let totalARS = 0, usdAmt = 0;
+    (p.items||[]).forEach(it => {
+      const pr = precios && precios[it.prod] && precios[it.prod][it.caja];
+      if (!pr || !it.cajas) return;
+      if (esUSD) { usdAmt += pr * it.cajas; totalARS += pr * it.cajas * tc; }
+      else totalARS += pr * it.cajas;
     });
-    const cob = getEstadoCob(p.id);
+    if (esUSD) totalUSD += usdAmt;
+
+    const cob = (STATE.cobranzas && STATE.cobranzas[p.id]) || { estado:'Por cobrar', fecha:'' };
     if (cob.estado === 'Cobrado') totalCobrado += totalARS;
     else totalPorCobrar += totalARS;
-    if (esUSD) totalUSD += totalUSDpedido;
 
-    // Items summary
-    const itemsSummary = (p.items||[]).map(i => i.prod + ' x' + i.caja + ' (' + i.cajas + ' cj)').join(', ');
-
-    // Cat label
-    const catLabel = { WINFLEX:'Winflex', NITOPI:'Nitopi', ENVASES_GROUP:'Env.Group', BANDEX_USD:'Bandex $' }[cat] || cat;
-
-    // Estado badge
-    const estadoColor = p.estado === 'Entregado' ? '#16a34a' : p.estado === 'Pendiente' ? '#d97706' : '#0369a1';
-    const estadoBg    = p.estado === 'Entregado' ? '#dcfce7' : p.estado === 'Pendiente' ? '#fef3c7' : '#e0f2fe';
-
-    // Cobranza badge
-    const cobColor = cob.estado === 'Cobrado' ? '#16a34a' : '#dc2626';
-    const cobBg    = cob.estado === 'Cobrado' ? '#dcfce7' : '#fef2f2';
+    const catLabel = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex'}[cat]||cat;
+    const entColor = p.estado==='Entregado'?'#16a34a':p.estado==='Pendiente'?'#d97706':'#0369a1';
+    const entBg    = p.estado==='Entregado'?'#dcfce7':p.estado==='Pendiente'?'#fef3c7':'#e0f2fe';
+    const cobrado  = cob.estado === 'Cobrado';
+    const cobColor = cobrado ? '#16a34a' : '#dc2626';
+    const cobBg    = cobrado ? '#dcfce7' : '#fef2f2';
+    const items    = (p.items||[]).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+' cj)').join(' / ');
 
     rows.push(
       '<tr>' +
-      '<td style="font-size:11px;color:var(--text3)">' + p.id + '</td>' +
-      '<td style="font-size:12px">' + (p.fecha||'') + '</td>' +
-      '<td style="font-weight:600">' + (p.cliente||'') + '</td>' +
-      '<td style="font-size:11px;color:var(--text3)">' + catLabel + '</td>' +
-      '<td style="font-size:11px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + itemsSummary + '</td>' +
-      '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:' + estadoBg + ';color:' + estadoColor + '">' + p.estado + '</span></td>' +
-      '<td style="font-weight:700;white-space:nowrap">' + (totalARS > 0 ? fmtPeso(totalARS) : '<span style="color:var(--text3)">s/p</span>') + '</td>' +
-      '<td style="font-size:11px;color:var(--text3)">' + (esUSD && totalUSDpedido > 0 ? 'USD ' + totalUSDpedido.toLocaleString('es-AR', {maximumFractionDigits:0}) : '') + '</td>' +
+      '<td style="font-size:11px;color:#94a3b8">#'+p.id+'</td>' +
+      '<td style="font-size:12px;white-space:nowrap">'+(p.fecha||'')+'</td>' +
+      '<td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.cliente||'')+'</td>' +
+      '<td style="font-size:11px;color:#94a3b8">'+catLabel+'</td>' +
+      '<td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569">'+items+'</td>' +
+      '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:'+entBg+';color:'+entColor+'">'+p.estado+'</span></td>' +
+      '<td style="font-weight:700;white-space:nowrap;text-align:right">'+(totalARS>0?fmtPeso(totalARS):'<span style="color:#cbd5e1">s/p</span>')+'</td>' +
+      '<td style="font-size:11px;color:#94a3b8;text-align:right">'+(esUSD&&usdAmt>0?'USD '+Math.round(usdAmt).toLocaleString('es-AR'):'')+'</td>' +
       '<td>' +
-        '<span onclick="toggleCob(' + p.id + ')" style="cursor:pointer;display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;background:' + cobBg + ';color:' + cobColor + '" title="Click para cambiar">' +
-          (cob.estado === 'Cobrado' ? '✓ Cobrado' : '⏳ Por cobrar') +
+        '<span onclick="toggleCob('+p.id+')" title="Click para cambiar" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;background:'+cobBg+';color:'+cobColor+';border:1px solid '+(cobrado?'#86efac':'#fca5a5')+'">' +
+          (cobrado ? '\u2713 Cobrado' : '\u29d6 Por cobrar') +
         '</span>' +
       '</td>' +
-      '<td style="font-size:11px;color:var(--text3)">' + (cob.fecha || '') + '</td>' +
-      '<td>' +
-        (cob.estado !== 'Cobrado' && p.estado === 'Entregado'
-          ? '<button onclick="marcarCobrado(' + p.id + ')" style="padding:2px 8px;font-size:11px;border:1px solid #86efac;background:#dcfce7;color:#166534;border-radius:4px;cursor:pointer">✓ Cobrar</button>'
-          : '') +
-      '</td>' +
+      '<td style="font-size:11px;color:#94a3b8">'+(cob.fecha||'')+'</td>' +
       '</tr>'
     );
   }
 
-  document.getElementById('cob-body').innerHTML = rows.join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin resultados</td></tr>';
+  const body = document.getElementById('cob-body');
+  if (body) body.innerHTML = rows.join('') || '<tr><td colspan="10" style="text-align:center;padding:30px;color:#94a3b8">Sin resultados</td></tr>';
 
-  // Metrics
-  const totalGeneral = totalCobrado + totalPorCobrar;
-  document.getElementById('cob-metrics').innerHTML =
-    '<div class="metric-card"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#dc2626">' + fmtPeso(totalPorCobrar) + '</div><div class="metric-sub">pendiente</div></div>' +
-    '<div class="metric-card"><div class="metric-label">Cobrado</div><div class="metric-value" style="color:#16a34a">' + fmtPeso(totalCobrado) + '</div><div class="metric-sub">ingresado</div></div>' +
-    '<div class="metric-card"><div class="metric-label">Total facturado</div><div class="metric-value">' + fmtPeso(totalGeneral) + '</div><div class="metric-sub">2026</div></div>' +
-    (totalUSD > 0 ? '<div class="metric-card"><div class="metric-label">Bandex USD</div><div class="metric-value" style="font-size:22px">USD ' + totalUSD.toLocaleString('es-AR', {maximumFractionDigits:0}) + '</div><div class="metric-sub">TC $' + tc.toLocaleString('es-AR') + '</div></div>' : '');
+  const metricsEl = document.getElementById('cob-metrics');
+  if (metricsEl) metricsEl.innerHTML =
+    '<div class="metric-card" style="border-left:3px solid #dc2626"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#dc2626">'+fmtPeso(totalPorCobrar)+'</div><div class="metric-sub">pendiente</div></div>' +
+    '<div class="metric-card" style="border-left:3px solid #16a34a"><div class="metric-label">Cobrado</div><div class="metric-value" style="color:#16a34a">'+fmtPeso(totalCobrado)+'</div><div class="metric-sub">ya ingresado</div></div>' +
+    '<div class="metric-card"><div class="metric-label">Total facturado</div><div class="metric-value">'+fmtPeso(totalCobrado+totalPorCobrar)+'</div><div class="metric-sub">2026</div></div>' +
+    (totalUSD>0?'<div class="metric-card" style="border-left:3px solid #0369a1"><div class="metric-label">Bandex USD</div><div class="metric-value" style="font-size:20px">USD '+Math.round(totalUSD).toLocaleString('es-AR')+'</div><div class="metric-sub">TC $'+tc.toLocaleString('es-AR')+'</div></div>':'');
 }
 
 async function toggleCob(id) {
   if (!STATE.cobranzas) STATE.cobranzas = {};
-  const cur = STATE.cobranzas[id] || { estado: 'Pendiente', fecha: '', obs: '' };
-  if (cur.estado === 'Cobrado') {
-    STATE.cobranzas[id] = { estado: 'Pendiente', fecha: '', obs: '' };
-  } else {
-    STATE.cobranzas[id] = { estado: 'Cobrado', fecha: new Date().toISOString().split('T')[0], obs: '' };
-  }
+  const cur = (STATE.cobranzas[id]||{}).estado || 'Por cobrar';
+  const hoy = new Date().toISOString().split('T')[0];
+  STATE.cobranzas[id] = cur === 'Cobrado'
+    ? { estado:'Por cobrar', fecha:'' }
+    : { estado:'Cobrado', fecha: hoy };
   await saveToCloud();
   renderCobranzas();
 }
 
-async function marcarCobrado(id) {
-  if (!STATE.cobranzas) STATE.cobranzas = {};
-  STATE.cobranzas[id] = { estado: 'Cobrado', fecha: new Date().toISOString().split('T')[0], obs: '' };
-  await saveToCloud();
-  renderCobranzas();
-  toast('Pedido #' + id + ' marcado como cobrado ✓');
-}
+
+
+
+
 boot();
 
 
