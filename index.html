@@ -459,7 +459,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="card" style="padding:0">
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th style="width:28px"></th><th style="font-size:11px;color:#64748b;padding:8px 4px">#</th><th style="font-size:11px;color:#64748b;padding:8px 4px">Fecha</th><th style="font-size:11px;color:#64748b;padding:8px 4px">Cliente</th><th style="font-size:11px;color:#64748b;padding:8px 4px">Entrega</th><th style="font-size:11px;color:#64748b;padding:8px 4px;text-align:right">Valor ARS</th><th style="font-size:11px;color:#64748b;padding:8px 4px;text-align:right">Cobranza</th></tr></thead>
+          <thead><tr><th style="padding:8px 6px 8px 12px;font-size:11px;color:#64748b;font-weight:600;width:70px">#</th><th style="padding:8px 4px;font-size:11px;color:#64748b;font-weight:600">Cliente</th><th style="padding:8px 4px;font-size:11px;color:#64748b;font-weight:600">Entrega</th><th style="padding:8px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Valor ARS</th><th style="padding:8px 12px 8px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Cobranza</th></tr></thead>
           <tbody id="cob-body"></tbody>
         </table>
       </div>
@@ -1292,7 +1292,8 @@ const CLIENTE_CAT = {
   // Todos los demás → NITOPI (default)
 };
 
-function getClienteCat(cliente) {
+function getClienteCat(cliente, listaPrecioOverride) {
+  if (listaPrecioOverride) return listaPrecioOverride;
   return CLIENTE_CAT[cliente] || 'NITOPI';
 }
 
@@ -1326,7 +1327,7 @@ async function loadValoresPedidos() {
   }
 }
 async function calcValorPedido(pedido) {
-  const cat = getClienteCat(pedido.cliente);
+  const cat = getClienteCat(pedido.cliente, pedido.listaPrecio);
   const precios = PRECIOS[cat];
   const esUSD = cat === 'BANDEX_USD';
   const tc = esUSD ? await fetchTCBNA() : 1;
@@ -1363,72 +1364,102 @@ async function renderCobranzas() {
   const peds = (STATE.pedidos||[]).filter(p => {
     if (String(p.cliente||'').includes('AJUSTE')) return false;
     if (filEstado && p.estado !== filEstado) return false;
-    const cobEstado = (STATE.cobranzas && STATE.cobranzas[p.id]) ? STATE.cobranzas[p.id].estado : 'Por cobrar';
+    const cobEstado = (STATE.cobranzas&&STATE.cobranzas[p.id]) ? STATE.cobranzas[p.id].estado : 'Por cobrar';
     if (filCob && cobEstado !== filCob) return false;
     if (filCliente && !String(p.cliente||'').toLowerCase().includes(filCliente)) return false;
     return true;
   }).sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
-  let totalCobrado = 0, totalPorCobrar = 0, totalUSD = 0;
-  const rows = [];
+  let totalCobrado=0, totalPorCobrar=0, totalUSD=0;
+  const rows=[];
   for (const p of peds) {
-    const cat = getClienteCat(p.cliente);
-    const precios = PRECIOS[cat];
-    const esUSD = cat === 'BANDEX_USD';
-    let totalARS = 0, usdAmt = 0;
-    (p.items||[]).forEach(it => {
-      const pr = precios && precios[it.prod] && precios[it.prod][it.caja];
-      if (!pr || !it.cajas) return;
-      if (esUSD) { usdAmt += pr * it.cajas; totalARS += pr * it.cajas * tc; }
-      else totalARS += pr * it.cajas;
+    const cat=getClienteCat(p.cliente, p.listaPrecio), precios=PRECIOS[cat], esUSD=cat==='BANDEX_USD';
+    let totalARS=0, usdAmt=0;
+    (p.items||[]).forEach(it=>{
+      const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
+      if(!pr||!it.cajas)return;
+      if(esUSD){usdAmt+=pr*it.cajas;totalARS+=pr*it.cajas*tc;}else totalARS+=pr*it.cajas;
     });
-    if (esUSD) totalUSD += usdAmt;
-    const cob = (STATE.cobranzas && STATE.cobranzas[p.id]) || { estado:'Por cobrar', fecha:'' };
-    if (cob.estado === 'Cobrado') totalCobrado += totalARS; else totalPorCobrar += totalARS;
-    const catLabel = {WINFLEX:'WF',NITOPI:'NI',ENVASES_GROUP:'EG',BANDEX_USD:'BX'}[cat]||cat;
-    const eC = p.estado==='Entregado'?'#16a34a':p.estado==='Pendiente'?'#d97706':'#0369a1';
-    const eB = p.estado==='Entregado'?'#dcfce7':p.estado==='Pendiente'?'#fef3c7':'#e0f2fe';
-    const cobrado = cob.estado === 'Cobrado';
-    const detId = 'cobdet-' + p.id;
-    const vStr = totalARS>0 ? fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8;font-weight:400">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'') : '<span style="color:#cbd5e1">s/p</span>';
-    rows.push(
-      '<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">'+
-      '<td style="padding:8px 4px 8px 12px;width:28px;font-size:11px;color:#94a3b8">&#9660;</td>'+
-      '<td style="padding:8px 4px;width:40px"><b style="font-size:12px;color:#0369a1">#'+p.id+'</b></td>'+
-      '<td style="padding:8px 4px;width:85px;font-size:12px;color:#64748b">'+p.fecha+'</td>'+
+    if(esUSD) totalUSD+=usdAmt;
+    const cob=(STATE.cobranzas&&STATE.cobranzas[p.id])||{estado:'Por cobrar',fecha:''};
+    if(cob.estado==='Cobrado') totalCobrado+=totalARS; else totalPorCobrar+=totalARS;
+    const catLabel={WINFLEX:'WF',NITOPI:'NI',ENVASES_GROUP:'EG',BANDEX_USD:'BX'}[cat]||cat;
+    const eC=p.estado==='Entregado'?'#16a34a':p.estado==='Pendiente'?'#d97706':'#0369a1';
+    const eB=p.estado==='Entregado'?'#dcfce7':p.estado==='Pendiente'?'#fef3c7':'#e0f2fe';
+    const cobrado=cob.estado==='Cobrado';
+    const detId='cobdet-'+p.id;
+    const vStr=totalARS>0?fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8;font-weight:400">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':''):'<span style="color:#cbd5e1">s/p</span>';
+    // Summary row
+    rows.push('<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">'+
+      '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;</td>'+
+      '<td style="padding:8px 4px;width:90px;font-size:12px;color:#64748b">'+p.fecha+'</td>'+
       '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
       '<td style="padding:8px 4px"><span style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>'+
       '<td style="padding:8px 4px;font-weight:700;text-align:right;white-space:nowrap">'+vStr+'</td>'+
-      '<td style="padding:8px 12px 8px 4px;text-align:right"><span onclick="event.stopPropagation();toggleCob('+p.id+')" style="cursor:pointer;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;background:'+(cobrado?'#dcfce7':'#fef2f2')+';color:'+(cobrado?'#16a34a':'#dc2626')+';border:1px solid '+(cobrado?'#86efac':'#fca5a5')+'">'+(cobrado?'\u2713 Cobrado':'\u29d6 Por cobrar')+'</span>'+(cob.fecha?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;text-align:right">'+cob.fecha+'</div>':'')+'</td>'+
-      '</tr>'
-    );
-    const itemRows = (p.items||[]).map(it => {
-      const pr = precios && precios[it.prod] && precios[it.prod][it.caja];
-      const arsXCaja = pr ? (esUSD ? pr * tc : pr) : 0;
-      const subtotal = arsXCaja * (it.cajas||0);
-      const prStr = pr ? fmtPeso(arsXCaja)+'/cj'+(esUSD?' <small style="color:#94a3b8">(USD '+pr.toFixed(2)+')</small>':'') : '\u2014';
-      const uds = it.uds || (it.cajas||0)*(it.caja||0);
-      return '<tr style="background:#fafafa"><td></td><td colspan="2" style="padding:5px 4px 5px 12px;font-size:12px;color:#475569">'+it.prod+' \u00d7 '+it.caja+' un/cj</td><td style="padding:5px 4px;font-size:12px;color:#475569">'+(it.cajas||0)+' cajas</td><td style="padding:5px 4px;font-size:12px;color:#475569">'+uds.toLocaleString('es-AR')+' uds</td><td style="padding:5px 4px;font-size:12px;text-align:right">'+prStr+'</td><td style="padding:5px 12px;font-size:12px;font-weight:600;text-align:right">'+(subtotal>0?fmtPeso(subtotal):'\u2014')+'</td></tr>';
+      '<td style="padding:8px 14px 8px 4px;text-align:right">'+
+        '<span onclick="event.stopPropagation();toggleCob('+p.id+')" style="cursor:pointer;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;background:'+(cobrado?'#dcfce7':'#fef2f2')+';color:'+(cobrado?'#16a34a':'#dc2626')+';border:1px solid '+(cobrado?'#86efac':'#fca5a5')+'">'+
+          (cobrado?'\u2713 Cobrado':'\u29d6 Por cobrar')+
+        '</span>'+
+        (cob.fecha?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;text-align:right">'+cob.fecha+'</div>':'')+
+      '</td>'+
+    '</tr>');
+    // Detail row (hidden)
+    const iRows=(p.items||[]).map(it=>{
+      const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
+      const arsXcj=pr?(esUSD?pr*tc:pr):0;
+      const sub=arsXcj*(it.cajas||0);
+      const prStr=pr?fmtPeso(arsXcj)+'/cj'+(esUSD?' <small style="color:#94a3b8">(USD '+pr.toFixed(2)+')</small>':''):'\u2014';
+      const uds=it.uds||(it.cajas||0)*(it.caja||0);
+      return '<tr style="background:#fafafa">'+
+        '<td colspan="2" style="padding:5px 8px 5px 36px;font-size:12px;color:#475569">'+it.prod+' \u00d7 '+it.caja+' un/cj</td>'+
+        '<td style="padding:5px 4px;font-size:12px;color:#475569">'+(it.cajas||0)+' cajas</td>'+
+        '<td style="padding:5px 4px;font-size:12px;color:#475569">'+uds.toLocaleString('es-AR')+' uds</td>'+
+        '<td style="padding:5px 4px;font-size:12px;text-align:right">'+prStr+'</td>'+
+        '<td style="padding:5px 14px 5px 4px;font-size:12px;font-weight:600;text-align:right">'+(sub>0?fmtPeso(sub):'\u2014')+'</td>'+
+      '</tr>';
     }).join('');
-    rows.push(
-      '<tr id="'+detId+'" style="display:none"><td colspan="7" style="padding:0;border-bottom:2px solid #e2e8f0">'+
-      '<table style="width:100%;border-collapse:collapse;background:#fafafa">'+
-      '<thead><tr style="background:#f1f5f9"><th style="width:28px"></th><th colspan="2" style="padding:6px 4px 6px 12px;font-size:11px;color:#64748b;font-weight:600;text-align:left">Producto</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Cajas</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Unidades</th><th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Precio caja</th><th style="padding:6px 12px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Subtotal</th></tr></thead>'+
-      '<tbody>'+itemRows+'</tbody>'+
-      '<tfoot><tr style="background:#f1f5f9"><td></td><td colspan="4" style="padding:6px 4px 6px 12px;font-size:12px;font-weight:700;color:#374151">Total</td><td colspan="2" style="padding:6px 12px;font-size:14px;font-weight:700;text-align:right">'+(totalARS>0?fmtPeso(totalARS):'s/p')+(esUSD&&usdAmt>0?' <small style="color:#94a3b8;font-weight:400">= USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'')+'</td></tr></tfoot>'+
+    rows.push('<tr id="'+detId+'" style="display:none">'+
+      '<td colspan="6" style="padding:0;background:#fafafa;border-bottom:2px solid #e2e8f0">'+
+      '<table style="width:100%;border-collapse:collapse">'+
+      '<thead><tr style="background:#f1f5f9">'+
+        '<th colspan="2" style="padding:6px 8px 6px 36px;font-size:11px;color:#64748b;text-align:left;font-weight:600">Producto</th>'+
+        '<th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Cajas</th>'+
+        '<th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600">Unidades</th>'+
+        '<th style="padding:6px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Precio caja</th>'+
+        '<th style="padding:6px 14px 6px 4px;font-size:11px;color:#64748b;font-weight:600;text-align:right">Subtotal</th>'+
+      '</tr></thead>'+
+      '<tbody>'+iRows+'</tbody>'+
+      '<tfoot><tr style="background:#f8fafc">'+
+        '<td colspan="4" style="padding:7px 8px 7px 36px;font-size:12px;color:#64748b;font-weight:600">Total pedido</td>'+
+        '<td colspan="2" style="padding:7px 14px 7px 4px;font-size:14px;font-weight:700;text-align:right">'+(totalARS>0?fmtPeso(totalARS):'s/p')+(esUSD&&usdAmt>0?' <small style="color:#94a3b8;font-weight:400">= USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':'')+
+        '</td>'+
+      '</tr></tfoot>'+
       '</table>'+
-      (p.obs?'<div style="padding:6px 12px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0">Obs: '+p.obs+'</div>':'')+
-      '</td></tr>'
-    );
+      (p.obs?'<div style="padding:6px 8px 6px 36px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0">\u{1F4AC} '+p.obs+'</div>':'')+
+      '</td></tr>');
   }
-  const body = document.getElementById('cob-body');
-  if (body) body.innerHTML = rows.join('') || '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8">Sin resultados</td></tr>';
-  const mEl = document.getElementById('cob-metrics');
-  if (mEl) mEl.innerHTML =
+  const body=document.getElementById('cob-body');
+  if(body) body.innerHTML=rows.join('')||'<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8">Sin resultados</td></tr>';
+  const mEl=document.getElementById('cob-metrics');
+  if(mEl) mEl.innerHTML=
     '<div class="metric-card" style="border-left:3px solid #dc2626"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#dc2626">'+fmtPeso(totalPorCobrar)+'</div><div class="metric-sub">pendiente</div></div>'+
     '<div class="metric-card" style="border-left:3px solid #16a34a"><div class="metric-label">Cobrado</div><div class="metric-value" style="color:#16a34a">'+fmtPeso(totalCobrado)+'</div><div class="metric-sub">ingresado</div></div>'+
     '<div class="metric-card"><div class="metric-label">Total facturado</div><div class="metric-value">'+fmtPeso(totalCobrado+totalPorCobrar)+'</div><div class="metric-sub">2026</div></div>'+
     (totalUSD>0?'<div class="metric-card" style="border-left:3px solid #0369a1"><div class="metric-label">Bandex USD</div><div class="metric-value" style="font-size:20px">USD '+Math.round(totalUSD).toLocaleString('es-AR')+'</div><div class="metric-sub">TC $'+tc.toLocaleString('es-AR')+'</div></div>':'');
 }
+
+function toggleCobDet(id) {
+  const row=document.getElementById(id);
+  if(!row) return;
+  const open=row.style.display!=='none';
+  document.querySelectorAll('[id^="cobdet-"]').forEach(r=>r.style.display='none');
+  document.querySelectorAll('#cob-body tr[onclick*="toggleCobDet"] td:first-child').forEach(td=>td.innerHTML='&#9660;');
+  if(!open){
+    row.style.display='';
+    if(row.previousElementSibling) row.previousElementSibling.querySelector('td:first-child').innerHTML='&#9650;';
+  }
+}
+
+
 
 
 
