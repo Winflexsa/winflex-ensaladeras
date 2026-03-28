@@ -353,7 +353,17 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Partida PET</label><input type="text" id="rp-partida" placeholder="ej: 4926S-1T1"></div>
           <div class="form-group"><label>Kg procesados</label><input type="number" id="rp-kg" min="0" value="0"></div>
           <div class="form-group"><label>Eficiencia (0 a 1)</label><input type="number" id="rp-efic" min="0" max="2" step="0.001" value="0" placeholder="ej: 0.75"></div>
-          <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
+          <div class="form-group">
+          <label>Lista de precios</label>
+          <select id="np-lista" onchange="calcPrecioPreview()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
+            <option value="">Auto (por cliente)</option>
+            <option value="WINFLEX">Winflex</option>
+            <option value="NITOPI">Nitopi</option>
+            <option value="ENVASES_GROUP">Envases Group</option>
+            <option value="BANDEX_USD">Bandex (USD)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" onclick="guardarProduccion()">Guardar registro</button>
@@ -1534,6 +1544,90 @@ async function exportarCobranzas() {
   a.href = url; a.download = 'cobranzas_winflex_'+new Date().toISOString().split('T')[0]+'.csv';
   document.body.appendChild(a); a.click(); URL.revokeObjectURL(url);
   toast('Cobranzas exportadas ✓');
+}
+
+async function renderPrecios() {
+  const tc = await fetchTCBNA();
+  const tcEl = document.getElementById('pr-tc');
+  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
+  const cats = [
+    { key:'WINFLEX',       label:'Winflex',        color:'#0369a1', bg:'#e0f2fe' },
+    { key:'NITOPI',        label:'Nitopi',          color:'#7c3aed', bg:'#ede9fe' },
+    { key:'ENVASES_GROUP', label:'Envases Group',   color:'#0891b2', bg:'#ecfeff' },
+    { key:'BANDEX_USD',    label:'Bandex (USD)',    color:'#b45309', bg:'#fef3c7' },
+  ];
+  const cajas  = [100, 300, 440, 500, 1000];
+  const labels = { 100:'x100', 300:'x300', 440:'x440', 500:'x500', 1000:'x1000' };
+  const grid = document.getElementById('precios-grid');
+  if (!grid) return;
+  grid.innerHTML = cats.map(function(cat) {
+    var precios = PRECIOS[cat.key];
+    var esUSD   = cat.key === 'BANDEX_USD';
+    var rows    = ['E900','T900'].map(function(prod) {
+      var pr    = precios[prod];
+      var cells = cajas.map(function(c) {
+        var v = pr[c];
+        if (!v) return '<td style="padding:6px 8px;color:#cbd5e1;font-size:11px;text-align:right">—</td>';
+        var ars    = esUSD ? v * tc : v;
+        var usdStr = esUSD ? '<br><small style="color:#94a3b8;font-weight:400">USD ' + v.toFixed(2) + '</small>' : '';
+        return '<td style="padding:6px 8px;text-align:right;font-size:12px;font-weight:600">' + fmtPeso(ars) + usdStr + '</td>';
+      }).join('');
+      return '<tr><td style="padding:6px 8px;font-weight:700;font-size:13px">' + prod + '</td>' + cells + '</tr>';
+    }).join('');
+    return '<div class="card" style="padding:0;overflow:hidden">' +
+      '<div style="padding:12px 16px;background:' + cat.bg + ';border-bottom:1px solid #e2e8f0">' +
+        '<span style="font-weight:700;font-size:15px;color:' + cat.color + '">' + cat.label + '</span>' +
+        (esUSD ? '<span style="font-size:11px;color:#92400e;margin-left:8px">TC BNA: $' + tc.toLocaleString('es-AR') + '</span>' : '') +
+      '</div>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
+        '<thead><tr style="background:#f8fafc">' +
+          '<th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:left;font-weight:600">Prod.</th>' +
+          cajas.map(function(c){ return '<th style="padding:6px 8px;font-size:11px;color:#64748b;font-weight:600;text-align:right">' + labels[c] + '</th>'; }).join('') +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table></div>' +
+      '<div style="padding:8px 16px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9">' +
+        'Precio por caja · Enero 2026' + (esUSD ? ' · ARS al TC del día' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function calcPrecioPreview() {
+  var clienteEl = document.getElementById('np-cliente');
+  var listaEl   = document.getElementById('np-lista');
+  var cliente   = clienteEl ? clienteEl.value.trim() : '';
+  var listaOvr  = listaEl   ? listaEl.value : '';
+  var cat       = getClienteCat(cliente, listaOvr);
+  var precios   = PRECIOS[cat];
+  var esUSD     = cat === 'BANDEX_USD';
+  var tc        = esUSD ? await fetchTCBNA() : 1;
+  var catLabel  = { WINFLEX:'Winflex', NITOPI:'Nitopi', ENVASES_GROUP:'Envases Group', BANDEX_USD:'Bandex (USD)' }[cat] || cat;
+  var totalARS  = 0, usdAmt = 0;
+  var rows = document.querySelectorAll('#np-items-body tr');
+  rows.forEach(function(row) {
+    var sels = row.querySelectorAll('select');
+    var inps = row.querySelectorAll('input');
+    if (sels.length < 2 || inps.length < 1) return;
+    var prod  = sels[0].value;
+    var caja  = parseInt(sels[1].value) || 0;
+    var cajas = parseInt(inps[0].value) || 0;
+    var pr    = precios && precios[prod] && precios[prod][caja];
+    if (!pr || !cajas) return;
+    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
+    else totalARS += pr * cajas;
+  });
+  var prev = document.getElementById('np-precio-preview');
+  var val  = document.getElementById('np-precio-valor');
+  var det  = document.getElementById('np-precio-detalle');
+  if (!prev || !val || !det) return;
+  if (totalARS > 0) {
+    prev.style.display = '';
+    val.textContent    = fmtPeso(totalARS);
+    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
+  } else {
+    prev.style.display = 'none';
+  }
 }
 boot();
 
