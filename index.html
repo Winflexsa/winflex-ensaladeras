@@ -1372,7 +1372,7 @@ async function confirmarImport() {
     if (!mes) { skipped++; continue; }
     if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
     // Evitar duplicados exactos (misma fecha+turno+producto+producido)
-    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido);
+    const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido && r.partida === reg.partida && (r.nbobina||'')=== (reg.nbobina||''));
     if (!isDup) { STATE.prodRegistros[mes].push(reg); imported++; }
     else skipped++;
   }
