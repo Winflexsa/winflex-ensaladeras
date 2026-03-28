@@ -566,12 +566,12 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <thead><tr style="background:#f8fafc">
           <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left;width:24px"></th>
           <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left">Producto</th>
-          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">USD/millar</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo USD/millar</th>
           <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">ARS/millar</th>
           <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">USD/unidad</th>
-          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">% MP</th>
-          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">% MO</th>
-          <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:right">% Otros</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Uds/turno</th>
+          <th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Uds/d&iacute;a</th>
+          <th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:right">Uds/mes</th>
         </tr></thead>
         <tbody id="cos-tabla-body"></tbody>
       </table>
@@ -2294,151 +2294,188 @@ async function refreshMargen(tc) {
   const moARS    = parseFloat((document.getElementById('cos-mo-ars')||{}).value)||7000;
   const PRODS    = ['E900','T900','E910','S900'];
 
-  // ── Cost summary table (expandable) ──
-  const tbody = document.getElementById('cos-tabla-body');
+  function calcFull(prod) {
+    const b = COSTOS_BASE[prod]; if (!b) return null;
+    const petFactor   = b.petNegroFactor||1;
+    const petKg       = costoPET * petFactor;
+    const moTotal     = moARS * b.operarios * (1+b.cargasSoc);
+    const moUsdUnit   = (moTotal/b.udsHora)/tc;
+    const desperdicio = (b.pesoBruto_g - b.pesoNeto_g)/1000;
+    const recuperado  = desperdicio * b.tasaRecup;
+    const noRecup     = desperdicio * (1-b.tasaRecup);
+    const mpUtil      = b.pesoNeto_g/1000 + noRecup;
+    const cosMP  = mpUtil * petKg;
+    const cosEn  = b.energiaUSD_kg * mpUtil;
+    const cosOt  = b.otrosUSD_kg * mpUtil;
+    const cosUnit = cosMP + moUsdUnit + cosEn + cosOt;
+    const cosMil  = cosUnit * 1000;
+    const udsTurno  = b.udsHora * b.horasTurno;
+    const udsDia    = udsTurno * b.turnosPorDia;
+    const udsMes    = udsDia * b.diasMes;
+    const costurnoUSD = cosUnit * udsTurno;
+    const cosDiaUSD   = cosUnit * udsDia;
+    const cosMesUSD   = cosUnit * udsMes;
+    return { b, petFactor, petKg, desperdicio, recuperado, noRecup, mpUtil,
+      cosMP, moUsdUnit, cosEn, cosOt, cosUnit, cosMil,
+      cosMilARS: cosMil*tc, cosUnitARS: cosUnit*tc,
+      udsTurno, udsDia, udsMes,
+      costurnoUSD, cosDiaUSD, cosMesUSD,
+      costurnoARS: costurnoUSD*tc, cosDiaARS: cosDiaUSD*tc, cosMesARS: cosMesUSD*tc,
+      moTotal, pctMP: cosUnit>0?cosMP/cosUnit*100:0,
+      pctMO: cosUnit>0?moUsdUnit/cosUnit*100:0,
+      pctEn: cosUnit>0?cosEn/cosUnit*100:0,
+      pctOt: cosUnit>0?cosOt/cosUnit*100:0,
+    };
+  }
+
+  function mkStatBox(label, icon, value, sub, color) {
+    return '<div style="background:white;border-left:3px solid '+color+';border:1px solid #e2e8f0;border-left:3px solid '+color+';border-radius:8px;padding:10px 12px">'+
+      '<div style="font-size:16px">'+icon+'</div>'+
+      '<div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase">'+label+'</div>'+
+      '<div style="font-size:15px;font-weight:700;color:'+color+'">'+value+'</div>'+
+      '<div style="font-size:10px;color:#94a3b8">'+sub+'</div></div>';
+  }
+
+  function mkCostCard(title, icon, color, val, pct, items) {
+    return '<div style="background:white;border:1px solid #e2e8f0;border-top:3px solid '+color+';border-radius:8px;padding:10px 14px">'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">'+
+        '<span style="font-size:15px">'+icon+'</span>'+
+        '<span style="font-size:11px;font-weight:700;color:'+color+'">'+title+'</span>'+
+      '</div>'+
+      '<div style="font-size:14px;font-weight:700">'+val+' <span style="font-size:11px;font-weight:400;color:#94a3b8">USD/un</span></div>'+
+      '<div style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;color:'+color+';background:'+color+'22;margin:4px 0 8px">'+pct+'% del costo</div>'+
+      '<div style="border-top:1px solid #f1f5f9;padding-top:6px">'+
+        items.map(function(s){return '<div style="font-size:10px;color:#64748b;line-height:1.7">'+s+'</div>';}).join('')+
+      '</div></div>';
+  }
+
+  function mkScaleBox(label, uds, usdC, arsC) {
+    return '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+      '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:8px">'+label+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+        '<div><div style="font-size:9px;color:#94a3b8">Unidades</div><div style="font-size:13px;font-weight:700">'+uds.toLocaleString('es-AR')+'</div></div>'+
+        '<div><div style="font-size:9px;color:#94a3b8">USD</div><div style="font-size:13px;font-weight:700;color:#0369a1">'+usdC.toFixed(0)+'</div></div>'+
+        '<div><div style="font-size:9px;color:#94a3b8">ARS</div><div style="font-size:13px;font-weight:700">'+arsC.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
+        '<div><div style="font-size:9px;color:#94a3b8">USD/millar</div><div style="font-size:13px;font-weight:700;color:#475569">'+(usdC/uds*1000).toFixed(2)+'</div></div>'+
+      '</div></div>';
+  }
+
+  // ── Summary table ──
+  var tbody = document.getElementById('cos-tabla-body');
   if (tbody) {
     tbody.innerHTML = PRODS.map(function(prod) {
-      const b = COSTOS_BASE[prod]; if (!b) return '';
-      const petFactor = b.petNegroFactor||1;
-      const petKg     = costoPET * petFactor;
-      const moTotal   = moARS * b.operarios * (1+b.cargasSoc);
-      const moUsdUnit = (moTotal/b.udsHora)/tc;
-      const desper    = (b.pesoBruto_g-b.pesoNeto_g)/1000;
-      const mpUtil    = b.pesoNeto_g/1000 + desper*(1-b.tasaRecup);
-      const cosMP     = mpUtil*petKg;
-      const cosEn     = b.energiaUSD_kg*mpUtil;
-      const cosOt     = b.otrosUSD_kg*mpUtil;
-      const cosUnit   = cosMP+moUsdUnit+cosEn+cosOt;
-      const cosMil    = cosUnit*1000;
-      const cosMilARS = cosMil*tc;
-      const pctMP = cosUnit>0?cosMP/cosUnit*100:0;
-      const pctMO = cosUnit>0?moUsdUnit/cosUnit*100:0;
-      const pctOt = cosUnit>0?(cosEn+cosOt)/cosUnit*100:0;
-      const detId = 'cosdet-'+prod;
+      var f = calcFull(prod); if (!f) return '';
+      var b = f.b;
+      var detId = 'cosdet-'+prod;
       return '<tr onclick="toggleCosDetail(\''+detId+'\')" style="cursor:pointer;border-top:1px solid #f1f5f9">'+
-        '<td style="padding:8px 12px;color:#94a3b8;font-size:13px" id="cosarr-'+prod+'">&#9654;</td>'+
-        '<td style="padding:8px 12px"><div style="font-weight:700">'+prod+'</div><div style="font-size:11px;color:#64748b">'+b.label+'</div></td>'+
-        '<td style="padding:8px;text-align:right;font-weight:700;color:#0369a1;font-size:13px">'+cosMil.toFixed(2)+' USD</td>'+
-        '<td style="padding:8px;text-align:right;font-weight:700;font-size:13px">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
-        '<td style="padding:8px;text-align:right;font-size:12px;font-family:monospace">'+cosUnit.toFixed(5)+'</td>'+
-        '<td style="padding:8px;text-align:right"><div style="background:#e0f2fe;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctMP.toFixed(0)+'%</div></td>'+
-        '<td style="padding:8px;text-align:right"><div style="background:#ede9fe;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctMO.toFixed(0)+'%</div></td>'+
-        '<td style="padding:8px 12px;text-align:right"><div style="background:#f0fdf4;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;display:inline-block">'+pctOt.toFixed(0)+'%</div></td>'+
+        '<td style="padding:8px 12px;color:#94a3b8;font-size:12px" id="cosarr-'+prod+'">&#9654;</td>'+
+        '<td style="padding:8px 12px"><div style="font-weight:700;font-size:13px">'+prod+'</div><div style="font-size:11px;color:#64748b">'+b.label+'</div><div style="font-size:10px;color:#94a3b8;margin-top:2px">'+b.udsHora.toLocaleString('es-AR')+' uds/h &middot; '+b.operarios+' operarios &middot; '+b.horasTurno+'h/turno</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-weight:700;color:#0369a1;font-size:13px">'+f.cosMil.toFixed(2)+' USD</div><div style="font-size:10px;color:#94a3b8">por millar</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-weight:700;font-size:13px">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div><div style="font-size:10px;color:#94a3b8">ARS/millar</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-family:monospace">'+f.cosUnit.toFixed(5)+' USD</div><div style="font-size:10px;color:#94a3b8">por unidad</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsTurno.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/turno</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsDia.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/d&iacute;a (2T)</div></td>'+
+        '<td style="padding:8px 12px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsMes.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/mes</div></td>'+
       '</tr>'+
-      '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;background:#f8fafc;border-top:1px solid #e2e8f0">'+
-      '<div style="padding:16px 48px">'+
-        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">'+
-          '<div style="background:white;border:1px solid #e0f2fe;border-radius:8px;padding:10px 14px">'+
-            '<div style="font-size:10px;color:#0369a1;font-weight:600;margin-bottom:4px">&#129521; MATERIA PRIMA</div>'+
-            '<div style="font-size:13px;font-weight:700">'+cosMP.toFixed(5)+' USD/un</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:4px">Peso neto: '+b.pesoNeto_g+'g &middot; Bruto: '+b.pesoBruto_g+'g</div>'+
-            '<div style="font-size:11px;color:#64748b">MP utilizada: '+(mpUtil*1000).toFixed(2)+'g/un</div>'+
-            '<div style="font-size:11px;color:#64748b">PET: '+petKg.toFixed(4)+' USD/kg'+(petFactor>1?' (+'+((petFactor-1)*100).toFixed(0)+'% negro)':'')+'</div>'+
-            '<div style="font-size:12px;font-weight:600;color:#0369a1;margin-top:4px">'+pctMP.toFixed(1)+'% del total</div>'+
-          '</div>'+
-          '<div style="background:white;border:1px solid #ede9fe;border-radius:8px;padding:10px 14px">'+
-            '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:4px">&#128119; MANO DE OBRA</div>'+
-            '<div style="font-size:13px;font-weight:700">'+moUsdUnit.toFixed(5)+' USD/un</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.operarios+' op. &middot; $'+moARS.toLocaleString('es-AR')+'/hora</div>'+
-            '<div style="font-size:11px;color:#64748b">'+b.udsHora.toLocaleString('es-AR')+' uds/hora &middot; CS: '+(b.cargasSoc*100)+'%</div>'+
-            '<div style="font-size:12px;font-weight:600;color:#7c3aed;margin-top:4px">'+pctMO.toFixed(1)+'% del total</div>'+
-          '</div>'+
-          '<div style="background:white;border:1px solid #fef3c7;border-radius:8px;padding:10px 14px">'+
-            '<div style="font-size:10px;color:#b45309;font-weight:600;margin-bottom:4px">&#9889; ENERG&#205;A</div>'+
-            '<div style="font-size:13px;font-weight:700">'+cosEn.toFixed(5)+' USD/un</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.energiaUSD_kg+' USD/kg MP</div>'+
-            '<div style="font-size:12px;font-weight:600;color:#b45309;margin-top:4px">'+(cosEn/cosUnit*100).toFixed(1)+'% del total</div>'+
-          '</div>'+
-          '<div style="background:white;border:1px solid #f0fdf4;border-radius:8px;padding:10px 14px">'+
-            '<div style="font-size:10px;color:#166534;font-weight:600;margin-bottom:4px">&#128230; OTROS</div>'+
-            '<div style="font-size:13px;font-weight:700">'+cosOt.toFixed(5)+' USD/un</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:4px">'+b.otrosUSD_kg+' USD/kg MP</div>'+
-            '<div style="font-size:12px;font-weight:600;color:#166534;margin-top:4px">'+(cosOt/cosUnit*100).toFixed(1)+'% del total</div>'+
-          '</div>'+
+      '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;background:#f8fafc;border-bottom:3px solid #e2e8f0">'+
+      '<div style="padding:20px 20px 20px 48px">'+
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9881; Capacidad de producci\u00f3n</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+
+          mkStatBox('uds/hora','&#9201;',b.udsHora.toLocaleString('es-AR'),'ritmo de producci\u00f3n','#0369a1')+
+          mkStatBox('horas/turno','&#8987;',b.horasTurno+'h','jornada laboral','#7c3aed')+
+          mkStatBox('uds/turno','&#127381;',f.udsTurno.toLocaleString('es-AR'),b.horasTurno+'h \u00d7 '+b.udsHora.toLocaleString('es-AR')+'/h','#16a34a')+
+          mkStatBox('uds/d\u00eda','&#128198;',f.udsDia.toLocaleString('es-AR'),'2 turnos de '+b.horasTurno+'h','#d97706')+
+          mkStatBox('uds/mes','&#128202;',f.udsMes.toLocaleString('es-AR'),b.diasMes+' d\u00edas h\u00e1biles','#dc2626')+
+        '</div>'+
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128176; Estructura de costos por unidad (USD)</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
+          mkCostCard('Materia Prima','&#129521;','#0369a1',f.cosMP.toFixed(5),f.pctMP.toFixed(1),
+            ['Peso neto: '+b.pesoNeto_g+'g \u00b7 Bruto: '+b.pesoBruto_g+'g',
+             'Desperdicio: '+(f.desperdicio*1000).toFixed(1)+'g/un',
+             'Recuperado ('+(b.tasaRecup*100)+'%): '+(f.recuperado*1000).toFixed(2)+'g',
+             'No recuperado: '+(f.noRecup*1000).toFixed(2)+'g/un',
+             'MP efectiva: '+(f.mpUtil*1000).toFixed(2)+'g/un',
+             'Costo PET: '+f.petKg.toFixed(4)+' USD/kg'+(f.petFactor>1?' (+'+((f.petFactor-1)*100).toFixed(0)+'% PET negro)':'')])+
+          mkCostCard('Mano de Obra','&#128119;','#7c3aed',f.moUsdUnit.toFixed(5),f.pctMO.toFixed(1),
+            [b.operarios+' operarios \u00d7 $'+moARS.toLocaleString('es-AR')+'/hora',
+             'Subtotal MO: $'+(moARS*b.operarios).toLocaleString('es-AR')+'/h',
+             'Cargas soc. '+b.cargasSoc*100+'%: $'+(moARS*b.operarios*b.cargasSoc).toLocaleString('es-AR')+'/h',
+             'Total c/CS: $'+f.moTotal.toLocaleString('es-AR')+'/h',
+             b.udsHora.toLocaleString('es-AR')+' uds/hora'])+
+          mkCostCard('Energ\u00eda','&#9889;','#b45309',f.cosEn.toFixed(5),f.pctEn.toFixed(1),
+            [b.energiaUSD_kg+' USD/kg de MP utilizada',
+             'MP util: '+(f.mpUtil*1000).toFixed(2)+'g/un',
+             'Por millar: '+(f.cosEn*1000).toFixed(3)+' USD'])+
+          mkCostCard('Otros','&#128230;','#166534',f.cosOt.toFixed(5),f.pctOt.toFixed(1),
+            [b.otrosUSD_kg+' USD/kg de MP',
+             'Mantenimiento, amortiz., varios',
+             'Por millar: '+(f.cosOt*1000).toFixed(3)+' USD'])+
+        '</div>'+
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128200; Costo a escala completa</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
+          mkScaleBox('Por turno completo ('+b.horasTurno+'h)',f.udsTurno,f.costurnoUSD,f.costurnoARS)+
+          mkScaleBox('Por d\u00eda ('+b.turnosPorDia+' turnos)',f.udsDia,f.cosDiaUSD,f.cosDiaARS)+
+          mkScaleBox('Por mes ('+b.diasMes+' d\u00edas)',f.udsMes,f.cosMesUSD,f.cosMesARS)+
         '</div>'+
         '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px">'+
-          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center">'+
-            '<div><div style="font-size:11px;color:#64748b">Costo por unidad</div><div style="font-size:18px;font-weight:700">'+cosUnit.toFixed(4)+' USD</div></div>'+
-            '<div><div style="font-size:11px;color:#64748b">Costo por millar</div><div style="font-size:18px;font-weight:700;color:#0369a1">'+cosMil.toFixed(2)+' USD</div></div>'+
-            '<div><div style="font-size:11px;color:#64748b">Costo ARS/millar al TC</div><div style="font-size:18px;font-weight:700">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center">'+
+            '<div><div style="font-size:10px;color:#64748b">Costo/unidad</div><div style="font-size:16px;font-weight:700">'+f.cosUnit.toFixed(4)+' USD</div></div>'+
+            '<div><div style="font-size:10px;color:#64748b">Costo/millar</div><div style="font-size:16px;font-weight:700;color:#0369a1">'+f.cosMil.toFixed(2)+' USD</div></div>'+
+            '<div><div style="font-size:10px;color:#64748b">ARS/millar (TC hoy)</div><div style="font-size:16px;font-weight:700">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
+            '<div><div style="font-size:10px;color:#64748b">ARS/unidad</div><div style="font-size:16px;font-weight:700">'+f.cosUnitARS.toFixed(3)+'</div></div>'+
           '</div>'+
         '</div>'+
       '</div></td></tr>';
     }).join('');
   }
 
-  // ── Markup/margen table with EDITABLE prices ──
-  const PROD_SHOW = ['E900','T900','E910'];
-  const CATS_CFG = [
-    {key:'WINFLEX',       label:'Winflex',    ref:300,  color:'#0369a1'},
-    {key:'NITOPI',        label:'Nitopi',     ref:300,  color:'#7c3aed'},
-    {key:'ENVASES_GROUP', label:'Env.Group',  ref:100,  color:'#0891b2'},
-    {key:'BANDEX_USD',    label:'Bandex',     ref:440,  color:'#b45309'},
+  // ── Markup/margen table ──
+  var PROD_SHOW = ['E900','T900','E910'];
+  var CATS_CFG  = [
+    {key:'WINFLEX',label:'Winflex',ref:300,color:'#0369a1'},
+    {key:'NITOPI',label:'Nitopi',ref:300,color:'#7c3aed'},
+    {key:'ENVASES_GROUP',label:'Env.Group',ref:100,color:'#0891b2'},
+    {key:'BANDEX_USD',label:'Bandex',ref:440,color:'#b45309'},
   ];
-
-  const mHead = document.getElementById('cos-margen-head');
-  const mBody = document.getElementById('cos-margen-body');
-
+  var mHead = document.getElementById('cos-margen-head');
+  var mBody = document.getElementById('cos-margen-body');
   if (mHead) {
     mHead.innerHTML = '<tr style="background:#f8fafc">'+
       '<th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left">Producto</th>'+
-      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo<br>USD/millar</th>'+
-      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo<br>ARS/millar</th>'+
+      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo USD/mil</th>'+
+      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo ARS/mil</th>'+
       CATS_CFG.map(function(c){
         return '<th colspan="3" style="padding:8px 8px;font-size:11px;color:'+c.color+';text-align:center;font-weight:700;border-left:2px solid #f1f5f9">'+
-          c.label+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400">precio editable &middot; x'+c.ref+' uds/cj</span></th>';
-      }).join('')+
-    '</tr>'+
-    '<tr style="background:#fafafa">'+
-      '<th colspan="3" style="padding:4px 12px;font-size:10px;color:#94a3b8"></th>'+
+          c.label+'<br><span style="font-size:9px;font-weight:400;color:#94a3b8">editable &middot; x'+c.ref+' uds</span></th>';
+      }).join('')+'</tr>'+
+      '<tr style="background:#fafafa"><th colspan="3"></th>'+
       CATS_CFG.map(function(c){
-        return '<th style="padding:4px 6px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">ARS/caja</th>'+
-               '<th style="padding:4px 6px;font-size:10px;color:#64748b">Margen</th>'+
-               '<th style="padding:4px 6px;font-size:10px;color:#64748b">Markup</th>';
-      }).join('')+
-    '</tr>';
+        return '<th style="padding:4px 5px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">ARS/caja</th>'+
+               '<th style="padding:4px 5px;font-size:10px;color:#64748b">Margen</th>'+
+               '<th style="padding:4px 5px;font-size:10px;color:#64748b">Markup</th>';
+      }).join('')+'</tr>';
   }
-
   if (mBody) {
     mBody.innerHTML = PROD_SHOW.map(function(prod) {
-      const b = COSTOS_BASE[prod]; if (!b) return '';
-      const petFactor = b.petNegroFactor||1; const petKg = costoPET*petFactor;
-      const moTotal   = moARS*b.operarios*(1+b.cargasSoc);
-      const moUsdUnit = (moTotal/b.udsHora)/tc;
-      const desper    = (b.pesoBruto_g-b.pesoNeto_g)/1000;
-      const mpUtil    = b.pesoNeto_g/1000+desper*(1-b.tasaRecup);
-      const cosUnit   = mpUtil*petKg+moUsdUnit+b.energiaUSD_kg*mpUtil+b.otrosUSD_kg*mpUtil;
-      const cosMil    = cosUnit*1000;
-      const cosMilARS = cosMil*tc;
-
-      const cells = CATS_CFG.map(function(cat) {
-        const esUSD  = cat.key==='BANDEX_USD';
-        // Get price from vigentes first, fallback to PRECIOS
-        const srcPV  = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||PRECIOS[cat.key]||{})[prod]||{};
-        const prCaja = srcPV[cat.ref] || 0;
-        const inputId = 'cms_'+cat.key+'_'+prod;
-
-        // Inline calc function call
-        const calcCall = 'calcMargenInline(\''+inputId+'\','+cosMilARS.toFixed(2)+','+(esUSD?1:0)+','+tc+','+cat.ref+')';
-
-        return '<td style="padding:6px 6px;border-left:2px solid #f1f5f9">'+
-          '<input id="'+inputId+'" type="number" step="0.01" value="'+(prCaja||'')+'" '+
-          'oninput="'+calcCall+'" '+
-          'style="width:84px;padding:3px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right">'+
-          '<div style="font-size:9px;color:#94a3b8;margin-top:1px" id="'+inputId+'_ars">'+(prCaja>0?(esUSD?'USD/millar':'ARS/caja'):'')+'</div>'+
+      var f = calcFull(prod); if (!f) return '';
+      var cells = CATS_CFG.map(function(cat) {
+        var esUSD = cat.key==='BANDEX_USD';
+        var srcPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||PRECIOS[cat.key]||{})[prod]||{};
+        var prCaja = srcPV[cat.ref]||0;
+        var inputId = 'cms_'+cat.key+'_'+prod;
+        var callArgs = '\''+inputId+'\','+f.cosMilARS.toFixed(2)+','+(esUSD?1:0)+','+tc+','+cat.ref;
+        return '<td style="padding:5px 5px;border-left:2px solid #f1f5f9">'+
+          '<input id="'+inputId+'" type="number" step="0.01" value="'+(prCaja||'')+'" oninput="calcMargenInline('+callArgs+')" '+
+          'style="width:82px;padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right">'+
+          '<div style="font-size:9px;color:#94a3b8;margin-top:1px" id="'+inputId+'_ars"></div>'+
         '</td>'+
-        '<td style="padding:6px 4px;text-align:center" id="'+inputId+'_margen">'+
-          _calcMargenBadge(prCaja, cosMilARS, esUSD, tc, cat.ref)+
-        '</td>'+
-        '<td style="padding:6px 4px;text-align:center" id="'+inputId+'_markup">'+
-          _calcMarkupBadge(prCaja, cosMilARS, esUSD, tc, cat.ref)+
-        '</td>';
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_margen">'+_calcMargenBadge(prCaja,f.cosMilARS,esUSD,tc,cat.ref)+'</td>'+
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_markup">'+_calcMarkupBadge(prCaja,f.cosMilARS,esUSD,tc,cat.ref)+'</td>';
       }).join('');
-
       return '<tr style="border-top:1px solid #f1f5f9">'+
-        '<td style="padding:8px 12px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+b.label+'</small></td>'+
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px;color:#0369a1;font-weight:700">'+cosMil.toFixed(2)+'</td>'+
-        '<td style="padding:8px;text-align:right;color:#475569;font-size:12px">'+cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+        '<td style="padding:8px 12px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+f.b.label+'</small></td>'+
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px;color:#0369a1;font-weight:700">'+f.cosMil.toFixed(2)+'</td>'+
+        '<td style="padding:8px;text-align:right;color:#475569;font-size:12px">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
         cells+'</tr>';
     }).join('');
   }
