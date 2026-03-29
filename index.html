@@ -583,7 +583,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="card" style="padding:0;overflow:hidden">
       <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
         <span style="font-weight:700;font-size:14px">Análisis de markup y margen por lista de precios</span>
-        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio referencia: caja de 300 uds (Bandex: x440)</span>
+        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio en USD/millar · editable por lista</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:700px">
@@ -627,6 +627,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 <div class="toast" id="toast"></div>
 
 <script>
+// ─── 
 // ─── Constantes ───────────────────────────────────────────────
 const CAJAS = [300, 500, 1000, 100, 440, 880];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -2500,15 +2501,14 @@ async function refreshMargen(tc) {
   if (mHead) {
     mHead.innerHTML = '<tr style="background:#f8fafc">'+
       '<th style="padding:8px 12px;font-size:11px;color:#64748b;text-align:left">Producto</th>'+
-      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo USD/mil</th>'+
-      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo ARS/mil</th>'+
+      '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo<br>USD/millar</th>'+
       CATS_CFG.map(function(c){
         return '<th colspan="3" style="padding:8px 8px;font-size:11px;color:'+c.color+';text-align:center;font-weight:700;border-left:2px solid #f1f5f9">'+
-          c.label+'<br><span style="font-size:9px;font-weight:400;color:#94a3b8">editable &middot; x'+c.ref+' uds</span></th>';
+          c.label+'<br><span style="font-size:9px;font-weight:400;color:#94a3b8">USD / millar</span></th>';
       }).join('')+'</tr>'+
-      '<tr style="background:#fafafa"><th colspan="3"></th>'+
+      '<tr style="background:#fafafa"><th colspan="2"></th>'+
       CATS_CFG.map(function(c){
-        return '<th style="padding:4px 5px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">ARS/millar</th>'+
+        return '<th style="padding:4px 5px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">USD/millar</th>'+
                '<th style="padding:4px 5px;font-size:10px;color:#64748b">Margen</th>'+
                '<th style="padding:4px 5px;font-size:10px;color:#64748b">Markup</th>';
       }).join('')+'</tr>';
@@ -2521,22 +2521,23 @@ async function refreshMargen(tc) {
         var srcPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||PRECIOS[cat.key]||{})[prod]||{};
         var prCaja = srcPV[cat.ref]||0;
         // Convert to ARS/millar for display
-        var pvMillar = prCaja ? (esUSD ? prCaja/cat.ref*1000*tc : prCaja/cat.ref*1000) : 0;
+        // Convert to USD/millar
+        var pvUSD = prCaja ? (esUSD ? prCaja/cat.ref*1000 : prCaja/cat.ref*1000/tc) : 0;
         var inputId = 'cms_'+cat.key+'_'+prod;
-        // callArgs now passes pvMillar directly (already in ARS/millar)
+        // Pass cost in USD/millar
+        var callArgs = '\''+inputId+'\','+f.cosMil.toFixed(2);
         var callArgs = '\''+inputId+'\','+f.cosMilARS.toFixed(2);
         return '<td style="padding:5px 5px;border-left:2px solid #f1f5f9">'+
-          '<input id="'+inputId+'" type="number" step="100" value="'+(pvMillar ? Math.round(pvMillar) : '')+'" oninput="calcMargenMillar('+callArgs+')" '+
+          '<input id="'+inputId+'" type="number" step="0.5" value="'+(pvUSD ? pvUSD.toFixed(1) : '')+'" oninput="calcMargenMillar('+callArgs+')" '+
           'style="width:90px;padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right">'+
           '<div style="font-size:9px;color:#94a3b8;margin-top:1px" id="'+inputId+'_sub"></div>'+
         '</td>'+
-        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_margen">'+_calcMargenBadgeMillar(pvMillar,f.cosMilARS)+'</td>'+
-        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_markup">'+_calcMarkupBadgeMillar(pvMillar,f.cosMilARS)+'</td>';
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_margen">'+_calcMargenBadgeMillar(pvUSD,f.cosMil)+'</td>'+
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_markup">'+_calcMarkupBadgeMillar(pvUSD,f.cosMil)+'</td>';
       }).join('');
       return '<tr style="border-top:1px solid #f1f5f9">'+
         '<td style="padding:8px 12px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+f.b.label+'</small></td>'+
-        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:12px;color:#0369a1;font-weight:700">'+f.cosMil.toFixed(2)+'</td>'+
-        '<td style="padding:8px;text-align:right;color:#475569;font-size:12px">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>'+
+        '<td style="padding:8px;text-align:right;font-family:monospace;font-size:13px;color:#0369a1;font-weight:700">'+f.cosMil.toFixed(2)+' USD</td>'+
         cells+'</tr>';
     }).join('');
   }
@@ -2565,19 +2566,19 @@ function _calcMarkupBadge(prCaja, cosMilARS, esUSD, tc, ref) {
 }
 
 // calcMargenMillar: input value IS already ARS/millar
-function calcMargenMillar(inputId, cosMilARS) {
+function calcMargenMillar(inputId, cosUSDMil) {
   var el = document.getElementById(inputId); if (!el) return;
-  var pvM = parseFloat(el.value)||0;
+  var pvUSD = parseFloat(el.value)||0;
   var margenEl = document.getElementById(inputId+'_margen');
   var markupEl = document.getElementById(inputId+'_markup');
   var subEl    = document.getElementById(inputId+'_sub');
-  var margen   = pvM > 0 ? (pvM - cosMilARS) / pvM * 100 : 0;
-  var markup   = (pvM > 0 && cosMilARS > 0) ? (pvM - cosMilARS) / cosMilARS * 100 : 0;
+  var margen   = pvUSD > 0 ? (pvUSD - cosUSDMil) / pvUSD * 100 : 0;
+  var markup   = (pvUSD > 0 && cosUSDMil > 0) ? (pvUSD - cosUSDMil) / cosUSDMil * 100 : 0;
   var mc = margen>=45?'#16a34a':margen>=30?'#d97706':'#dc2626';
   var mb = margen>=45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
-  if (margenEl) margenEl.innerHTML = pvM > 0 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+ margen.toFixed(1)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
-  if (markupEl) markupEl.innerHTML = pvM > 0 ? '<span style="font-size:12px;font-weight:700;color:'+mc+'">'+markup.toFixed(0)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
-  if (subEl && pvM > 0) subEl.textContent = 'Margen: '+ (pvM-cosMilARS).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+  if (margenEl) margenEl.innerHTML = pvUSD > 0 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+margen.toFixed(1)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
+  if (markupEl) markupEl.innerHTML = pvUSD > 0 ? '<span style="font-size:12px;font-weight:700;color:'+mc+'">'+markup.toFixed(0)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
+  if (subEl && pvUSD > 0) subEl.textContent = 'Margen USD: '+(pvUSD-cosUSDMil).toFixed(2)+' USD/mil';
   else if (subEl) subEl.textContent = '';
 }
 
@@ -2828,16 +2829,18 @@ async function actualizarPreciosItems() {
 }
 
 
-function _calcMargenBadgeMillar(pvM, cosMilARS) {
-  if (!pvM || pvM <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+function _calcMargenBadgeMillar(pvUSD, cosUSDMil) {
+  if (!pvUSD || pvUSD <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+  var pvM = pvUSD; var cosMilARS = cosUSDMil;
   var m  = (pvM - cosMilARS) / pvM * 100;
   var mc = m>=45?'#16a34a':m>=30?'#d97706':'#dc2626';
   var mb = m>=45?'#dcfce7':m>=30?'#fef3c7':'#fef2f2';
   return '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;background:'+mb+';color:'+mc+'">'+m.toFixed(1)+'%</span>';
 }
 
-function _calcMarkupBadgeMillar(pvM, cosMilARS) {
-  if (!pvM || !cosMilARS || pvM <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+function _calcMarkupBadgeMillar(pvUSD, cosUSDMil) {
+  if (!pvUSD || !cosUSDMil || pvUSD <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+  var pvM = pvUSD; var cosMilARS = cosUSDMil;
   var mu = (pvM - cosMilARS) / cosMilARS * 100;
   var mc = mu>=80?'#16a34a':mu>=50?'#d97706':'#dc2626';
   return '<span style="font-size:11px;font-weight:700;color:'+mc+'">'+mu.toFixed(0)+'%</span>';
@@ -3203,6 +3206,7 @@ async function exportCompleto() {
   XLSX.writeFile(wb, 'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
   toast('Informe completo descargado \u2713');
 }
+
 
 </script>
 
