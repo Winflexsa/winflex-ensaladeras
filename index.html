@@ -272,7 +272,16 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="metrics" id="ped-metrics"></div>
       <div class="card">
         <div class="tbl-wrap">
-          <table><thead><tr><th style="width:45px">ID</th><th style="width:75px">Fecha</th><th style="width:150px">Cliente</th><th>Productos</th><th style="width:80px">Unidades</th><th style="width:90px">Estado</th><th style="width:85px">F. Entrega</th><th style="width:130px">Despacho</th><th style="width:75px">Vendedor</th><th style="width:90px"></th></tr></thead>
+          <table><thead><tr>
+            <th style="width:50px"></th>
+            <th>Cliente</th>
+            <th>Fecha</th>
+            <th>Productos</th>
+            <th>Uds.</th>
+            <th>Estado</th>
+            <th>Valor</th>
+            <th>Acciones</th>
+          </tr></thead>
           <tbody id="ped-body"></tbody></table>
         </div>
       </div>
@@ -629,6 +638,9 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 <script>
 // ─── 
 // ─── Constantes ───────────────────────────────────────────────
+c
+// ─── 
+// ─── Constantes ───────────────────────────────────────────────
 const CAJAS = [300, 500, 1000, 100, 440, 880];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const PRODUCTOS = ['E900','T900','S900','E910'];
@@ -857,36 +869,91 @@ function renderPedidos() {
     if (prod && !p.items.some(i => i.prod === prod)) return false;
     return true;
   });
-  const pend   = list.filter(p => p.estado === 'Pendiente');
-  const ent    = list.filter(p => p.estado === 'Entregado');
-  const udsPend = pend.reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-  const udsEnt  = ent.reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-  document.getElementById('ped-metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">Mostrando</div><div class="metric-value">${list.length}</div><div class="metric-sub">pedidos</div></div>
-    <div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn">${pend.length}</div><div class="metric-sub">${fmt(udsPend)} uds</div></div>
-    <div class="metric"><div class="metric-label">Entregados</div><div class="metric-value pos">${ent.length}</div><div class="metric-sub">${fmt(udsEnt)} uds</div></div>
-  `;
-  const sorted = [...list].sort((a, b) => b.id - a.id);
+  const pend    = list.filter(p => p.estado === 'Pendiente');
+  const ent     = list.filter(p => p.estado === 'Entregado');
+  const udsPend = pend.reduce((a,p) => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
+  const udsEnt  = ent.reduce((a,p)  => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
+  document.getElementById('ped-metrics').innerHTML =
+    '<div class="metric"><div class="metric-label">Mostrando</div><div class="metric-value">'+list.length+'</div><div class="metric-sub">pedidos</div></div>' +
+    '<div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn">'+pend.length+'</div><div class="metric-sub">'+fmt(udsPend)+' uds</div></div>' +
+    '<div class="metric"><div class="metric-label">Entregados</div><div class="metric-value pos">'+ent.length+'</div><div class="metric-sub">'+fmt(udsEnt)+' uds</div></div>';
+
+  const sorted = [...list].sort((a,b) => b.id - a.id);
   let rows = '';
   for (const p of sorted) {
-    const itemsFull = p.items.filter(i => i.cajas > 0).map(i => `${i.prod}: ${fmt(i.cajas)} cj×${i.caja}`).join(' / ');
-    const items = itemsFull;
-    const totalUds = p.items.reduce((a, i) => a + (i.uds || 0), 0);
-    rows += `<tr>
-      <td style="font-weight:600;color:var(--text2)">#${p.id}</td>
-      <td>${fmtD(p.fecha)}</td>
-      <td style="font-weight:500">${p.cliente || '-'}</td>
-      <td style="font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itemsFull}">${items || '-'}</td>
-      <td style="font-weight:600">${fmt(totalUds)}</td>
-      <td><span class="badge ${p.estado === 'Pendiente' ? 'badge-pend' : p.estado === 'Entregado parcial' ? 'badge-parcial' : 'badge-ent'}">${p.estado}</span></td>
-      <td>${fmtD(p.entrega)}</td>
-      <td style="font-size:12px">${p.despacho || '-'}</td>
-      <td>${p.vendedor || '-'}</td>
-      <td style="white-space:nowrap">${p.estado !== 'Entregado' ? `<button class="btn btn-sm" onclick="abrirParcial(${p.id})" style="padding:3px 9px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ` : ''}<button class="btn btn-sm" onclick="abrirEditar(${p.id})" style="padding:3px 9px;font-size:11px">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarPedido(${p.id})" style="padding:3px 7px;font-size:11px">×</button></td>
-    <td id="val-${p.id}" style="font-size:12px;white-space:nowrap;font-weight:600"><span style="color:var(--text3)">...</span></td>
-    </tr>`;
+    const eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
+    const totalUds = p.items.reduce((a,i) => a + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0);
+    const itemsShort = p.items.filter(i=>i.cajas>0).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+'cj)').join(' · ');
+    const detId = 'peddet-'+p.id;
+
+    // Summary row — clickable
+    rows += '<tr style="cursor:pointer" onclick="togglePedDet(\''+detId+'\')">' +
+      '<td style="font-size:12px;color:#94a3b8;padding:8px 6px">&#9654;<br><span style="font-size:10px">#'+p.id+'</span></td>' +
+      '<td style="padding:8px 6px"><div style="font-weight:700;font-size:13px">'+(p.cliente||'-')+'</div><div style="font-size:11px;color:#64748b">'+(p.vendedor||'')+'</div></td>' +
+      '<td style="padding:8px 6px"><span style="font-size:12px;color:#475569">'+fmtD(p.fecha)+'</span></td>' +
+      '<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemsShort+'</td>' +
+      '<td style="padding:8px 6px;font-weight:600">'+fmt(totalUds)+'</td>' +
+      '<td style="padding:8px 6px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
+      '<td style="padding:8px 6px" id="val-'+p.id+'"><span style="color:#cbd5e1;font-size:11px">...</span></td>' +
+      '<td style="padding:8px 6px" onclick="event.stopPropagation()">' +
+        (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
+        '<button class="btn btn-sm" onclick="abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
+        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
+      '</td>' +
+    '</tr>';
+
+    // Detail row (hidden by default)
+    const itemRows = p.items.filter(i=>i.cajas>0).map(i => {
+      const uds = i.uds || (i.cajas||0)*(i.caja||0);
+      return '<tr style="background:#f8fafc"><td style="padding:5px 10px 5px 28px;font-size:12px;font-weight:700;color:#0369a1">'+i.prod+'</td>' +
+        '<td style="padding:5px 8px;font-size:12px">x'+i.caja+' uds/caja</td>' +
+        '<td style="padding:5px 8px;font-size:12px">'+fmt(i.cajas)+' cajas</td>' +
+        '<td style="padding:5px 8px;font-size:12px;font-weight:600">'+fmt(uds)+' uds</td>' +
+        '<td colspan="4" style="padding:5px 8px"></td></tr>';
+    }).join('');
+
+    rows += '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;border-bottom:2px solid #e2e8f0" onclick="event.stopPropagation()">' +
+      '<div style="padding:12px 16px 12px 24px;background:#f8fafc">' +
+        // Header info
+        '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Cliente</span><div style="font-size:14px;font-weight:700">'+(p.cliente||'-')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Vendedor</span><div style="font-size:13px">'+(p.vendedor||'-')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Fecha pedido</span><div style="font-size:13px">'+fmtD(p.fecha)+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Entrega estimada</span><div style="font-size:13px">'+(p.entrega?fmtD(p.entrega):'—')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Despacho</span><div style="font-size:13px">'+(p.despacho||'—')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Estado</span><div><span class="badge '+eC+'">'+p.estado+'</span></div></div>' +
+        '</div>' +
+        // Items table
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:8px">' +
+          '<thead><tr style="background:#e2e8f0">' +
+            '<th style="padding:5px 10px 5px 28px;font-size:11px;text-align:left">Producto</th>' +
+            '<th style="padding:5px 8px;font-size:11px;text-align:left">Presentación</th>' +
+            '<th style="padding:5px 8px;font-size:11px;text-align:left">Cajas</th>' +
+            '<th style="padding:5px 8px;font-size:11px;text-align:left">Unidades</th>' +
+            '<th colspan="4" style="padding:5px 8px"></th>' +
+          '</tr></thead><tbody>'+itemRows+'</tbody>' +
+        '</table>' +
+        // Obs
+        (p.obs ? '<div style="font-size:11px;color:#64748b;margin-top:4px">&#128172; <b>Obs:</b> '+p.obs+'</div>' : '') +
+      '</div>' +
+    '</td></tr>';
   }
-  document.getElementById('ped-body').innerHTML = rows || `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3)">Sin resultados</td></tr>`;
+
+  document.getElementById('ped-body').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>';
+  loadValoresPedidos(sorted);
+}
+
+function togglePedDet(id) {
+  const row = document.getElementById(id); if (!row) return;
+  const open = row.style.display !== 'none';
+  // Close all
+  document.querySelectorAll('[id^="peddet-"]').forEach(r => r.style.display='none');
+  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(td => { td.innerHTML='&#9654;<br><span style="font-size:10px">#'+td.closest('tr').querySelector('td:nth-child(7)')?.id?.replace('val-','')||''+'</span>'; });
+  if (!open) {
+    row.style.display = '';
+    const prevTd = row.previousElementSibling?.querySelector('td:first-child');
+    if (prevTd) prevTd.innerHTML = prevTd.innerHTML.replace('&#9654;','&#9660;');
+  }
 }
 
 function abrirParcial(id) {
@@ -3208,10 +3275,7 @@ async function exportCompleto() {
 }
 
 
-</script>
-
-<div class="modal-parcial" id="modal-parcial">
-  <div class="modal-parcial-box">
+l-parcial-box">
     <h3>Entrega parcial</h3>
     <div id="parcial-items"></div>
     <div class="modal-parcial-actions">
