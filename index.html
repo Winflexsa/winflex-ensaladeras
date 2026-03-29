@@ -2508,7 +2508,7 @@ async function refreshMargen(tc) {
       }).join('')+'</tr>'+
       '<tr style="background:#fafafa"><th colspan="3"></th>'+
       CATS_CFG.map(function(c){
-        return '<th style="padding:4px 5px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">ARS/caja</th>'+
+        return '<th style="padding:4px 5px;font-size:10px;color:#64748b;border-left:2px solid #f1f5f9">ARS/millar</th>'+
                '<th style="padding:4px 5px;font-size:10px;color:#64748b">Margen</th>'+
                '<th style="padding:4px 5px;font-size:10px;color:#64748b">Markup</th>';
       }).join('')+'</tr>';
@@ -2520,15 +2520,18 @@ async function refreshMargen(tc) {
         var esUSD = cat.key==='BANDEX_USD';
         var srcPV = (STATE.preciosVigentes&&STATE.preciosVigentes[cat.key]||PRECIOS[cat.key]||{})[prod]||{};
         var prCaja = srcPV[cat.ref]||0;
+        // Convert to ARS/millar for display
+        var pvMillar = prCaja ? (esUSD ? prCaja/cat.ref*1000*tc : prCaja/cat.ref*1000) : 0;
         var inputId = 'cms_'+cat.key+'_'+prod;
-        var callArgs = '\''+inputId+'\','+f.cosMilARS.toFixed(2)+','+(esUSD?1:0)+','+tc+','+cat.ref;
+        // callArgs now passes pvMillar directly (already in ARS/millar)
+        var callArgs = '\''+inputId+'\','+f.cosMilARS.toFixed(2);
         return '<td style="padding:5px 5px;border-left:2px solid #f1f5f9">'+
-          '<input id="'+inputId+'" type="number" step="0.01" value="'+(prCaja||'')+'" oninput="calcMargenInline('+callArgs+')" '+
-          'style="width:82px;padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right">'+
-          '<div style="font-size:9px;color:#94a3b8;margin-top:1px" id="'+inputId+'_ars"></div>'+
+          '<input id="'+inputId+'" type="number" step="100" value="'+(pvMillar ? Math.round(pvMillar) : '')+'" oninput="calcMargenMillar('+callArgs+')" '+
+          'style="width:90px;padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-weight:600;text-align:right">'+
+          '<div style="font-size:9px;color:#94a3b8;margin-top:1px" id="'+inputId+'_sub"></div>'+
         '</td>'+
-        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_margen">'+_calcMargenBadge(prCaja,f.cosMilARS,esUSD,tc,cat.ref)+'</td>'+
-        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_markup">'+_calcMarkupBadge(prCaja,f.cosMilARS,esUSD,tc,cat.ref)+'</td>';
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_margen">'+_calcMargenBadgeMillar(pvMillar,f.cosMilARS)+'</td>'+
+        '<td style="padding:5px 4px;text-align:center" id="'+inputId+'_markup">'+_calcMarkupBadgeMillar(pvMillar,f.cosMilARS)+'</td>';
       }).join('');
       return '<tr style="border-top:1px solid #f1f5f9">'+
         '<td style="padding:8px 12px;font-weight:700">'+prod+'<br><small style="color:#94a3b8;font-weight:400">'+f.b.label+'</small></td>'+
@@ -2559,6 +2562,23 @@ function _calcMarkupBadge(prCaja, cosMilARS, esUSD, tc, ref) {
   const mu = (pvM-cosMilARS)/cosMilARS*100;
   const mc = mu>=80?'#16a34a':mu>=50?'#d97706':'#dc2626';
   return '<span style="font-size:11px;font-weight:700;color:'+mc+'">'+mu.toFixed(0)+'%</span>';
+}
+
+// calcMargenMillar: input value IS already ARS/millar
+function calcMargenMillar(inputId, cosMilARS) {
+  var el = document.getElementById(inputId); if (!el) return;
+  var pvM = parseFloat(el.value)||0;
+  var margenEl = document.getElementById(inputId+'_margen');
+  var markupEl = document.getElementById(inputId+'_markup');
+  var subEl    = document.getElementById(inputId+'_sub');
+  var margen   = pvM > 0 ? (pvM - cosMilARS) / pvM * 100 : 0;
+  var markup   = (pvM > 0 && cosMilARS > 0) ? (pvM - cosMilARS) / cosMilARS * 100 : 0;
+  var mc = margen>=45?'#16a34a':margen>=30?'#d97706':'#dc2626';
+  var mb = margen>=45?'#dcfce7':margen>=30?'#fef3c7':'#fef2f2';
+  if (margenEl) margenEl.innerHTML = pvM > 0 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:'+mb+';color:'+mc+'">'+ margen.toFixed(1)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
+  if (markupEl) markupEl.innerHTML = pvM > 0 ? '<span style="font-size:12px;font-weight:700;color:'+mc+'">'+markup.toFixed(0)+'%</span>' : '<span style="color:#cbd5e1">—</span>';
+  if (subEl && pvM > 0) subEl.textContent = 'Margen: '+ (pvM-cosMilARS).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+  else if (subEl) subEl.textContent = '';
 }
 
 function calcMargenInline(inputId, cosMilARS, esUSD, tc, ref) {
