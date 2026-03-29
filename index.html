@@ -1386,33 +1386,37 @@ async function boot() {
 // ─── MODELO DE COSTOS (del archivo Excel de costos) ────────────
 const COSTOS_BASE = {
   E900: {
-    label: 'Ensaladera Cristal 900ml',
-    pesoBruto_g: 23.8, pesoNeto_g: 17, tasaRecup: 0.90,
-    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
-    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
+    label: 'Ensaladera Cristal',
+    pesoBruto_g:  23.8,  pesoNeto_g:  17,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
   },
   T900: {
-    label: 'Tapa Ensaladera 900ml',
-    pesoBruto_g: 15.95, pesoNeto_g: 11, tasaRecup: 0.90,
-    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
-    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
+    label: 'Tapa Ensaladera',
+    pesoBruto_g:  15.95, pesoNeto_g:  11,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
   },
   E910: {
-    label: 'Ensaladera Negra 900ml',
-    pesoBruto_g: 23.8, pesoNeto_g: 17, tasaRecup: 0.90,
-    petNegroFactor: 1.10,
-    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
-    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
+    label: 'Ensaladera Negra',
+    pesoBruto_g:  23.8,  pesoNeto_g:  17,   // mismas dimensiones que E900
+    tasaRecup:    0.90,
+    petNegroFactor: 1.10,                    // 10% más caro el PET negro
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
   },
   S900: {
     label: 'Separador Ensaladera',
-    pesoBruto_g: 9.75, pesoNeto_g: 6.5, tasaRecup: 0.90,
-    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg: 0.08,
-    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
+    pesoBruto_g:  9.75,  pesoNeto_g:  6.5,
+    tasaRecup:    0.90,
+    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
+    udsHora:      7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg:  0.08,
   }
 };
 
@@ -2288,44 +2292,65 @@ async function refreshMargen(tc) {
   if (!tc) tc = await fetchTCBNA();
   const costoPET = parseFloat((document.getElementById('cos-pet-kg')||{}).value)||1.412761;
   const moARS    = parseFloat((document.getElementById('cos-mo-ars')||{}).value)||7000;
-  const PRODS    = ['E900','T900','E910','S900'];
+  if (!STATE.costoParams) STATE.costoParams = {};
+  const PRODS = ['E900','T900','E910','S900'];
+
+  // Merge COSTOS_BASE with any user-edited params
+  function getParams(prod) {
+    const base = COSTOS_BASE[prod]||{};
+    const over = STATE.costoParams[prod]||{};
+    return Object.assign({}, base, over,
+      { moARS_hora: moARS }  // global MO always wins
+    );
+  }
 
   function calcFull(prod) {
-    const b = COSTOS_BASE[prod]; if (!b) return null;
+    const b = getParams(prod); if (!b.pesoBruto_g) return null;
     const petFactor   = b.petNegroFactor||1;
     const petKg       = costoPET * petFactor;
-    const moTotal     = moARS * b.operarios * (1+b.cargasSoc);
-    const moUsdUnit   = (moTotal/b.udsHora)/tc;
+    const moTotal     = b.moARS_hora * b.operarios * (1+b.cargasSoc);
+    const moUsdUnit   = (moTotal / b.udsHora) / tc;
     const desperdicio = (b.pesoBruto_g - b.pesoNeto_g)/1000;
     const recuperado  = desperdicio * b.tasaRecup;
     const noRecup     = desperdicio * (1-b.tasaRecup);
     const mpUtil      = b.pesoNeto_g/1000 + noRecup;
     const cosMP  = mpUtil * petKg;
     const cosEn  = b.energiaUSD_kg * mpUtil;
-    const cosOt  = b.otrosUSD_kg * mpUtil;
+    const cosOt  = b.otrosUSD_kg   * mpUtil;
     const cosUnit = cosMP + moUsdUnit + cosEn + cosOt;
     const cosMil  = cosUnit * 1000;
     const udsTurno  = b.udsHora * b.horasTurno;
-    const udsDia    = udsTurno * b.turnosPorDia;
-    const udsMes    = udsDia * b.diasMes;
-    const costurnoUSD = cosUnit * udsTurno;
-    const cosDiaUSD   = cosUnit * udsDia;
-    const cosMesUSD   = cosUnit * udsMes;
+    const udsDia    = udsTurno  * b.turnosPorDia;
+    const udsMes    = udsDia    * b.diasMes;
     return { b, petFactor, petKg, desperdicio, recuperado, noRecup, mpUtil,
       cosMP, moUsdUnit, cosEn, cosOt, cosUnit, cosMil,
       cosMilARS: cosMil*tc, cosUnitARS: cosUnit*tc,
       udsTurno, udsDia, udsMes,
-      costurnoUSD, cosDiaUSD, cosMesUSD,
-      costurnoARS: costurnoUSD*tc, cosDiaARS: cosDiaUSD*tc, cosMesARS: cosMesUSD*tc,
-      moTotal, pctMP: cosUnit>0?cosMP/cosUnit*100:0,
+      costurnoUSD: cosUnit*udsTurno, cosDiaUSD: cosUnit*udsDia, cosMesUSD: cosUnit*udsMes,
+      costurnoARS: cosUnit*udsTurno*tc, cosDiaARS: cosUnit*udsDia*tc, cosMesARS: cosUnit*udsMes*tc,
+      moTotal,
+      pctMP: cosUnit>0?cosMP/cosUnit*100:0,
       pctMO: cosUnit>0?moUsdUnit/cosUnit*100:0,
       pctEn: cosUnit>0?cosEn/cosUnit*100:0,
       pctOt: cosUnit>0?cosOt/cosUnit*100:0,
     };
   }
 
-  function mkStatBox(label, icon, value, sub, color) {
-    return '<div style="background:white;border-left:3px solid '+color+';border:1px solid #e2e8f0;border-left:3px solid '+color+';border-radius:8px;padding:10px 12px">'+
+  function inp(id, val, w, step, onchange) {
+    return '<input id="'+id+'" type="number" value="'+val+'" step="'+(step||'1')+'" '+
+      'onchange="'+onchange+'" '+
+      'style="width:'+(w||60)+'px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;font-weight:700;text-align:right;background:#fffbeb">';
+  }
+
+  function paramRow(label, inputHtml, unit) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f9fafb">'+
+      '<span style="font-size:11px;color:#475569">'+label+'</span>'+
+      '<span style="display:flex;align-items:center;gap:4px">'+inputHtml+'<span style="font-size:10px;color:#94a3b8">'+unit+'</span></span>'+
+    '</div>';
+  }
+
+  function mkStatBoxEdit(label, icon, value, sub, color) {
+    return '<div style="background:white;border-left:3px solid '+color+';border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px">'+
       '<div style="font-size:16px">'+icon+'</div>'+
       '<div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase">'+label+'</div>'+
       '<div style="font-size:15px;font-weight:700;color:'+color+'">'+value+'</div>'+
@@ -2338,7 +2363,7 @@ async function refreshMargen(tc) {
         '<span style="font-size:15px">'+icon+'</span>'+
         '<span style="font-size:11px;font-weight:700;color:'+color+'">'+title+'</span>'+
       '</div>'+
-      '<div style="font-size:14px;font-weight:700">'+val+' <span style="font-size:11px;font-weight:400;color:#94a3b8">USD/un</span></div>'+
+      '<div style="font-size:14px;font-weight:700">'+val+' <span style="font-size:11px;color:#94a3b8">USD/un</span></div>'+
       '<div style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;color:'+color+';background:'+color+'22;margin:4px 0 8px">'+pct+'% del costo</div>'+
       '<div style="border-top:1px solid #f1f5f9;padding-top:6px">'+
         items.map(function(s){return '<div style="font-size:10px;color:#64748b;line-height:1.7">'+s+'</div>';}).join('')+
@@ -2356,76 +2381,126 @@ async function refreshMargen(tc) {
       '</div></div>';
   }
 
-  // ── Summary table ──
   var tbody = document.getElementById('cos-tabla-body');
   if (tbody) {
     tbody.innerHTML = PRODS.map(function(prod) {
       var f = calcFull(prod); if (!f) return '';
       var b = f.b;
       var detId = 'cosdet-'+prod;
+      var ch = 'recalcProd(\''+prod+'\')';  // onchange call
+
       return '<tr onclick="toggleCosDetail(\''+detId+'\')" style="cursor:pointer;border-top:1px solid #f1f5f9">'+
         '<td style="padding:8px 12px;color:#94a3b8;font-size:12px" id="cosarr-'+prod+'">&#9654;</td>'+
-        '<td style="padding:8px 12px"><div style="font-weight:700;font-size:13px">'+prod+'</div><div style="font-size:11px;color:#64748b">'+b.label+'</div><div style="font-size:10px;color:#94a3b8;margin-top:2px">'+b.udsHora.toLocaleString('es-AR')+' uds/h &middot; '+b.operarios+' operarios &middot; '+b.horasTurno+'h/turno</div></td>'+
+        '<td style="padding:8px 12px">'+
+          '<div style="font-weight:700;font-size:13px">'+prod+'</div>'+
+          '<div style="font-size:11px;color:#64748b">'+b.label+'</div>'+
+          '<div style="font-size:10px;color:#94a3b8;margin-top:2px">'+b.udsHora.toLocaleString('es-AR')+' uds/h &middot; '+b.operarios+' op. &middot; '+b.horasTurno+'h/turno</div>'+
+        '</td>'+
         '<td style="padding:8px;text-align:right"><div style="font-weight:700;color:#0369a1;font-size:13px">'+f.cosMil.toFixed(2)+' USD</div><div style="font-size:10px;color:#94a3b8">por millar</div></td>'+
         '<td style="padding:8px;text-align:right"><div style="font-weight:700;font-size:13px">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div><div style="font-size:10px;color:#94a3b8">ARS/millar</div></td>'+
-        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-family:monospace">'+f.cosUnit.toFixed(5)+' USD</div><div style="font-size:10px;color:#94a3b8">por unidad</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-family:monospace">'+f.cosUnit.toFixed(5)+'</div><div style="font-size:10px;color:#94a3b8">USD/unidad</div></td>'+
         '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsTurno.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/turno</div></td>'+
-        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsDia.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/d&iacute;a (2T)</div></td>'+
+        '<td style="padding:8px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsDia.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/d&iacute;a</div></td>'+
         '<td style="padding:8px 12px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsMes.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/mes</div></td>'+
       '</tr>'+
+
+      // DETAIL ROW
       '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;background:#f8fafc;border-bottom:3px solid #e2e8f0">'+
       '<div style="padding:20px 20px 20px 48px">'+
-        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9881; Capacidad de producci\u00f3n</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+
-          mkStatBox('uds/hora','&#9201;',b.udsHora.toLocaleString('es-AR'),'ritmo de producci\u00f3n','#0369a1')+
-          mkStatBox('horas/turno','&#8987;',b.horasTurno+'h','jornada laboral','#7c3aed')+
-          mkStatBox('uds/turno','&#127381;',f.udsTurno.toLocaleString('es-AR'),b.horasTurno+'h \u00d7 '+b.udsHora.toLocaleString('es-AR')+'/h','#16a34a')+
-          mkStatBox('uds/d\u00eda','&#128198;',f.udsDia.toLocaleString('es-AR'),'2 turnos de '+b.horasTurno+'h','#d97706')+
-          mkStatBox('uds/mes','&#128202;',f.udsMes.toLocaleString('es-AR'),b.diasMes+' d\u00edas h\u00e1biles','#dc2626')+
+
+        // ── Editable params ──
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9999; Par&aacute;metros editables</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'+
+
+          // Producción
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#0369a1;margin-bottom:8px">&#9201; Producci&oacute;n</div>'+
+            paramRow('Uds/hora',inp('cp_'+prod+'_udsHora',b.udsHora,70,'100',ch),'uds/h')+
+            paramRow('Horas/turno',inp('cp_'+prod+'_horasTurno',b.horasTurno,50,'0.5',ch),'hs')+
+            paramRow('Turnos/d&iacute;a',inp('cp_'+prod+'_turnosPorDia',b.turnosPorDia,40,'1',ch),'T')+
+            paramRow('D&iacute;as/mes',inp('cp_'+prod+'_diasMes',b.diasMes,40,'1',ch),'d&iacute;as')+
+          '</div>'+
+
+          // Materiales
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px">&#129521; Material &amp; MO</div>'+
+            paramRow('Peso neto',inp('cp_'+prod+'_pesoNeto_g',b.pesoNeto_g,55,'0.1',ch),'g/un')+
+            paramRow('Peso bruto',inp('cp_'+prod+'_pesoBruto_g',b.pesoBruto_g,55,'0.1',ch),'g/un')+
+            paramRow('Recuperaci&oacute;n',inp('cp_'+prod+'_tasaRecup',b.tasaRecup,50,'0.01',ch),'0-1')+
+            paramRow('Operarios',inp('cp_'+prod+'_operarios',b.operarios,40,'1',ch),'op')+
+            paramRow('Cargas soc.',inp('cp_'+prod+'_cargasSoc',b.cargasSoc,50,'0.01',ch),'0-1')+
+          '</div>'+
+
+          // Energía y otros
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:8px">&#9889; Energ&iacute;a &amp; Otros</div>'+
+            paramRow('Energ&iacute;a',inp('cp_'+prod+'_energiaUSD_kg',b.energiaUSD_kg,55,'0.005',ch),'USD/kg')+
+            paramRow('Otros costos',inp('cp_'+prod+'_otrosUSD_kg',b.otrosUSD_kg,55,'0.005',ch),'USD/kg')+
+            (b.petNegroFactor?paramRow('Factor PET negro',inp('cp_'+prod+'_petNegroFactor',b.petNegroFactor,55,'0.01',ch),'x'):'')+ 
+            '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9">'+
+              '<button onclick="event.stopPropagation();guardarParamsProd(\''+prod+'\')" '+
+              'style="width:100%;padding:5px;background:#0369a1;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">'+
+              '&#128190; Guardar param. '+prod+'</button>'+
+              '<button onclick="event.stopPropagation();resetParamsProd(\''+prod+'\')" '+
+              'style="width:100%;padding:4px;background:white;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;margin-top:4px">'+
+              'Restaurar por defecto</button>'+
+            '</div>'+
+          '</div>'+
         '</div>'+
-        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128176; Estructura de costos por unidad (USD)</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
+
+        // ── Capacidad (calculated) ──
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9881; Capacidad calculada</div>'+
+        '<div id="cap_'+prod+'" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+
+          mkStatBoxEdit('uds/hora','&#9201;',b.udsHora.toLocaleString('es-AR'),'ritmo de producción','#0369a1')+
+          mkStatBoxEdit('horas/turno','&#8987;',b.horasTurno+'h','jornada laboral','#7c3aed')+
+          mkStatBoxEdit('uds/turno','&#127381;',f.udsTurno.toLocaleString('es-AR'),b.horasTurno+'h × '+b.udsHora.toLocaleString('es-AR')+'/h','#16a34a')+
+          mkStatBoxEdit('uds/día','&#128198;',f.udsDia.toLocaleString('es-AR'),'turnos: '+b.turnosPorDia,'#d97706')+
+          mkStatBoxEdit('uds/mes','&#128202;',f.udsMes.toLocaleString('es-AR'),b.diasMes+' días','#dc2626')+
+        '</div>'+
+
+        // ── Cost structure ──
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128176; Estructura de costos</div>'+
+        '<div id="struct_'+prod+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
           mkCostCard('Materia Prima','&#129521;','#0369a1',f.cosMP.toFixed(5),f.pctMP.toFixed(1),
-            ['Peso neto: '+b.pesoNeto_g+'g \u00b7 Bruto: '+b.pesoBruto_g+'g',
-             'Desperdicio: '+(f.desperdicio*1000).toFixed(1)+'g/un',
-             'Recuperado ('+(b.tasaRecup*100)+'%): '+(f.recuperado*1000).toFixed(2)+'g',
+            ['Peso neto: '+b.pesoNeto_g+'g · Bruto: '+b.pesoBruto_g+'g',
              'No recuperado: '+(f.noRecup*1000).toFixed(2)+'g/un',
              'MP efectiva: '+(f.mpUtil*1000).toFixed(2)+'g/un',
-             'Costo PET: '+f.petKg.toFixed(4)+' USD/kg'+(f.petFactor>1?' (+'+((f.petFactor-1)*100).toFixed(0)+'% PET negro)':'')])+
+             'PET: '+f.petKg.toFixed(4)+' USD/kg'+(f.petFactor>1?' (+'+((f.petFactor-1)*100).toFixed(0)+'% negro)':'')])+
           mkCostCard('Mano de Obra','&#128119;','#7c3aed',f.moUsdUnit.toFixed(5),f.pctMO.toFixed(1),
-            [b.operarios+' operarios \u00d7 $'+moARS.toLocaleString('es-AR')+'/hora',
-             'Subtotal MO: $'+(moARS*b.operarios).toLocaleString('es-AR')+'/h',
-             'Cargas soc. '+b.cargasSoc*100+'%: $'+(moARS*b.operarios*b.cargasSoc).toLocaleString('es-AR')+'/h',
-             'Total c/CS: $'+f.moTotal.toLocaleString('es-AR')+'/h',
+            [b.operarios+' op. × $'+b.moARS_hora.toLocaleString('es-AR')+'/h',
+             'CS '+b.cargasSoc*100+'%: total $'+f.moTotal.toLocaleString('es-AR')+'/h',
              b.udsHora.toLocaleString('es-AR')+' uds/hora'])+
-          mkCostCard('Energ\u00eda','&#9889;','#b45309',f.cosEn.toFixed(5),f.pctEn.toFixed(1),
-            [b.energiaUSD_kg+' USD/kg de MP utilizada',
-             'MP util: '+(f.mpUtil*1000).toFixed(2)+'g/un',
-             'Por millar: '+(f.cosEn*1000).toFixed(3)+' USD'])+
+          mkCostCard('Energía','&#9889;','#b45309',f.cosEn.toFixed(5),f.pctEn.toFixed(1),
+            [b.energiaUSD_kg+' USD/kg MP',
+             'MP: '+(f.mpUtil*1000).toFixed(2)+'g/un'])+
           mkCostCard('Otros','&#128230;','#166534',f.cosOt.toFixed(5),f.pctOt.toFixed(1),
-            [b.otrosUSD_kg+' USD/kg de MP',
-             'Mantenimiento, amortiz., varios',
-             'Por millar: '+(f.cosOt*1000).toFixed(3)+' USD'])+
+            [b.otrosUSD_kg+' USD/kg MP',
+             'Mant., amort., varios'])+
         '</div>'+
-        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128200; Costo a escala completa</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
-          mkScaleBox('Por turno completo ('+b.horasTurno+'h)',f.udsTurno,f.costurnoUSD,f.costurnoARS)+
-          mkScaleBox('Por d\u00eda ('+b.turnosPorDia+' turnos)',f.udsDia,f.cosDiaUSD,f.cosDiaARS)+
-          mkScaleBox('Por mes ('+b.diasMes+' d\u00edas)',f.udsMes,f.cosMesUSD,f.cosMesARS)+
+
+        // ── Scale costs ──
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128200; Costo a escala</div>'+
+        '<div id="scale_'+prod+'" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
+          mkScaleBox('Por turno ('+b.horasTurno+'h)',f.udsTurno,f.costurnoUSD,f.costurnoARS)+
+          mkScaleBox('Por día ('+b.turnosPorDia+' turnos)',f.udsDia,f.cosDiaUSD,f.cosDiaARS)+
+          mkScaleBox('Por mes ('+b.diasMes+' días)',f.udsMes,f.cosMesUSD,f.cosMesARS)+
         '</div>'+
-        '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px">'+
+
+        // ── Summary ──
+        '<div id="sum_'+prod+'" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px">'+
           '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center">'+
             '<div><div style="font-size:10px;color:#64748b">Costo/unidad</div><div style="font-size:16px;font-weight:700">'+f.cosUnit.toFixed(4)+' USD</div></div>'+
             '<div><div style="font-size:10px;color:#64748b">Costo/millar</div><div style="font-size:16px;font-weight:700;color:#0369a1">'+f.cosMil.toFixed(2)+' USD</div></div>'+
-            '<div><div style="font-size:10px;color:#64748b">ARS/millar (TC hoy)</div><div style="font-size:16px;font-weight:700">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
+            '<div><div style="font-size:10px;color:#64748b">ARS/millar hoy</div><div style="font-size:16px;font-weight:700">'+f.cosMilARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</div></div>'+
             '<div><div style="font-size:10px;color:#64748b">ARS/unidad</div><div style="font-size:16px;font-weight:700">'+f.cosUnitARS.toFixed(3)+'</div></div>'+
           '</div>'+
         '</div>'+
+
       '</div></td></tr>';
     }).join('');
   }
 
-  // ── Markup/margen table ──
+  // Markup table
   var PROD_SHOW = ['E900','T900','E910'];
   var CATS_CFG  = [
     {key:'WINFLEX',label:'Winflex',ref:300,color:'#0369a1'},
@@ -2442,7 +2517,7 @@ async function refreshMargen(tc) {
       '<th style="padding:8px 8px;font-size:11px;color:#64748b;text-align:right">Costo ARS/mil</th>'+
       CATS_CFG.map(function(c){
         return '<th colspan="3" style="padding:8px 8px;font-size:11px;color:'+c.color+';text-align:center;font-weight:700;border-left:2px solid #f1f5f9">'+
-          c.label+'<br><span style="font-size:9px;font-weight:400;color:#94a3b8">editable &middot; x'+c.ref+' uds</span></th>';
+          c.label+'<br><span style="font-size:9px;font-weight:400;color:#94a3b8">editable &middot; x'+c.ref+'</span></th>';
       }).join('')+'</tr>'+
       '<tr style="background:#fafafa"><th colspan="3"></th>'+
       CATS_CFG.map(function(c){
@@ -2475,6 +2550,42 @@ async function refreshMargen(tc) {
         cells+'</tr>';
     }).join('');
   }
+}
+
+// ── Per-product param editing ──
+function recalcProd(prod) {
+  if (!STATE.costoParams) STATE.costoParams = {};
+  if (!STATE.costoParams[prod]) STATE.costoParams[prod] = {};
+  var fields = ['udsHora','horasTurno','turnosPorDia','diasMes',
+                'pesoNeto_g','pesoBruto_g','tasaRecup','operarios','cargasSoc',
+                'energiaUSD_kg','otrosUSD_kg','petNegroFactor'];
+  fields.forEach(function(f) {
+    var el = document.getElementById('cp_'+prod+'_'+f);
+    if (el && el.value !== '') STATE.costoParams[prod][f] = parseFloat(el.value);
+  });
+  // Re-render just this product's sections (partial refresh)
+  refreshMargen();
+}
+
+async function guardarParamsProd(prod) {
+  recalcProd(prod);
+  await saveToCloud();
+  toast('Parámetros de '+prod+' guardados ✓','ok');
+}
+
+function resetParamsProd(prod) {
+  if (!STATE.costoParams) STATE.costoParams = {};
+  delete STATE.costoParams[prod];
+  var fields = ['udsHora','horasTurno','turnosPorDia','diasMes',
+                'pesoNeto_g','pesoBruto_g','tasaRecup','operarios','cargasSoc',
+                'energiaUSD_kg','otrosUSD_kg','petNegroFactor'];
+  var base = COSTOS_BASE[prod]||{};
+  fields.forEach(function(f) {
+    var el = document.getElementById('cp_'+prod+'_'+f);
+    if (el && base[f] !== undefined) el.value = base[f];
+  });
+  refreshMargen();
+  toast('Parámetros de '+prod+' restaurados ✓','ok');
 }
 
 function _pvMillar(prCaja, esUSD, tc, ref) {
