@@ -2368,6 +2368,19 @@ async function refreshMargen(tc) {
   }
 
   // ── Summary table ──
+
+  function prRow(label, id, val, step, unit) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0">'+
+      '<span style="font-size:10px;color:#64748b">'+label+'</span>'+
+      '<span style="display:flex;align-items:center;gap:3px">'+
+        '<input id="'+id+'" type="number" value="'+(val||'')+'" step="'+(step||1)+'" '+
+        'onchange="recalcProd(\''+id.split('_')[1]+'\')" '+
+        'style="width:65px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-weight:600;text-align:right;background:#fffbeb">'+
+        '<span style="font-size:9px;color:#94a3b8">'+unit+'</span>'+
+      '</span>'+
+    '</div>';
+  }
+
   var tbody = document.getElementById('cos-tabla-body');
   if (tbody) {
     tbody.innerHTML = PRODS.map(function(prod) {
@@ -2385,17 +2398,6 @@ async function refreshMargen(tc) {
         '<td style="padding:8px 12px;text-align:right"><div style="font-size:12px;font-weight:600">'+f.udsMes.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:#94a3b8">uds/mes</div></td>'+
       '</tr>'+
       
-  function prRow(label, id, val, step, unit) {
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0">'+
-      '<span style="font-size:10px;color:#64748b">'+label+'</span>'+
-      '<span style="display:flex;align-items:center;gap:3px">'+
-        '<input id="'+id+'" type="number" value="'+(val||'')+'" step="'+(step||1)+'" '+
-        'onchange="recalcProd(\''+id.split('_')[1]+'\')" '+
-        'style="width:65px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-weight:600;text-align:right;background:#fffbeb">'+
-        '<span style="font-size:9px;color:#94a3b8">'+unit+'</span>'+
-      '</span>'+
-    '</div>';
-  }
 '<tr id="'+detId+'" style="display:none"><td colspan="8" onclick="event.stopPropagation()" style="padding:0;background:#f8fafc;border-bottom:3px solid #e2e8f0">'+
       '<div style="padding:20px 20px 20px 48px">'+
         '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9999;&#65039; Par\u00e1metros editables</div>'+
