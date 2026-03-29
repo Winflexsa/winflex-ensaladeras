@@ -430,6 +430,11 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
             <button class="btn" onclick="exportProduccion(document.getElementById('exp-mes').value)">Exportar mes</button>
           </div>
         </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="card-title">📊 Cobranzas</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6">Descargá todos los pedidos con estado de entrega y cobranza. Formato Excel.</p>
+          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
+        </div>
       </div>
       <div class="card" style="margin-top:0">
         <div class="card-title">Informe completo</div>
@@ -437,12 +442,6 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <button class="btn btn-primary" onclick="exportCompleto()">Descargar informe completo</button>
       </div>
     </div>
-
-        <div class="card">
-          <div class="card-title">📊 Cobranzas CSV</div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Abre directo en Excel.</p>
-          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
-        </div>
 
   <div class="page" id="pg-cobranzas">
     <div class="page-title">Cobranzas</div>
