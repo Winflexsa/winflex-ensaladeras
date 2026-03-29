@@ -272,7 +272,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="metrics" id="ped-metrics"></div>
       <div class="card">
         <div class="tbl-wrap">
-          <table><thead><tr><th style="width:24px"></th><th>Cliente</th><th style="width:80px">Fecha</th><th>Productos</th><th style="width:70px">Uds.</th><th style="width:90px">Estado</th><th style="width:90px">Acciones</th></tr></thead>
+          <table><thead><tr><th style="width:45px">ID</th><th style="width:75px">Fecha</th><th style="width:150px">Cliente</th><th>Productos</th><th style="width:80px">Unidades</th><th style="width:90px">Estado</th><th style="width:85px">F. Entrega</th><th style="width:130px">Despacho</th><th style="width:75px">Vendedor</th><th style="width:90px"></th></tr></thead>
           <tbody id="ped-body"></tbody></table>
         </div>
       </div>
@@ -362,7 +362,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Eficiencia (0 a 1)</label><input type="number" id="rp-efic" min="0" max="2" step="0.001" value="0" placeholder="ej: 0.75"></div>
           <div class="form-group">
           <label>Lista de precios</label>
-          <select id="np-lista" onchange="actualizarPreciosItems()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
+          <select id="np-lista" onchange="calcPrecioPreview()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
             <option value="">Auto (por cliente)</option>
             <option value="WINFLEX">Winflex</option>
             <option value="NITOPI">Nitopi</option>
@@ -430,12 +430,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
             <button class="btn" onclick="exportProduccion(document.getElementById('exp-mes').value)">Exportar mes</button>
           </div>
         </div>
-              <div class="card" style="display:flex;flex-direction:column;gap:10px">
-          <div class="card-title">📊 Cobranzas</div>
-          <p style="font-size:13px;color:var(--text2);line-height:1.6">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Formato Excel.</p>
-          <button class="btn btn-primary" onclick="exportarCobranzas()">&#11015; Descargar Cobranzas</button>
-        </div>
-</div>
+      </div>
       <div class="card" style="margin-top:0">
         <div class="card-title">Informe completo</div>
         <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Genera un Excel con múltiples hojas: Stock, Pedidos, Producción mensual y Resumen por cliente.</p>
@@ -443,6 +438,11 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       </div>
     </div>
 
+        <div class="card">
+          <div class="card-title">📊 Cobranzas CSV</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Abre directo en Excel.</p>
+          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
+        </div>
 
   <div class="page" id="pg-cobranzas">
     <div class="page-title">Cobranzas</div>
@@ -616,8 +616,12 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     </div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);margin-bottom:8px;margin-top:4px">Productos</div>
     <div id="ed-prods" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-pri// ─── 
+    <div style="display:flex
+<script>
+// ─── 
+// ─── Constantes ───────────────────────────────────────────────
+c
+// ─── 
 // ─── Constantes ───────────────────────────────────────────────
 const CAJAS = [300, 500, 1000, 100, 440, 880];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -836,87 +840,89 @@ function renderStock() {
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
 function renderPedidos() {
-  var q    = (document.getElementById('f-cli').value || '').toLowerCase();
-  var est  = document.getElementById('f-est').value;
-  var prod = document.getElementById('f-prod').value;
-  var vend = document.getElementById('f-vend').value;
-  var list = STATE.pedidos.filter(function(p) {
+  const q    = (document.getElementById('f-cli').value || '').toLowerCase();
+  const est  = document.getElementById('f-est').value;
+  const prod = document.getElementById('f-prod').value;
+  const vend = document.getElementById('f-vend').value;
+  const list = STATE.pedidos.filter(p => {
     if (q && !p.cliente.toLowerCase().includes(q)) return false;
     if (est && p.estado !== est) return false;
     if (vend && p.vendedor !== vend) return false;
-    if (prod && !p.items.some(function(i){ return i.prod === prod; })) return false;
+    if (prod && !p.items.some(i => i.prod === prod)) return false;
     return true;
   });
-  var pend    = list.filter(function(p){ return p.estado === 'Pendiente'; });
-  var ent     = list.filter(function(p){ return p.estado === 'Entregado'; });
-  var udsPend = pend.reduce(function(a,p){ return a + p.items.reduce(function(x,i){ return x + (i.uds||(i.cajas||0)*(i.caja||0)||0); },0); }, 0);
-  var udsEnt  = ent.reduce(function(a,p){  return a + p.items.reduce(function(x,i){ return x + (i.uds||(i.cajas||0)*(i.caja||0)||0); },0); }, 0);
+  const pend    = list.filter(p => p.estado === 'Pendiente');
+  const ent     = list.filter(p => p.estado === 'Entregado');
+  const udsPend = pend.reduce((a,p) => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
+  const udsEnt  = ent.reduce((a,p)  => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
   document.getElementById('ped-metrics').innerHTML =
     '<div class="metric"><div class="metric-label">Mostrando</div><div class="metric-value">'+list.length+'</div><div class="metric-sub">pedidos</div></div>' +
     '<div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn">'+pend.length+'</div><div class="metric-sub">'+fmt(udsPend)+' uds</div></div>' +
     '<div class="metric"><div class="metric-label">Entregados</div><div class="metric-value pos">'+ent.length+'</div><div class="metric-sub">'+fmt(udsEnt)+' uds</div></div>';
 
-  var sorted = list.slice().sort(function(a,b){ return b.id-a.id; });
-  var rows = '';
-  for (var pi=0; pi<sorted.length; pi++) {
-    var p = sorted[pi];
-    var eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
-    var totalUds = p.items.reduce(function(a,i){ return a+(i.uds||(i.cajas||0)*(i.caja||0)||0); },0);
-    var itemsShort = p.items.filter(function(i){ return i.cajas>0; }).map(function(i){ return i.prod+' x'+i.caja+' ('+i.cajas+'cj)'; }).join(' · ');
-    var detId = 'peddet-'+p.id;
+  const sorted = [...list].sort((a,b) => b.id - a.id);
+  let rows = '';
+  for (const p of sorted) {
+    const eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
+    const totalUds = p.items.reduce((a,i) => a + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0);
+    const itemsShort = p.items.filter(i=>i.cajas>0).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+'cj)').join(' · ');
+    const detId = 'peddet-'+p.id;
 
-    rows += '<tr style="cursor:pointer;border-top:1px solid #f1f5f9" onclick="togglePedDet(\'' +detId+ '\')">' +
-      '<td style="padding:8px 10px;color:#94a3b8;font-size:13px;width:40px;white-space:nowrap">&#9654; <span style="font-size:11px;font-weight:700;color:#64748b">#'+p.id+'</span></td>' +
-      '<td style="padding:8px 8px"><div style="font-weight:700;font-size:13px">'+(p.cliente||'-')+'</div><div style="font-size:11px;color:#64748b">'+(p.vendedor||'')+'</div></td>' +
-      '<td style="padding:8px 8px;font-size:12px;color:#475569;white-space:nowrap">'+fmtD(p.fecha)+'</td>' +
-      '<td style="padding:8px 8px;font-size:11px;color:#64748b;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemsShort+'</td>' +
-      '<td style="padding:8px 8px;font-weight:600">'+fmt(totalUds)+'</td>' +
-      '<td style="padding:8px 8px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
-      
-      '<td style="padding:8px 10px" onclick="event.stopPropagation()">' +
+    // Summary row — clickable
+    rows += '<tr style="cursor:pointer" onclick="togglePedDet(\''+detId+'\')">' +
+      '<td style="font-size:12px;color:#94a3b8;padding:8px 6px">&#9654;<br><span style="font-size:10px">#'+p.id+'</span></td>' +
+      '<td style="padding:8px 6px"><div style="font-weight:700;font-size:13px">'+(p.cliente||'-')+'</div><div style="font-size:11px;color:#64748b">'+(p.vendedor||'')+'</div></td>' +
+      '<td style="padding:8px 6px"><span style="font-size:12px;color:#475569">'+fmtD(p.fecha)+'</span></td>' +
+      '<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemsShort+'</td>' +
+      '<td style="padding:8px 6px;font-weight:600">'+fmt(totalUds)+'</td>' +
+      '<td style="padding:8px 6px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
+      '' +
+      '<td style="padding:8px 6px" onclick="event.stopPropagation()">' +
         (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
         '<button class="btn btn-sm" onclick="abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
-        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">×</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
       '</td>' +
     '</tr>';
 
-    var iRows = '';
-    for (var ii=0; ii<p.items.length; ii++) {
-      var it = p.items[ii];
-      if (!it.cajas) continue;
-      var uds = it.uds || (it.cajas||0)*(it.caja||0);
-      iRows += '<tr style="background:#f8fafc">' +
-        '<td style="padding:5px 8px 5px 28px;font-size:12px;font-weight:700;color:#0369a1">'+it.prod+'</td>' +
-        '<td style="padding:5px 8px;font-size:12px">x'+it.caja+' uds/caja</td>' +
-        '<td style="padding:5px 8px;font-size:12px;font-weight:600">'+fmt(it.cajas)+' cajas</td>' +
-        '<td style="padding:5px 8px;font-size:12px">'+fmt(uds)+' uds</td>' +
-        '<td colspan="4"></td></tr>';
-    }
+    // Detail row (hidden by default)
+    const itemRows = p.items.filter(i=>i.cajas>0).map(i => {
+      const uds = i.uds || (i.cajas||0)*(i.caja||0);
+      return '<tr style="background:#f8fafc"><td style="padding:5px 10px 5px 28px;font-size:12px;font-weight:700;color:#0369a1">'+i.prod+'</td>' +
+        '<td style="padding:5px 8px;font-size:12px">x'+i.caja+' uds/caja</td>' +
+        '<td style="padding:5px 8px;font-size:12px">'+fmt(i.cajas)+' cajas</td>' +
+        '<td style="padding:5px 8px;font-size:12px;font-weight:600">'+fmt(uds)+' uds</td>' +
+        '<td colspan="4" style="padding:5px 8px"></td></tr>';
+    }).join('');
 
-    rows += '<tr id="'+detId+'" style="display:none">' +
-      '<td colspan="7" style="padding:0;border-bottom:2px solid #e2e8f0">' +
-      '<div style="padding:14px 16px 14px 24px;background:#f8fafc">' +
-        '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Cliente</div><div style="font-size:14px;font-weight:700">'+(p.cliente||'-')+'</div></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Vendedor</div><div style="font-size:13px">'+(p.vendedor||'-')+'</div></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Fecha</div><div style="font-size:13px">'+fmtD(p.fecha)+'</div></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Entrega est.</div><div style="font-size:13px">'+(p.entrega?fmtD(p.entrega):'—')+'</div></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Despacho</div><div style="font-size:13px">'+(p.despacho||'—')+'</div></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Estado</div><span class="badge '+eC+'">'+p.estado+'</span></div>' +
-          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">OC/Obs.</div><div style="font-size:13px">'+(p.obs||'—')+'</div></div>' +
+    rows += '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;border-bottom:2px solid #e2e8f0" onclick="event.stopPropagation()">' +
+      '<div style="padding:12px 16px 12px 24px;background:#f8fafc">' +
+        // Header info
+        '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Cliente</span><div style="font-size:14px;font-weight:700">'+(p.cliente||'-')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Vendedor</span><div style="font-size:13px">'+(p.vendedor||'-')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Fecha pedido</span><div style="font-size:13px">'+fmtD(p.fecha)+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Entrega estimada</span><div style="font-size:13px">'+(p.entrega?fmtD(p.entrega):'—')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Despacho</span><div style="font-size:13px">'+(p.despacho||'—')+'</div></div>' +
+          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Estado</span><div><span class="badge '+eC+'">'+p.estado+'</span></div></div>' +
         '</div>' +
-        '<table style="width:100%;border-collapse:collapse">' +
+        // Items table
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:8px">' +
           '<thead><tr style="background:#e2e8f0">' +
-            '<th style="padding:5px 8px 5px 28px;font-size:11px;text-align:left">Producto</th>' +
+            '<th style="padding:5px 10px 5px 28px;font-size:11px;text-align:left">Producto</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Presentación</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Cajas</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Unidades</th>' +
-            '<th colspan="4"></th>' +
-          '</tr></thead><tbody>'+iRows+'</tbody></table>' +
-      '</div></td></tr>';
+            '<th colspan="4" style="padding:5px 8px"></th>' +
+          '</tr></thead><tbody>'+itemRows+'</tbody>' +
+        '</table>' +
+        // Obs
+        (p.obs ? '<div style="font-size:11px;color:#64748b;margin-top:4px">&#128172; <b>Obs:</b> '+p.obs+'</div>' : '') +
+      '</div>' +
+    '</td></tr>';
   }
+
   document.getElementById('ped-body').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>';
-  // loadValoresPedidos removed — valor column removed
+  
 }
 
 function abrirParcial(id) {
@@ -1051,8 +1057,8 @@ function initNuevoForm() {
   }
 
   // Live price preview
-
-
+  document.getElementById('np-items-body').addEventListener('change', function(){ setTimeout(calcPrecioPreview, 50); });
+  document.getElementById('np-items-body').addEventListener('input', function(){ setTimeout(calcPrecioPreview, 50); });
 }
 
 async function guardarPedido() {
@@ -1745,6 +1751,42 @@ async function exportarCobranzas() {
 
 
 
+async function calcPrecioPreview() {
+  var clienteEl = document.getElementById('np-cliente');
+  var listaEl   = document.getElementById('np-lista');
+  var cliente   = clienteEl ? clienteEl.value.trim() : '';
+  var listaOvr  = listaEl   ? listaEl.value : '';
+  var cat       = getClienteCat(cliente, listaOvr);
+  var precios   = PRECIOS[cat];
+  var esUSD     = cat === 'BANDEX_USD';
+  var tc        = esUSD ? await fetchTCBNA() : 1;
+  var catLabel  = { WINFLEX:'Winflex', NITOPI:'Nitopi', ENVASES_GROUP:'Envases Group', BANDEX_USD:'Bandex (USD)' }[cat] || cat;
+  var totalARS  = 0, usdAmt = 0;
+  var rows = document.querySelectorAll('#np-items-body tr');
+  rows.forEach(function(row) {
+    var sels = row.querySelectorAll('select');
+    var inps = row.querySelectorAll('input');
+    if (sels.length < 2 || inps.length < 1) return;
+    var prod  = sels[0].value;
+    var caja  = parseInt(sels[1].value) || 0;
+    var cajas = parseInt(inps[0].value) || 0;
+    var pr    = precios && precios[prod] && precios[prod][caja];
+    if (!pr || !cajas) return;
+    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
+    else totalARS += pr * cajas;
+  });
+  var prev = document.getElementById('np-precio-preview');
+  var val  = document.getElementById('np-precio-valor');
+  var det  = document.getElementById('np-precio-detalle');
+  if (!prev || !val || !det) return;
+  if (totalARS > 0) {
+    prev.style.display = '';
+    val.textContent    = fmtPeso(totalARS);
+    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
+  } else {
+    prev.style.display = 'none';
+  }
+}
 
 
 
@@ -1752,8 +1794,41 @@ async function exportarCobranzas() {
 
 
 
-
-
+async function calcPrecioPreview() {
+  const clienteEl = document.getElementById('np-cliente');
+  const listaEl   = document.getElementById('np-lista');
+  const cliente   = clienteEl ? clienteEl.value.trim() : '';
+  const listaOvr  = listaEl   ? listaEl.value   : '';
+  const cat       = getClienteCat(cliente, listaOvr);
+  const precios   = PRECIOS[cat];
+  const esUSD     = cat === 'BANDEX_USD';
+  const tc        = esUSD ? await fetchTCBNA() : 1;
+  const catLabel  = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex (USD)'}[cat] || cat;
+  let totalARS = 0, usdAmt = 0;
+  document.querySelectorAll('#np-items-body tr').forEach(function(row) {
+    const sels = row.querySelectorAll('select');
+    const inps = row.querySelectorAll('input');
+    if (sels.length < 2 || inps.length < 1) return;
+    const prod  = sels[0].value;
+    const caja  = parseInt(sels[1].value) || 0;
+    const cajas = parseInt(inps[0].value) || 0;
+    const pr    = precios && precios[prod] && precios[prod][caja];
+    if (!pr || !cajas) return;
+    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
+    else totalARS += pr * cajas;
+  });
+  const prev = document.getElementById('np-precio-preview');
+  const val  = document.getElementById('np-precio-valor');
+  const det  = document.getElementById('np-precio-detalle');
+  if (!prev || !val || !det) return;
+  if (totalARS > 0) {
+    prev.style.display = '';
+    val.textContent    = fmtPeso(totalARS);
+    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
+  } else {
+    prev.style.display = 'none';
+  }
+}
 
 // ─── ESTADO PRECIOS & COSTOS ─────────────────────────────────────────
 // STATE.historialPrecios = [{fecha, vigencia, listas:{WINFLEX:{...}, NITOPI:{...}, ...}}]
@@ -2807,19 +2882,6 @@ function _calcMarkupBadgeMillar(pvUSD, cosUSDMil) {
   return '<span style="font-size:11px;font-weight:700;color:'+mc+'">'+mu.toFixed(0)+'%</span>';
 }
 
-
-function togglePedDet(id) {
-  var row = document.getElementById(id); if (!row) return;
-  var open = row.style.display !== 'none';
-  document.querySelectorAll('[id^="peddet-"]').forEach(function(r){ r.style.display='none'; });
-  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(function(td){ td.innerHTML='&#9654;'; });
-  if (!open) {
-    row.style.display = '';
-    var prev = row.previousElementSibling;
-    if (prev) { var td = prev.querySelector('td:first-child'); if(td) td.innerHTML='&#9660;'; }
-  }
-}
-
 boot();
 
 
@@ -3175,11 +3237,6 @@ async function exportCompleto() {
   stRows.push(['','TOTAL', ['E900','T900','E910','S900'].reduce((a,p)=>a+(st[p]||0),0)]);
   const wsSt = XLSX.utils.aoa_to_sheet(stRows);
   wsSt['!cols'] = [{wch:8},{wch:25},{wch:18}];
-  XLSX.utils.book_append_sheet(wb, wsSt, 'Stock');
-
-  XLSX.writeFile(wb, 'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
-  toast('Informe completo descargado \u2713');
-}:18}];
   XLSX.utils.book_append_sheet(wb, wsSt, 'Stock');
 
   XLSX.writeFile(wb, 'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
