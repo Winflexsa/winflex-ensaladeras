@@ -1058,8 +1058,8 @@ function initNuevoForm() {
   }
 
   // Live price preview
-  document.getElementById('np-items-body').addEventListener('change', function(){ setTimeout(actualizarPreciosItems, 50); });
-  document.getElementById('np-items-body').addEventListener('input', function(){ setTimeout(actualizarPreciosItems, 50); });
+
+
 }
 
 async function guardarPedido() {
@@ -1752,42 +1752,6 @@ async function exportarCobranzas() {
 
 
 
-async function calcPrecioPreview() {
-  var clienteEl = document.getElementById('np-cliente');
-  var listaEl   = document.getElementById('np-lista');
-  var cliente   = clienteEl ? clienteEl.value.trim() : '';
-  var listaOvr  = listaEl   ? listaEl.value : '';
-  var cat       = getClienteCat(cliente, listaOvr);
-  var precios   = PRECIOS[cat];
-  var esUSD     = cat === 'BANDEX_USD';
-  var tc        = esUSD ? await fetchTCBNA() : 1;
-  var catLabel  = { WINFLEX:'Winflex', NITOPI:'Nitopi', ENVASES_GROUP:'Envases Group', BANDEX_USD:'Bandex (USD)' }[cat] || cat;
-  var totalARS  = 0, usdAmt = 0;
-  var rows = document.querySelectorAll('#np-items-body tr');
-  rows.forEach(function(row) {
-    var sels = row.querySelectorAll('select');
-    var inps = row.querySelectorAll('input');
-    if (sels.length < 2 || inps.length < 1) return;
-    var prod  = sels[0].value;
-    var caja  = parseInt(sels[1].value) || 0;
-    var cajas = parseInt(inps[0].value) || 0;
-    var pr    = precios && precios[prod] && precios[prod][caja];
-    if (!pr || !cajas) return;
-    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
-    else totalARS += pr * cajas;
-  });
-  var prev = document.getElementById('np-precio-preview');
-  var val  = document.getElementById('np-precio-valor');
-  var det  = document.getElementById('np-precio-detalle');
-  if (!prev || !val || !det) return;
-  if (totalARS > 0) {
-    prev.style.display = '';
-    val.textContent    = fmtPeso(totalARS);
-    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
-  } else {
-    prev.style.display = 'none';
-  }
-}
 
 
 
@@ -1795,41 +1759,8 @@ async function calcPrecioPreview() {
 
 
 
-async function calcPrecioPreview() {
-  const clienteEl = document.getElementById('np-cliente');
-  const listaEl   = document.getElementById('np-lista');
-  const cliente   = clienteEl ? clienteEl.value.trim() : '';
-  const listaOvr  = listaEl   ? listaEl.value   : '';
-  const cat       = getClienteCat(cliente, listaOvr);
-  const precios   = PRECIOS[cat];
-  const esUSD     = cat === 'BANDEX_USD';
-  const tc        = esUSD ? await fetchTCBNA() : 1;
-  const catLabel  = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex (USD)'}[cat] || cat;
-  let totalARS = 0, usdAmt = 0;
-  document.querySelectorAll('#np-items-body tr').forEach(function(row) {
-    const sels = row.querySelectorAll('select');
-    const inps = row.querySelectorAll('input');
-    if (sels.length < 2 || inps.length < 1) return;
-    const prod  = sels[0].value;
-    const caja  = parseInt(sels[1].value) || 0;
-    const cajas = parseInt(inps[0].value) || 0;
-    const pr    = precios && precios[prod] && precios[prod][caja];
-    if (!pr || !cajas) return;
-    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
-    else totalARS += pr * cajas;
-  });
-  const prev = document.getElementById('np-precio-preview');
-  const val  = document.getElementById('np-precio-valor');
-  const det  = document.getElementById('np-precio-detalle');
-  if (!prev || !val || !det) return;
-  if (totalARS > 0) {
-    prev.style.display = '';
-    val.textContent    = fmtPeso(totalARS);
-    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
-  } else {
-    prev.style.display = 'none';
-  }
-}
+
+
 
 // ─── ESTADO PRECIOS & COSTOS ─────────────────────────────────────────
 // STATE.historialPrecios = [{fecha, vigencia, listas:{WINFLEX:{...}, NITOPI:{...}, ...}}]
