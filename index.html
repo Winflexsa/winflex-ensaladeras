@@ -1386,37 +1386,33 @@ async function boot() {
 // ─── MODELO DE COSTOS (del archivo Excel de costos) ────────────
 const COSTOS_BASE = {
   E900: {
-    label: 'Ensaladera Cristal',
-    pesoBruto_g:  23.8,  pesoNeto_g:  17,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Ensaladera Cristal 900ml',
+    pesoBruto_g: 23.8, pesoNeto_g: 17, tasaRecup: 0.90,
+    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   T900: {
-    label: 'Tapa Ensaladera',
-    pesoBruto_g:  15.95, pesoNeto_g:  11,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Tapa Ensaladera 900ml',
+    pesoBruto_g: 15.95, pesoNeto_g: 11, tasaRecup: 0.90,
+    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   E910: {
-    label: 'Ensaladera Negra',
-    pesoBruto_g:  23.8,  pesoNeto_g:  17,   // mismas dimensiones que E900
-    tasaRecup:    0.90,
-    petNegroFactor: 1.10,                    // 10% más caro el PET negro
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Ensaladera Negra 900ml',
+    pesoBruto_g: 23.8, pesoNeto_g: 17, tasaRecup: 0.90,
+    petNegroFactor: 1.10,
+    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   S900: {
     label: 'Separador Ensaladera',
-    pesoBruto_g:  9.75,  pesoNeto_g:  6.5,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.08,
+    pesoBruto_g: 9.75, pesoNeto_g: 6.5, tasaRecup: 0.90,
+    moARS_hora: 7000, operarios: 3, cargasSoc: 0.50, udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.08,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   }
 };
 
