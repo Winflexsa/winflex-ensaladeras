@@ -9,21 +9,7 @@
 <title>Winflex — Ensaladeras 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-
-function togglePedDet(id) {
-  const row = document.getElementById(id); if (!row) return;
-  const open = row.style.display !== 'none';
-  // Close all
-  document.querySelectorAll('[id^="peddet-"]').forEach(r => r.style.display='none');
-  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(td => { td.innerHTML='&#9654;<br><span style="font-size:10px">#'+td.closest('tr').querySelector('td:nth-child(7)')?.id?.replace('val-','')||''+'</span>'; });
-  if (!open) {
-    row.style.display = '';
-    const prevTd = row.previousElementSibling?.querySelector('td:first-child');
-    if (prevTd) prevTd.innerHTML = prevTd.innerHTML.replace('&#9654;','&#9660;');
-  }
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -286,16 +272,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="metrics" id="ped-metrics"></div>
       <div class="card">
         <div class="tbl-wrap">
-          <table><thead><tr>
-            <th style="width:50px"></th>
-            <th>Cliente</th>
-            <th>Fecha</th>
-            <th>Productos</th>
-            <th>Uds.</th>
-            <th>Estado</th>
-            <th>Valor</th>
-            <th>Acciones</th>
-          </tr></thead>
+          <table><thead><tr><th style="width:24px"></th><th>Cliente</th><th style="width:80px">Fecha</th><th>Productos</th><th style="width:70px">Uds.</th><th style="width:90px">Estado</th><th style="width:80px">Valor</th><th style="width:90px">Acciones</th></tr></thead>
           <tbody id="ped-body"></tbody></table>
         </div>
       </div>
@@ -313,17 +290,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Cliente</label><input type="text" id="np-cliente" onchange="calcPrecioPreview()" onblur="calcPrecioPreview()" list="list-clientes" placeholder="Cliente..." autocomplete="off"><datalist id="list-clientes"></datalist></div>
           <div class="form-group"><label>Lugar de despacho</label><input type="text" id="np-despacho" list="list-despachos" placeholder="Despacho..." autocomplete="off"><datalist id="list-despachos"></datalist></div>
           <div class="form-group"><label>Vendedor</label><select id="np-vendedor"><option value="">— Seleccionar —</option><option>Nitopi</option><option>Winflex</option></select></div>
-          <div class="form-group">
-          <label>Lista de precios</label>
-          <select id="np-lista" onchange="actualizarPreciosItems()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
-            <option value="">Auto (por cliente)</option>
-            <option value="WINFLEX">Winflex</option>
-            <option value="NITOPI">Nitopi</option>
-            <option value="ENVASES_GROUP">Envases Group</option>
-            <option value="BANDEX_USD">Bandex (USD)</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Observaciones / N° OC</label><input type="text" id="np-obs" placeholder="OC 1234, nota..."></div>
+          <div class="form-group"><label>Observaciones / N° OC</label><input type="text" id="np-obs" placeholder="OC 1234, nota..."></div>
         </div>
         <div class="card-title" style="margin-top:8px">Productos</div>
         <div id="np-prods"></div>
@@ -392,7 +359,16 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Partida PET</label><input type="text" id="rp-partida" placeholder="ej: 4926S-1T1"></div>
           <div class="form-group"><label>Kg procesados</label><input type="number" id="rp-kg" min="0" value="0"></div>
           <div class="form-group"><label>Eficiencia (0 a 1)</label><input type="number" id="rp-efic" min="0" max="2" step="0.001" value="0" placeholder="ej: 0.75"></div>
-          
+          <div class="form-group">
+          <label>Lista de precios</label>
+          <select id="np-lista" onchange="calcPrecioPreview()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
+            <option value="">Auto (por cliente)</option>
+            <option value="WINFLEX">Winflex</option>
+            <option value="NITOPI">Nitopi</option>
+            <option value="ENVASES_GROUP">Envases Group</option>
+            <option value="BANDEX_USD">Bandex (USD)</option>
+          </select>
+        </div>
         <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
         </div>
         <div class="btn-row">
@@ -441,13 +417,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
             <button class="btn" onclick="exportPedidos('pendientes')">Solo pendientes</button>
             <button class="btn" onclick="exportPedidos('entregados')">Solo entregados</button>
           </div>
-        
-        <div class="card" style="display:flex;flex-direction:column;gap:10px">
-          <div class="card-title">📊 Cobranzas</div>
-          <p style="font-size:13px;color:var(--text2);line-height:1.6">Descargá todos los pedidos con estado de entrega y cobranza, valor ARS y USD. Formato Excel.</p>
-          <button class="btn btn-primary" onclick="exportarCobranzas()">&#11015; Descargar Cobranzas</button>
         </div>
-      </div>
         <div class="card" style="display:flex;flex-direction:column;gap:10px">
           <div class="card-title">Producción</div>
           <p style="font-size:13px;color:var(--text2);line-height:1.6">Exporta todos los registros de producción del año con turnos, eficiencia y partidas PET.</p>
@@ -467,6 +437,11 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       </div>
     </div>
 
+        <div class="card">
+          <div class="card-title">📊 Cobranzas CSV</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Abre directo en Excel.</p>
+          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
+        </div>
 
   <div class="page" id="pg-cobranzas">
     <div class="page-title">Cobranzas</div>
@@ -606,7 +581,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="card" style="padding:0;overflow:hidden">
       <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
         <span style="font-weight:700;font-size:14px">Análisis de markup y margen por lista de precios</span>
-        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio en USD/millar · editable por lista</span>
+        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio referencia: caja de 300 uds (Bandex: x440)</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:700px">
@@ -872,87 +847,85 @@ function renderStock() {
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
 function renderPedidos() {
-  const q    = (document.getElementById('f-cli').value || '').toLowerCase();
-  const est  = document.getElementById('f-est').value;
-  const prod = document.getElementById('f-prod').value;
-  const vend = document.getElementById('f-vend').value;
-  const list = STATE.pedidos.filter(p => {
+  var q    = (document.getElementById('f-cli').value || '').toLowerCase();
+  var est  = document.getElementById('f-est').value;
+  var prod = document.getElementById('f-prod').value;
+  var vend = document.getElementById('f-vend').value;
+  var list = STATE.pedidos.filter(function(p) {
     if (q && !p.cliente.toLowerCase().includes(q)) return false;
     if (est && p.estado !== est) return false;
     if (vend && p.vendedor !== vend) return false;
-    if (prod && !p.items.some(i => i.prod === prod)) return false;
+    if (prod && !p.items.some(function(i){ return i.prod === prod; })) return false;
     return true;
   });
-  const pend    = list.filter(p => p.estado === 'Pendiente');
-  const ent     = list.filter(p => p.estado === 'Entregado');
-  const udsPend = pend.reduce((a,p) => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
-  const udsEnt  = ent.reduce((a,p)  => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
+  var pend    = list.filter(function(p){ return p.estado === 'Pendiente'; });
+  var ent     = list.filter(function(p){ return p.estado === 'Entregado'; });
+  var udsPend = pend.reduce(function(a,p){ return a + p.items.reduce(function(x,i){ return x + (i.uds||(i.cajas||0)*(i.caja||0)||0); },0); }, 0);
+  var udsEnt  = ent.reduce(function(a,p){  return a + p.items.reduce(function(x,i){ return x + (i.uds||(i.cajas||0)*(i.caja||0)||0); },0); }, 0);
   document.getElementById('ped-metrics').innerHTML =
     '<div class="metric"><div class="metric-label">Mostrando</div><div class="metric-value">'+list.length+'</div><div class="metric-sub">pedidos</div></div>' +
     '<div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn">'+pend.length+'</div><div class="metric-sub">'+fmt(udsPend)+' uds</div></div>' +
     '<div class="metric"><div class="metric-label">Entregados</div><div class="metric-value pos">'+ent.length+'</div><div class="metric-sub">'+fmt(udsEnt)+' uds</div></div>';
 
-  const sorted = [...list].sort((a,b) => b.id - a.id);
-  let rows = '';
-  for (const p of sorted) {
-    const eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
-    const totalUds = p.items.reduce((a,i) => a + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0);
-    const itemsShort = p.items.filter(i=>i.cajas>0).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+'cj)').join(' · ');
-    const detId = 'peddet-'+p.id;
+  var sorted = list.slice().sort(function(a,b){ return b.id-a.id; });
+  var rows = '';
+  for (var pi=0; pi<sorted.length; pi++) {
+    var p = sorted[pi];
+    var eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
+    var totalUds = p.items.reduce(function(a,i){ return a+(i.uds||(i.cajas||0)*(i.caja||0)||0); },0);
+    var itemsShort = p.items.filter(function(i){ return i.cajas>0; }).map(function(i){ return i.prod+' x'+i.caja+' ('+i.cajas+'cj)'; }).join(' · ');
+    var detId = 'peddet-'+p.id;
 
-    // Summary row — clickable
-    rows += '<tr style="cursor:pointer" onclick="togglePedDet(\''+detId+'\')">' +
-      '<td style="font-size:12px;color:#94a3b8;padding:8px 6px">&#9654;<br><span style="font-size:10px">#'+p.id+'</span></td>' +
-      '<td style="padding:8px 6px"><div style="font-weight:700;font-size:13px">'+(p.cliente||'-')+'</div><div style="font-size:11px;color:#64748b">'+(p.vendedor||'')+'</div></td>' +
-      '<td style="padding:8px 6px"><span style="font-size:12px;color:#475569">'+fmtD(p.fecha)+'</span></td>' +
-      '<td style="padding:8px 6px;font-size:11px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemsShort+'</td>' +
-      '<td style="padding:8px 6px;font-weight:600">'+fmt(totalUds)+'</td>' +
-      '<td style="padding:8px 6px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
-      '<td style="padding:8px 6px" id="val-'+p.id+'"><span style="color:#cbd5e1;font-size:11px">...</span></td>' +
-      '<td style="padding:8px 6px" onclick="event.stopPropagation()">' +
+    rows += '<tr style="cursor:pointer;border-top:1px solid #f1f5f9" onclick="togglePedDet(\'' +detId+ '\')">' +
+      '<td style="padding:8px 10px;color:#94a3b8;font-size:13px;width:24px">&#9654;</td>' +
+      '<td style="padding:8px 8px"><div style="font-weight:700;font-size:13px">'+(p.cliente||'-')+'</div><div style="font-size:11px;color:#64748b">'+(p.vendedor||'')+'</div></td>' +
+      '<td style="padding:8px 8px;font-size:12px;color:#475569;white-space:nowrap">'+fmtD(p.fecha)+'</td>' +
+      '<td style="padding:8px 8px;font-size:11px;color:#64748b;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemsShort+'</td>' +
+      '<td style="padding:8px 8px;font-weight:600">'+fmt(totalUds)+'</td>' +
+      '<td style="padding:8px 8px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
+      '<td style="padding:8px 8px" id="val-'+p.id+'"><span style="color:#cbd5e1;font-size:11px">...</span></td>' +
+      '<td style="padding:8px 10px" onclick="event.stopPropagation()">' +
         (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
         '<button class="btn btn-sm" onclick="abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
-        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">×</button>' +
       '</td>' +
     '</tr>';
 
-    // Detail row (hidden by default)
-    const itemRows = p.items.filter(i=>i.cajas>0).map(i => {
-      const uds = i.uds || (i.cajas||0)*(i.caja||0);
-      return '<tr style="background:#f8fafc"><td style="padding:5px 10px 5px 28px;font-size:12px;font-weight:700;color:#0369a1">'+i.prod+'</td>' +
-        '<td style="padding:5px 8px;font-size:12px">x'+i.caja+' uds/caja</td>' +
-        '<td style="padding:5px 8px;font-size:12px">'+fmt(i.cajas)+' cajas</td>' +
-        '<td style="padding:5px 8px;font-size:12px;font-weight:600">'+fmt(uds)+' uds</td>' +
-        '<td colspan="4" style="padding:5px 8px"></td></tr>';
-    }).join('');
+    var iRows = '';
+    for (var ii=0; ii<p.items.length; ii++) {
+      var it = p.items[ii];
+      if (!it.cajas) continue;
+      var uds = it.uds || (it.cajas||0)*(it.caja||0);
+      iRows += '<tr style="background:#f8fafc">' +
+        '<td style="padding:5px 8px 5px 28px;font-size:12px;font-weight:700;color:#0369a1">'+it.prod+'</td>' +
+        '<td style="padding:5px 8px;font-size:12px">x'+it.caja+' uds/caja</td>' +
+        '<td style="padding:5px 8px;font-size:12px;font-weight:600">'+fmt(it.cajas)+' cajas</td>' +
+        '<td style="padding:5px 8px;font-size:12px">'+fmt(uds)+' uds</td>' +
+        '<td colspan="4"></td></tr>';
+    }
 
-    rows += '<tr id="'+detId+'" style="display:none"><td colspan="8" style="padding:0;border-bottom:2px solid #e2e8f0" onclick="event.stopPropagation()">' +
-      '<div style="padding:12px 16px 12px 24px;background:#f8fafc">' +
-        // Header info
-        '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Cliente</span><div style="font-size:14px;font-weight:700">'+(p.cliente||'-')+'</div></div>' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Vendedor</span><div style="font-size:13px">'+(p.vendedor||'-')+'</div></div>' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Fecha pedido</span><div style="font-size:13px">'+fmtD(p.fecha)+'</div></div>' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Entrega estimada</span><div style="font-size:13px">'+(p.entrega?fmtD(p.entrega):'—')+'</div></div>' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Despacho</span><div style="font-size:13px">'+(p.despacho||'—')+'</div></div>' +
-          '<div><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Estado</span><div><span class="badge '+eC+'">'+p.estado+'</span></div></div>' +
+    rows += '<tr id="'+detId+'" style="display:none">' +
+      '<td colspan="8" style="padding:0;border-bottom:2px solid #e2e8f0">' +
+      '<div style="padding:14px 16px 14px 24px;background:#f8fafc">' +
+        '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Cliente</div><div style="font-size:14px;font-weight:700">'+(p.cliente||'-')+'</div></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Vendedor</div><div style="font-size:13px">'+(p.vendedor||'-')+'</div></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Fecha</div><div style="font-size:13px">'+fmtD(p.fecha)+'</div></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Entrega est.</div><div style="font-size:13px">'+(p.entrega?fmtD(p.entrega):'—')+'</div></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Despacho</div><div style="font-size:13px">'+(p.despacho||'—')+'</div></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">Estado</div><span class="badge '+eC+'">'+p.estado+'</span></div>' +
+          '<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600">OC/Obs.</div><div style="font-size:13px">'+(p.obs||'—')+'</div></div>' +
         '</div>' +
-        // Items table
-        '<table style="width:100%;border-collapse:collapse;margin-bottom:8px">' +
+        '<table style="width:100%;border-collapse:collapse">' +
           '<thead><tr style="background:#e2e8f0">' +
-            '<th style="padding:5px 10px 5px 28px;font-size:11px;text-align:left">Producto</th>' +
+            '<th style="padding:5px 8px 5px 28px;font-size:11px;text-align:left">Producto</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Presentación</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Cajas</th>' +
             '<th style="padding:5px 8px;font-size:11px;text-align:left">Unidades</th>' +
-            '<th colspan="4" style="padding:5px 8px"></th>' +
-          '</tr></thead><tbody>'+itemRows+'</tbody>' +
-        '</table>' +
-        // Obs
-        (p.obs ? '<div style="font-size:11px;color:#64748b;margin-top:4px">&#128172; <b>Obs:</b> '+p.obs+'</div>' : '') +
-      '</div>' +
-    '</td></tr>';
+            '<th colspan="4"></th>' +
+          '</tr></thead><tbody>'+iRows+'</tbody></table>' +
+      '</div></td></tr>';
   }
-
   document.getElementById('ped-body').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>';
   loadValoresPedidos(sorted);
 }
@@ -2914,6 +2887,19 @@ function _calcMarkupBadgeMillar(pvUSD, cosUSDMil) {
   return '<span style="font-size:11px;font-weight:700;color:'+mc+'">'+mu.toFixed(0)+'%</span>';
 }
 
+
+function togglePedDet(id) {
+  var row = document.getElementById(id); if (!row) return;
+  var open = row.style.display !== 'none';
+  document.querySelectorAll('[id^="peddet-"]').forEach(function(r){ r.style.display='none'; });
+  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(function(td){ td.innerHTML='&#9654;'; });
+  if (!open) {
+    row.style.display = '';
+    var prev = row.previousElementSibling;
+    if (prev) { var td = prev.querySelector('td:first-child'); if(td) td.innerHTML='&#9660;'; }
+  }
+}
+
 boot();
 
 
@@ -3273,10 +3259,10 @@ async function exportCompleto() {
 
   XLSX.writeFile(wb, 'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
   toast('Informe completo descargado \u2713');
-}
+}</script>
 
-
-l-parcial-box">
+<div class="modal-parcial" id="modal-parcial">
+  <div class="modal-parcial-box">
     <h3>Entrega parcial</h3>
     <div id="parcial-items"></div>
     <div class="modal-parcial-actions">
