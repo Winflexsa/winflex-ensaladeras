@@ -9,7 +9,21 @@
 <title>Winflex — Ensaladeras 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+
+function togglePedDet(id) {
+  const row = document.getElementById(id); if (!row) return;
+  const open = row.style.display !== 'none';
+  // Close all
+  document.querySelectorAll('[id^="peddet-"]').forEach(r => r.style.display='none');
+  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(td => { td.innerHTML='&#9654;<br><span style="font-size:10px">#'+td.closest('tr').querySelector('td:nth-child(7)')?.id?.replace('val-','')||''+'</span>'; });
+  if (!open) {
+    row.style.display = '';
+    const prevTd = row.previousElementSibling?.querySelector('td:first-child');
+    if (prevTd) prevTd.innerHTML = prevTd.innerHTML.replace('&#9654;','&#9660;');
+  }
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -941,19 +955,6 @@ function renderPedidos() {
 
   document.getElementById('ped-body').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>';
   loadValoresPedidos(sorted);
-}
-
-function togglePedDet(id) {
-  const row = document.getElementById(id); if (!row) return;
-  const open = row.style.display !== 'none';
-  // Close all
-  document.querySelectorAll('[id^="peddet-"]').forEach(r => r.style.display='none');
-  document.querySelectorAll('#ped-body tr[onclick*="togglePedDet"] td:first-child').forEach(td => { td.innerHTML='&#9654;<br><span style="font-size:10px">#'+td.closest('tr').querySelector('td:nth-child(7)')?.id?.replace('val-','')||''+'</span>'; });
-  if (!open) {
-    row.style.display = '';
-    const prevTd = row.previousElementSibling?.querySelector('td:first-child');
-    if (prevTd) prevTd.innerHTML = prevTd.innerHTML.replace('&#9654;','&#9660;');
-  }
 }
 
 function abrirParcial(id) {
