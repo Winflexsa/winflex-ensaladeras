@@ -417,7 +417,13 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
             <button class="btn" onclick="exportPedidos('pendientes')">Solo pendientes</button>
             <button class="btn" onclick="exportPedidos('entregados')">Solo entregados</button>
           </div>
+        
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="card-title">📊 Cobranzas</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6">Descargá todos los pedidos con estado de entrega y cobranza, valor ARS y USD. Formato Excel.</p>
+          <button class="btn btn-primary" onclick="exportarCobranzas()">&#11015; Descargar Cobranzas</button>
         </div>
+      </div>
         <div class="card" style="display:flex;flex-direction:column;gap:10px">
           <div class="card-title">Producción</div>
           <p style="font-size:13px;color:var(--text2);line-height:1.6">Exporta todos los registros de producción del año con turnos, eficiencia y partidas PET.</p>
@@ -437,11 +443,6 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       </div>
     </div>
 
-        <div class="card">
-          <div class="card-title">📊 Cobranzas CSV</div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Abre directo en Excel.</p>
-          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
-        </div>
 
   <div class="page" id="pg-cobranzas">
     <div class="page-title">Cobranzas</div>
@@ -641,7 +642,7 @@ const PEDIDOS_INIT = [{"id":1,"fecha":"2026-01-02","cliente":"Archilli","estado"
 const PROD_INIT = {"Enero":[{"fecha":"2026-01-02","turno":"M1","prod":"E900","producido":57500,"unicaja":500,"cajas":115,"partida":"27525S-1T1","kg":943,"efic":0.9983,"obs":""},{"fecha":"2026-01-06","turno":"M1","prod":"T900","producido":39600,"unicaja":300,"cajas":132,"partida":"27525S-1T1","kg":943,"efic":0.6875,"obs":""},{"fecha":"2026-01-07","turno":"M2","prod":"T900","producido":23700,"unicaja":300,"cajas":79,"partida":"27525S-1T1","kg":616,"efic":0.5909,"obs":""},{"fecha":"2026-01-07","turno":"M2","prod":"T900","producido":23100,"unicaja":300,"cajas":77,"partida":"27525S-1T1","kg":616,"efic":0.5909,"obs":""},{"fecha":"2026-01-08","turno":"M2","prod":"T900","producido":65400,"unicaja":300,"cajas":218,"partida":"27525/26125S-1T1","kg":1549,"efic":0.8258,"obs":""},{"fecha":"2026-01-09","turno":"M2","prod":"T900","producido":68000,"unicaja":1000,"cajas":68,"partida":"27525/526S-1T1","kg":1427,"efic":0.8586,"obs":""},{"fecha":"2026-01-12","turno":"M2","prod":"E900","producido":30300,"unicaja":300,"cajas":101,"partida":"29025S-1T2","kg":1137,"efic":0.3826,"obs":""},{"fecha":"2026-01-13","turno":"M2","prod":"E900","producido":29700,"unicaja":300,"cajas":99,"partida":"626S-1T2","kg":824,"efic":0.6275,"obs":""},{"fecha":"2026-01-13","turno":"M2","prod":"E900","producido":20000,"unicaja":500,"cajas":40,"partida":"626S-1T2","kg":818,"efic":0.6275,"obs":""},{"fecha":"2026-01-14","turno":"M2","prod":"E900","producido":24900,"unicaja":300,"cajas":83,"partida":"626S-1T2","kg":1440,"efic":0.3144,"obs":""},{"fecha":"2026-01-15","turno":"M2","prod":"E900","producido":33000,"unicaja":440,"cajas":75,"partida":"626S-1T2","kg":1028,"efic":0.4167,"obs":""},{"fecha":"2026-01-19","turno":"M1","prod":"T900","producido":22440,"unicaja":440,"cajas":51,"partida":"526S-1T1","kg":607,"efic":0.3896,"obs":""},{"fecha":"2026-01-20","turno":"M1","prod":"T900","producido":34760,"unicaja":440,"cajas":79,"partida":"526S-1T1","kg":619,"efic":0.6035,"obs":""},{"fecha":"2026-01-22","turno":"M2","prod":"T900","producido":65560,"unicaja":440,"cajas":149,"partida":"526S-1T1","kg":812,"efic":0.8278,"obs":""},{"fecha":"2026-01-23","turno":"M1","prod":"T900","producido":32000,"unicaja":100,"cajas":320,"partida":"526S-1T1","kg":617,"efic":0.5556,"obs":""},{"fecha":"2026-01-26","turno":"M1","prod":"T900","producido":46400,"unicaja":100,"cajas":464,"partida":"526S-1T1","kg":826,"efic":0.8056,"obs":""},{"fecha":"2026-01-28","turno":"M2","prod":"T900","producido":67500,"unicaja":300,"cajas":225,"partida":"1526S-1T1","kg":1437,"efic":0.8523,"obs":""},{"fecha":"2026-01-29","turno":"M1","prod":"T900","producido":41400,"unicaja":300,"cajas":138,"partida":"1526S-1T1","kg":822,"efic":0.7188,"obs":""},{"fecha":"2026-01-30","turno":"M1","prod":"T900","producido":39900,"unicaja":300,"cajas":133,"partida":"1526S-1T1","kg":826,"efic":0.6927,"obs":""},{"fecha":"2026-01-31","turno":"M2","prod":"T900","producido":77000,"unicaja":1000,"cajas":77,"partida":"1726S-1T1","kg":1437,"efic":0.9722,"obs":""}],"Febrero":[{"fecha":"2026-02-02","turno":"M1","prod":"T900","producido":39200,"unicaja":100,"cajas":392,"partida":"1726S-1T1","kg":400,"efic":0.6806,"obs":""},{"fecha":"2026-02-03","turno":"M1","prod":"E900","producido":60000,"unicaja":500,"cajas":120,"partida":"1826S-1T2","kg":1445,"efic":1.0417,"obs":""},{"fecha":"2026-02-04","turno":"M1","prod":"E900","producido":47700,"unicaja":300,"cajas":159,"partida":"1826S-1T2","kg":1438,"efic":0.8281,"obs":""},{"fecha":"2026-02-05","turno":"M1","prod":"E900","producido":39900,"unicaja":300,"cajas":133,"partida":"1826S-1T2","kg":1038,"efic":0.6927,"obs":""},{"fecha":"2026-02-06","turno":"M1","prod":"E900","producido":39600,"unicaja":300,"cajas":132,"partida":"1826S-1T2","kg":1644,"efic":0.6875,"obs":""},{"fecha":"2026-02-07","turno":"M1","prod":"E900","producido":48500,"unicaja":500,"cajas":97,"partida":"1826S-1T2","kg":1652,"efic":0.842,"obs":""},{"fecha":"2026-02-09","turno":"M1","prod":"E900","producido":27000,"unicaja":100,"cajas":270,"partida":"1826S-1T2","kg":1235,"efic":0.4688,"obs":""},{"fecha":"2026-02-10","turno":"M1","prod":"E900","producido":44800,"unicaja":100,"cajas":448,"partida":"2226S-1T2","kg":1857,"efic":0.7778,"obs":""},{"fecha":"2026-02-12","turno":"M2","prod":"E900","producido":28900,"unicaja":100,"cajas":289,"partida":"1826S-1T2","kg":725,"efic":0.3649,"obs":"Inicio 13am por transfo"},{"fecha":"2026-02-13","turno":"M1","prod":"E900","producido":21600,"unicaja":100,"cajas":216,"partida":"2226S-1T2","kg":1027,"efic":0.375,"obs":""},{"fecha":"2026-02-18","turno":"M1","prod":"T900","producido":2200,"unicaja":300,"cajas":7,"partida":"3126S-1T1","kg":369,"efic":0.0382,"obs":"Cambio de Matriz"},{"fecha":"2026-02-19","turno":"M1","prod":"T900","producido":20100,"unicaja":300,"cajas":67,"partida":"3126S-1T1","kg":412,"efic":0.349,"obs":""},{"fecha":"2026-02-20","turno":"M1","prod":"T900","producido":15600,"unicaja":300,"cajas":52,"partida":"3126S-1T1","kg":411,"efic":0.2708,"obs":""},{"fecha":"2026-02-23","turno":"M2","prod":"T900","producido":44700,"unicaja":300,"cajas":149,"partida":"3126S-1T1","kg":1031,"efic":0.5644,"obs":""},{"fecha":"2026-02-24","turno":"M2","prod":"T900","producido":19200,"unicaja":300,"cajas":64,"partida":"3126S-1T1","kg":919,"efic":0.598,"obs":""},{"fecha":"2026-02-24","turno":"M2","prod":"T900","producido":28160,"unicaja":440,"cajas":64,"partida":"3126S-1T1","kg":919,"efic":0.598,"obs":""},{"fecha":"2026-02-25","turno":"M2","prod":"E900","producido":38700,"unicaja":300,"cajas":129,"partida":"3226S-1T2","kg":1231,"efic":0.4886,"obs":"Cambio de Matriz"},{"fecha":"2026-02-26","turno":"M2","prod":"E900","producido":41360,"unicaja":440,"cajas":94,"partida":"3226S-1T2","kg":1028,"efic":0.5222,"obs":""},{"fecha":"2026-02-27","turno":"M2","prod":"E900","producido":34320,"unicaja":440,"cajas":78,"partida":"3226S-1T2","kg":1437,"efic":0.4333,"obs":""}],"Marzo":[{"fecha": "2026-03-02", "turno": "M2", "prod": "E900", "producido": 38400, "unicaja": 300, "cajas": 128, "partida": "3226S-1T2", "kg": 1200, "efic": 0.48, "obs": ""}, {"fecha": "2026-03-02", "turno": "M2", "prod": "E900", "producido": 22500, "unicaja": 500, "cajas": 45, "partida": "3226S-1T2", "kg": 0, "efic": 0.28, "obs": ""}, {"fecha": "2026-03-03", "turno": "M2", "prod": "E900", "producido": 53000, "unicaja": 500, "cajas": 106, "partida": "3226S-1T2", "kg": 1158, "efic": 0.67, "obs": ""}, {"fecha": "2026-03-04", "turno": "M2", "prod": "T900", "producido": 39000, "unicaja": 1000, "cajas": 39, "partida": "3126S-1T1", "kg": 1033, "efic": 0.49, "obs": "Cambio de Matriz"}, {"fecha": "2026-03-04", "turno": "M2", "prod": "T900", "producido": 55000, "unicaja": 1000, "cajas": 55, "partida": "4426S-1T1", "kg": 1247, "efic": 0.69, "obs": "Turno Noche"}, {"fecha": "2026-03-05", "turno": "M1", "prod": "T900", "producido": 25000, "unicaja": 1000, "cajas": 25, "partida": "4426S-1T1", "kg": 820, "efic": 0.71, "obs": ""}, {"fecha": "2026-03-05", "turno": "M1", "prod": "T900", "producido": 15900, "unicaja": 300, "cajas": 53, "partida": "4426S-1T1", "kg": 0, "efic": 0.71, "obs": ""}, {"fecha": "2026-03-05", "turno": "M2", "prod": "T900", "producido": 54000, "unicaja": 300, "cajas": 180, "partida": "4426S-1T1", "kg": 1235, "efic": 0.68, "obs": ""}, {"fecha": "2026-03-06", "turno": "M1", "prod": "T900", "producido": 16800, "unicaja": 300, "cajas": 56, "partida": "4426S-1T1", "kg": 623, "efic": 0.29, "obs": ""}, {"fecha": "2026-03-06", "turno": "M2", "prod": "T900", "producido": 52800, "unicaja": 440, "cajas": 120, "partida": "4926S-1T1", "kg": 1027, "efic": 0.67, "obs": ""}, {"fecha": "2026-03-09", "turno": "M2", "prod": "T900", "producido": 60600, "unicaja": 300, "cajas": 202, "partida": "4926S-1T1", "kg": 1237, "efic": 0.77, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 12600, "unicaja": 300, "cajas": 42, "partida": "4926S-1T1", "kg": 1450, "efic": 0.7, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 6600, "unicaja": 100, "cajas": 66, "partida": "4926S-1T1", "kg": 0, "efic": 0, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 28000, "unicaja": 1000, "cajas": 28, "partida": "4926S-1T1", "kg": 0, "efic": 0, "obs": ""}, {"fecha": "2026-03-11", "turno": "M1", "prod": "T900", "producido": 47000, "unicaja": 1000, "cajas": 47, "partida": "4926S-1T1", "kg": 817, "efic": 0.82, "obs": ""}, {"fecha": "2026-03-12", "turno": "M2", "prod": "E900", "producido": 67000, "unicaja": 500, "cajas": 134, "partida": "4426S-1T2", "kg": 2060, "efic": 0.85, "obs": ""}, {"fecha": "2026-03-13", "turno": "M1", "prod": "E900", "producido": 53700, "unicaja": 300, "cajas": 179, "partida": "4426S-1T2", "kg": 1642, "efic": 0.93, "obs": ""}, {"fecha": "2026-03-18", "turno": "M2", "prod": "E900", "producido": 71400, "unicaja": 300, "cajas": 238, "partida": "4326S-1T2", "kg": 1634, "efic": 0.9, "obs": ""}, {"fecha": "2026-03-19", "turno": "M2", "prod": "E900", "producido": 45320, "unicaja": 440, "cajas": 103, "partida": "4326S-1T2", "kg": 1653, "efic": 0.57, "obs": ""}, {"fecha": "2026-03-20", "turno": "M1", "prod": "E900", "producido": 49720, "unicaja": 440, "cajas": 113, "partida": "4326S-1T2", "kg": 1439, "efic": 0.86, "obs": ""}, {"fecha": "2026-03-23", "turno": "M1", "prod": "E900", "producido": 35640, "unicaja": 440, "cajas": 81, "partida": "4326S-1T2", "kg": 1038, "efic": 0.62, "obs": ""}],"Abril":[],"Mayo":[],"Junio":[],"Julio":[],"Agosto":[],"Septiembre":[],"Octubre":[],"Noviembre":[],"Diciembre":[]};
 
 // ─── Estado global ─────────────────────────────────────────────
-let STATE = { pedidos: [], prodRegistros: {}, nextId: 71, cobranzas: {}, historialPrecios: [], costosProductos: {E900:{materia:0,pelicula:0,conversion:0,otros:0},T900:{materia:0,pelicula:0,conversion:0,otros:0}} };
+let STATE = { pedidos: [], prodRegistros: {}, nextId: 71, cobranzas: {}, historicoPrecios: [], costos: {}, preciosVigentes: null, costoParams: {} };
 let CFG = { apiKey: '', binId: '' };
 let selMes = null;
 
@@ -1387,37 +1388,37 @@ async function boot() {
 // ─── MODELO DE COSTOS (del archivo Excel de costos) ────────────
 const COSTOS_BASE = {
   E900: {
-    label: 'Ensaladera Cristal',
-    pesoBruto_g:  23.8,  pesoNeto_g:  17,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Ensaladera Cristal 900ml',
+    pesoBruto_g: 23.8,  pesoNeto_g: 17,  tasaRecup: 0.90,
+    moARS_hora: 7000,   operarios: 3,    cargasSoc: 0.50,
+    udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   T900: {
-    label: 'Tapa Ensaladera',
-    pesoBruto_g:  15.95, pesoNeto_g:  11,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Tapa Ensaladera 900ml',
+    pesoBruto_g: 15.95, pesoNeto_g: 11,  tasaRecup: 0.90,
+    moARS_hora: 7000,   operarios: 3,    cargasSoc: 0.50,
+    udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   E910: {
-    label: 'Ensaladera Negra',
-    pesoBruto_g:  23.8,  pesoNeto_g:  17,   // mismas dimensiones que E900
-    tasaRecup:    0.90,
-    petNegroFactor: 1.10,                    // 10% más caro el PET negro
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.07,
+    label: 'Ensaladera Negra 900ml',
+    pesoBruto_g: 23.8,  pesoNeto_g: 17,  tasaRecup: 0.90,
+    petNegroFactor: 1.10,
+    moARS_hora: 7000,   operarios: 3,    cargasSoc: 0.50,
+    udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.07,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   },
   S900: {
     label: 'Separador Ensaladera',
-    pesoBruto_g:  9.75,  pesoNeto_g:  6.5,
-    tasaRecup:    0.90,
-    moARS_hora:   7000,  operarios: 3,  cargasSoc: 0.50,
-    udsHora:      7000,
-    energiaUSD_kg: 0.05, otrosUSD_kg:  0.08,
+    pesoBruto_g: 9.75,  pesoNeto_g: 6.5, tasaRecup: 0.90,
+    moARS_hora: 7000,   operarios: 3,    cargasSoc: 0.50,
+    udsHora: 7000,
+    energiaUSD_kg: 0.05, otrosUSD_kg: 0.08,
+    horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   }
 };
 
@@ -2296,10 +2297,14 @@ async function refreshMargen(tc) {
   const PRODS    = ['E900','T900','E910','S900'];
 
   function calcFull(prod) {
-    const b = COSTOS_BASE[prod]; if (!b) return null;
+    const _base = COSTOS_BASE[prod]; if (!_base) return null;
+    const _saved = (STATE.costoParams && STATE.costoParams[prod]) || {};
+    const _over  = {};
+    Object.keys(_saved).forEach(function(k){ if(_saved[k]>0) _over[k]=_saved[k]; });
+    const b = Object.assign({}, _base, _over, {moARS_hora: moARS});
     const petFactor   = b.petNegroFactor||1;
     const petKg       = costoPET * petFactor;
-    const moTotal     = moARS * b.operarios * (1+b.cargasSoc);
+    const moTotal     = b.moARS_hora * b.operarios * (1+b.cargasSoc);
     const moUsdUnit   = (moTotal/b.udsHora)/tc;
     const desperdicio = (b.pesoBruto_g - b.pesoNeto_g)/1000;
     const recuperado  = desperdicio * b.tasaRecup;
