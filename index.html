@@ -616,7 +616,15 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     </div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);margin-bottom:8px;margin-top:4px">Productos</div>
     <div id="ed-prods" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:14px"></div>
-    <div style="display:flex
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="guardarEditar()">Guardar cambios</button>
+      <button class="btn" onclick="cerrarEditar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
 // ─── 
 // ─── Constantes ───────────────────────────────────────────────
