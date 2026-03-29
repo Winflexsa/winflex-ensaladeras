@@ -2827,6 +2827,22 @@ async function actualizarPreciosItems() {
   }
 }
 
+
+function _calcMargenBadgeMillar(pvM, cosMilARS) {
+  if (!pvM || pvM <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+  var m  = (pvM - cosMilARS) / pvM * 100;
+  var mc = m>=45?'#16a34a':m>=30?'#d97706':'#dc2626';
+  var mb = m>=45?'#dcfce7':m>=30?'#fef3c7':'#fef2f2';
+  return '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;background:'+mb+';color:'+mc+'">'+m.toFixed(1)+'%</span>';
+}
+
+function _calcMarkupBadgeMillar(pvM, cosMilARS) {
+  if (!pvM || !cosMilARS || pvM <= 0) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+  var mu = (pvM - cosMilARS) / cosMilARS * 100;
+  var mc = mu>=80?'#16a34a':mu>=50?'#d97706':'#dc2626';
+  return '<span style="font-size:11px;font-weight:700;color:'+mc+'">'+mu.toFixed(0)+'%</span>';
+}
+
 boot();
 
 
