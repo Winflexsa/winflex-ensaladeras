@@ -578,18 +578,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     </div>
 
     <!-- Análisis markup/margen completo -->
-    <div class="card" style="padding:0;overflow:hidden">
-      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
-        <span style="font-weight:700;font-size:14px">Análisis de markup y margen por lista de precios</span>
-        <span style="font-size:11px;color:#94a3b8;margin-left:8px">Precio referencia: caja de 300 uds (Bandex: x440)</span>
-      </div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;min-width:700px">
-          <thead id="cos-margen-head"></thead>
-          <tbody id="cos-margen-body"></tbody>
-        </table>
-      </div>
-    </div>
+
   </div>
   </main>
 </div>
@@ -782,63 +771,57 @@ function calcStock() {
 }
 
 function renderStock() {
-  const SB = calcStock();
-  const totStock = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].stock[c]||0), 0), 0);
-  const totProd  = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].prod[c] ||0), 0), 0);
-  const e9 = CAJAS.reduce((a,c) => a + (SB['E900'].stock[c]||0), 0);
-  const t9 = CAJAS.reduce((a,c) => a + (SB['T900'].stock[c]||0), 0);
-  const pend = (STATE.pedidos||[]).filter(p => p.estado==='Pendiente').reduce((a,p) =>
-    a + (p.items||[]).reduce((x,it) => x+(it.uds||0), 0), 0);
-
-  document.getElementById('stock-metrics').innerHTML =
-    '<div class="metric-card"><div class="metric-label">Stock total</div><div class="metric-value">' + totStock.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
-    '<div class="metric-card" style="' + (e9<0?'background:#fef2f2':'') + '"><div class="metric-label">E900</div><div class="metric-value" style="' + (e9<0?'color:#dc2626':'') + '">' + e9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
-    '<div class="metric-card" style="' + (t9<0?'background:#fef2f2':'') + '"><div class="metric-label">T900</div><div class="metric-value" style="' + (t9<0?'color:#dc2626':'') + '">' + t9.toLocaleString('es-AR') + '</div><div class="metric-sub">en stock</div></div>' +
-    '<div class="metric-card"><div class="metric-label">Producido 2026</div><div class="metric-value">' + totProd.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>' +
-    '<div class="metric-card"><div class="metric-label">Pedidos pendientes</div><div class="metric-value" style="' + (pend>0?'color:#d97706':'') + '">' + pend.toLocaleString('es-AR') + '</div><div class="metric-sub">unidades</div></div>';
-
-  // Stock table — header with real caja values
-  var cajasHeader = '<thead><tr><th>Producto</th>';
-  CAJAS.forEach(function(c){ cajasHeader += '<th>' + c + '</th>'; });
-  cajasHeader += '<th>Total</th></tr></thead>';
-
-  var stockRows = '';
-  PRODUCTOS.forEach(function(p) {
-    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0 || (SB[p].stock[c]||0) !== 0; });
-    if (!hasProd) return;
-    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].stock[c]||0); }, 0);
-    var cells = '';
-    CAJAS.forEach(function(c) {
-      var uds = SB[p].stock[c]||0;
-      var cajas = c > 0 ? Math.round(uds/c) : 0;
-      if (uds === 0) { cells += '<td style="color:var(--text3)">–</td>'; return; }
-      cells += '<td style="' + (uds<0?'color:#dc2626;font-weight:600':'') + '">' +
-        cajas.toLocaleString('es-AR') + '<br><span style="font-size:10px;color:var(--text3)">' + uds.toLocaleString('es-AR') + 'u</span></td>';
-    });
-    stockRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
-      '<td style="font-weight:700;' + (total<0?'color:#dc2626':'') + '">' + total.toLocaleString('es-AR') + '</td></tr>';
-  });
-  document.getElementById('tbl-stock').innerHTML = cajasHeader + '<tbody>' + stockRows + '</tbody>';
-
-  // Prod table
-  var cajasHeaderP = '<thead><tr><th>Producto</th>';
-  CAJAS.forEach(function(c){ cajasHeaderP += '<th>' + c + '</th>'; });
-  cajasHeaderP += '<th>Total</th></tr></thead>';
-
-  var prodRows = '';
-  PRODUCTOS.forEach(function(p) {
-    var hasProd = CAJAS.some(function(c){ return (SB[p].prod[c]||0) > 0; });
-    if (!hasProd) return;
-    var total = CAJAS.reduce(function(a,c){ return a + (SB[p].prod[c]||0); }, 0);
-    var cells = '';
-    CAJAS.forEach(function(c) {
-      var v = SB[p].prod[c]||0;
-      cells += '<td>' + (v ? v.toLocaleString('es-AR') : '–') + '</td>';
-    });
-    prodRows += '<tr><td style="font-weight:700">' + p + '</td>' + cells +
-      '<td style="font-weight:700">' + total.toLocaleString('es-AR') + '</td></tr>';
-  });
-  document.getElementById('tbl-prod-stock').innerHTML = cajasHeaderP + '<tbody>' + prodRows + '</tbody>';
+  const st  = calcStock();
+  const e9  = st.E900||0, t9=st.T900||0, e91=st.E910||0, s9=st.S900||0;
+  const tot = e9+t9+e91+s9;
+  function sc(label, val, color, icon, sub) {
+    const neg = val < 0;
+    return '<div class="metric-card" style="border-left:4px solid '+(neg?'#dc2626':color)+';'+(neg?'background:#fef2f2;':'')+'">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+        '<div class="metric-label">'+icon+' '+label+'</div>' +
+        (neg?'<span style="font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px">STOCK NEG.</span>':'') +
+      '</div>' +
+      '<div class="metric-value" style="color:'+(neg?'#dc2626':color)+'">'+val.toLocaleString('es-AR')+'</div>' +
+      '<div class="metric-sub">'+sub+'</div>' +
+    '</div>';
+  }
+  const PROD_DESC = {E900:'Ensaladera Cristal',T900:'Tapa 900ml',E910:'Ensaladera Negra',S900:'Separador'};
+  document.getElementById('pg-stock').innerHTML =
+    '<div class="page-title">Stock</div>' +
+    '<div class="page-sub">Calculado: producido \u2212 entregado</div>' +
+    '<div class="metrics" style="grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">' +
+      sc('Total',tot,'#1e293b','\ud83d\udce6','todas las SKUs') +
+      sc('E900',e9,'#0369a1','\ud83d\udd35','Ensaladera Cristal') +
+      sc('T900',t9,'#7c3aed','\ud83d\udfe3','Tapa 900ml') +
+      sc('E910',e91,'#475569','\u26ab','Ensaladera Negra') +
+      sc('S900',s9,'#16a34a','\ud83d\udfe2','Separador') +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="card-title" style="margin-bottom:16px">Detalle por producto</div>' +
+      '<div class="tbl-wrap"><table>' +
+        '<thead><tr>' +
+          '<th>Producto</th><th>Descripci\u00f3n</th>' +
+          '<th style="text-align:right">Producido</th>' +
+          '<th style="text-align:right">Entregado</th>' +
+          '<th style="text-align:right;color:#0369a1">Stock actual</th>' +
+        '</tr></thead><tbody>' +
+        (['E900','T900','E910','S900'].map(function(prod){
+          const b = COSTOS_BASE[prod]||{};
+          const prodReg = STATE.prodRegistros||{};
+          const producido = Object.values(prodReg).flat().filter(r=>r.prod===prod).reduce((a,r)=>a+(r.producido||0),0);
+          const stock = st[prod]||0;
+          const entregado = producido - stock;
+          const neg = stock < 0;
+          return '<tr style="'+(neg?'background:#fef2f2;':'')+'">' +
+            '<td style="font-weight:700">'+prod+'</td>' +
+            '<td style="color:#64748b;font-size:12px">'+(b.label||PROD_DESC[prod]||'')+'</td>' +
+            '<td style="text-align:right">'+producido.toLocaleString('es-AR')+'</td>' +
+            '<td style="text-align:right">'+Math.max(0,entregado).toLocaleString('es-AR')+'</td>' +
+            '<td style="text-align:right;font-weight:700;font-size:15px;color:'+(neg?'#dc2626':'#16a34a')+'">'+stock.toLocaleString('es-AR')+'</td>' +
+          '</tr>';
+        }).join('')) +
+        '</tbody></table></div>' +
+    '</div>';
 }
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
@@ -1249,9 +1232,10 @@ function renderAnual() {
   document.getElementById('anual-vend').innerHTML = '';
   ['Nitopi', 'Winflex'].forEach(v => {
     const vp   = STATE.pedidos.filter(p => p.vendedor === v);
-    const ve   = vp.filter(p => p.estado === 'Entregado').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-    const vpe  = vp.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-    document.getElementById('anual-vend').innerHTML += `<tr><td style="font-weight:600">${v}</td><td>${fmt(ve + vpe)}</td><td style="color:var(--success)">${fmt(ve)}</td><td style="color:var(--warn)">${fmt(vpe)}</td></tr>`;
+    const ve   = vp.filter(p => p.estado === 'Entregado').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || (i.cajas||0)*(i.caja||0)), 0), 0);
+    const vpe  = vp.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || (i.cajas||0)*(i.caja||0)), 0), 0);
+    const vtot = ve + vpe;
+    document.getElementById('anual-vend').innerHTML += `<tr><td style="font-weight:600">${v}</td><td>${fmt(vtot)}</td><td style="color:var(--success)">${fmt(ve)}</td><td style="color:var(--warn)">${fmt(vpe)}</td></tr>`;
   });
 }
 
@@ -2298,6 +2282,19 @@ async function refreshMargen(tc) {
   const moARS    = parseFloat((document.getElementById('cos-mo-ars')||{}).value)||7000;
   const PRODS    = ['E900','T900','E910','S900'];
 
+  function mkInp(id, val, w, step) {
+    var prod2 = id.split('_')[1];
+    return '<input id="'+id+'" type="number" value="'+(val||'')+'" step="'+(step||1)+'" '+
+      'onchange="recalcProd(\'' + prod2 + '\')" '+
+      'style="width:'+(w||60)+'px;padding:2px 5px;border:1px solid #d1d5db;border-radius:4px;'+
+      'font-size:12px;font-weight:700;text-align:right;background:#fffbeb">';
+  }
+  function mkParamRow(label, inputHtml, unit) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f9fafb">'+
+      '<span style="font-size:11px;color:#475569">'+label+'</span>'+
+      '<span style="display:flex;align-items:center;gap:4px">'+inputHtml+
+      '<span style="font-size:10px;color:#94a3b8">'+unit+'</span></span></div>';
+  }
   function calcFull(prod) {
     var _base = COSTOS_BASE[prod]; if (!_base) return null;
     var _raw = (STATE.costoParams&&STATE.costoParams[prod])||{};
@@ -2386,8 +2383,49 @@ async function refreshMargen(tc) {
       '</tr>'+
       '<tr id="'+detId+'" style="display:none"><td colspan="8" onclick="event.stopPropagation()" style="padding:0;background:#f8fafc;border-bottom:3px solid #e2e8f0">'+
       '<div style="padding:20px 20px 20px 48px">'+
-        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9881; Capacidad de producci\u00f3n</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+
+
+        // ── Editable params panel ──
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9999; Par\u00e1metros editables</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'+
+
+          // Card 1: Producción
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#0369a1;margin-bottom:8px">&#9201; Producci\u00f3n</div>'+
+            mkParamRow('Uds/hora', mkInp('cp_'+prod+'_udsHora', b.udsHora, 70, 100), 'uds/h')+
+            mkParamRow('Horas/turno', mkInp('cp_'+prod+'_horasTurno', b.horasTurno, 50, 0.5), 'hs')+
+            mkParamRow('Turnos/d\u00eda', mkInp('cp_'+prod+'_turnosPorDia', b.turnosPorDia, 40, 1), 'T')+
+            mkParamRow('D\u00edas/mes', mkInp('cp_'+prod+'_diasMes', b.diasMes, 40, 1), 'd\u00edas')+
+          '</div>'+
+
+          // Card 2: Material & MO
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px">&#129521; Material &amp; MO</div>'+
+            mkParamRow('Peso neto', mkInp('cp_'+prod+'_pesoNeto_g', b.pesoNeto_g, 55, 0.1), 'g/un')+
+            mkParamRow('Peso bruto', mkInp('cp_'+prod+'_pesoBruto_g', b.pesoBruto_g, 55, 0.1), 'g/un')+
+            mkParamRow('Recuperaci\u00f3n', mkInp('cp_'+prod+'_tasaRecup', b.tasaRecup, 50, 0.01), '0\u22121')+
+            mkParamRow('Operarios', mkInp('cp_'+prod+'_operarios', b.operarios, 40, 1), 'op')+
+            mkParamRow('Cargas soc.', mkInp('cp_'+prod+'_cargasSoc', b.cargasSoc, 50, 0.01), '0\u22121')+
+          '</div>'+
+
+          // Card 3: Energía & Otros
+          '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">'+
+            '<div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:8px">&#9889; Energ\u00eda &amp; Otros</div>'+
+            mkParamRow('Energ\u00eda', mkInp('cp_'+prod+'_energiaUSD_kg', b.energiaUSD_kg, 55, 0.005), 'USD/kg')+
+            mkParamRow('Otros costos', mkInp('cp_'+prod+'_otrosUSD_kg', b.otrosUSD_kg, 55, 0.005), 'USD/kg')+
+            (b.petNegroFactor ? mkParamRow('Factor PET negro', mkInp('cp_'+prod+'_petNegroFactor', b.petNegroFactor, 55, 0.01), 'x') : '')+
+            '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:4px">'+
+              '<button onclick="event.stopPropagation();guardarParamsProd(\''+prod+'\')" '+
+              'style="padding:5px 8px;background:#0369a1;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">'+
+              '&#128190; Guardar '+prod+'</button>'+
+              '<button onclick="event.stopPropagation();resetParamsProd(\''+prod+'\')" '+
+              'style="padding:4px 8px;background:white;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer">'+
+              'Restaurar por defecto</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#9881; Capacidad calculada</div>'+
+        '<div id="cap_'+prod+'" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">'+
           mkStatBox('uds/hora','&#9201;',b.udsHora.toLocaleString('es-AR'),'ritmo de producci\u00f3n','#0369a1')+
           mkStatBox('horas/turno','&#8987;',b.horasTurno+'h','jornada laboral','#7c3aed')+
           mkStatBox('uds/turno','&#127381;',f.udsTurno.toLocaleString('es-AR'),b.horasTurno+'h \u00d7 '+b.udsHora.toLocaleString('es-AR')+'/h','#16a34a')+
@@ -2395,7 +2433,7 @@ async function refreshMargen(tc) {
           mkStatBox('uds/mes','&#128202;',f.udsMes.toLocaleString('es-AR'),b.diasMes+' d\u00edas h\u00e1biles','#dc2626')+
         '</div>'+
         '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128176; Estructura de costos por unidad (USD)</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
+        '<div id="struct_'+prod+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
           mkCostCard('Materia Prima','&#129521;','#0369a1',f.cosMP.toFixed(5),f.pctMP.toFixed(1),
             ['Peso neto: '+b.pesoNeto_g+'g \u00b7 Bruto: '+b.pesoBruto_g+'g',
              'Desperdicio: '+(f.desperdicio*1000).toFixed(1)+'g/un',
@@ -2419,7 +2457,7 @@ async function refreshMargen(tc) {
              'Por millar: '+(f.cosOt*1000).toFixed(3)+' USD'])+
         '</div>'+
         '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128200; Costo a escala completa</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
+        '<div id="scale_'+prod+'" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
           mkScaleBox('Por turno completo ('+b.horasTurno+'h)',f.udsTurno,f.costurnoUSD,f.costurnoARS)+
           mkScaleBox('Por d\u00eda ('+b.turnosPorDia+' turnos)',f.udsDia,f.cosDiaUSD,f.cosDiaARS)+
           mkScaleBox('Por mes ('+b.diasMes+' d\u00edas)',f.udsMes,f.cosMesUSD,f.cosMesARS)+
@@ -2698,6 +2736,49 @@ async function updateProdSections(prod) {
     calcMargenInline(inputId,cosMilARS,esUSD?1:0,tc,ref);
   });
 }
+
+function getItemPrice(prod, caja, cliente, listaOvr) {
+  var cat    = getClienteCat(cliente, listaOvr);
+  var precios= PRECIOS[cat];
+  var esUSD  = cat === 'BANDEX_USD';
+  var pr     = precios && precios[prod] && precios[prod][caja];
+  if (!pr) return { ars: 0, usd: 0, esUSD: esUSD, cat: cat };
+  var tc     = window._cachedTC || 1405;
+  var ars    = esUSD ? pr * tc : pr;
+  return { ars: ars, usd: esUSD ? pr : ars / tc, esUSD: esUSD, cat: cat, prCaja: pr };
+}
+
+function updateItemPrices() {
+  var clienteEl = document.getElementById('np-cliente');
+  var listaEl   = document.getElementById('np-lista');
+  var cliente   = clienteEl ? clienteEl.value.trim() : '';
+  var listaOvr  = listaEl   ? listaEl.value : '';
+  var rows = document.querySelectorAll('#np-items-body tr');
+  rows.forEach(function(row) {
+    var sels = row.querySelectorAll('select');
+    var inps = row.querySelectorAll('input[type=number]');
+    if (sels.length < 2) return;
+    var prod  = sels[0].value;
+    var caja  = parseInt(sels[1].value)||0;
+    var cajas = inps[0] ? (parseInt(inps[0].value)||0) : 0;
+    var priceEl = row.querySelector('.np-item-price');
+    if (!priceEl) return;
+    if (!prod || !caja) { priceEl.innerHTML = '<span style="color:#cbd5e1">—</span>'; return; }
+    var p = getItemPrice(prod, caja, cliente, listaOvr);
+    if (p.ars > 0) {
+      var subtotal = p.ars * cajas;
+      priceEl.innerHTML = '<div style="font-size:12px;font-weight:600;color:#0369a1">' +
+        p.ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) + '/cj</div>' +
+        (cajas > 0 ? '<div style="font-size:10px;color:#64748b">Total: ' +
+          subtotal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) + '</div>' : '') +
+        (p.esUSD ? '<div style="font-size:10px;color:#94a3b8">USD ' + p.prCaja + '/cj</div>' : '');
+    } else {
+      priceEl.innerHTML = '<span style="color:#cbd5e1">sin precio</span>';
+    }
+  });
+  calcPrecioPreview();
+}
+
 boot();
 
 
@@ -2990,57 +3071,92 @@ function exportProduccion(mes) {
   toast('Archivo descargado');
 }
 
-function exportCompleto() {
-  const MESES_LIST = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const wb = XLSX.utils.book_new();
+async function exportCompleto() {
+  const tc  = await fetchTCBNA();
+  const wb  = XLSX.utils.book_new();
+  const PRODS = ['E900','T900','E910','S900'];
 
-  // Hoja 1: Stock
-  const stockRows = [['Producto','Tam.300','Tam.500','Tam.1000','Tam.100','Tam.440','Tam.880','Total']];
-  ['E900','T900','S900','E910'].forEach(p => {
-    const cajas=[300,500,1000,100,440,880];
-    const vals=cajas.map(c=>calcStock()[p].stock[c]||0);
-    stockRows.push([p,...vals,vals.reduce((a,v)=>a+v,0)]);
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stockRows), 'Stock');
+  // 1. PEDIDOS
+  const pedRows = [['#','Fecha','Cliente','Vendedor','Lista','Producto','Presentación','Cajas','Unidades','Precio ARS/cj','Subtotal ARS','USD','Estado','Obs']];
+  const peds = (STATE.pedidos||[]).filter(p=>!String(p.cliente||'').includes('AJUSTE')).sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
+  for (const p of peds) {
+    const cat=getClienteCat(p.cliente,p.listaPrecio),precios=PRECIOS[cat],esUSD=cat==='BANDEX_USD';
+    const catLbl={WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex'}[cat]||cat;
+    if(!p.items||!p.items.length){pedRows.push([p.id,p.fecha,p.cliente,p.vendedor||'',catLbl,'','','','','','','',p.estado,p.obs||'']);continue;}
+    p.items.forEach(it=>{
+      const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
+      const arsXcj=pr?(esUSD?pr*tc:pr):0, sub=arsXcj*(it.cajas||0);
+      pedRows.push([p.id,p.fecha,p.cliente,p.vendedor||'',catLbl,it.prod,'x'+it.caja,
+        it.cajas||0,it.uds||(it.cajas||0)*(it.caja||0),arsXcj||'',sub||'',
+        (esUSD&&pr)?pr*(it.cajas||0):'',p.estado,p.obs||'']);
+    });
+  }
+  const wsPed=XLSX.utils.aoa_to_sheet(pedRows);
+  wsPed['!cols']=[{wch:5},{wch:12},{wch:22},{wch:10},{wch:12},{wch:8},{wch:8},{wch:7},{wch:10},{wch:13},{wch:14},{wch:10},{wch:14},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,wsPed,'Pedidos');
 
-  // Hoja 2: Pedidos
-  const pedRows = [['ID','Fecha','Cliente','Producto','Cajas','Tam.Caja','Unidades','Total Uds','Estado','F.Entrega','Despacho','Vendedor','OC']];
-  STATE.pedidos.forEach(p => {
-    const tot=p.items.reduce((a,i)=>a+(i.uds||0),0);
-    p.items.filter(i=>i.cajas>0).forEach((it,idx)=>{
-      pedRows.push([idx===0?p.id:'',idx===0?p.fecha:'',idx===0?p.cliente:'',it.prod,it.cajas,it.caja,it.uds,idx===0?tot:'',idx===0?p.estado:'',idx===0?p.entrega:'',idx===0?p.despacho:'',idx===0?p.vendedor:'',idx===0?(p.obs||''):'']);
+  // 2. COBRANZAS
+  const cobRows=[['#','Fecha','Cliente','Lista','Producto','Pres.','Cajas','Uds','ARS/cj','Subtotal ARS','USD sub.','Estado entrega','Estado cobro','Fecha cobro']];
+  for (const p of peds) {
+    const cat=getClienteCat(p.cliente,p.listaPrecio),precios=PRECIOS[cat],esUSD=cat==='BANDEX_USD';
+    const catLbl={WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex'}[cat]||cat;
+    const cob=(STATE.cobranzas&&STATE.cobranzas[p.id])||{estado:'Por cobrar',fecha:''};
+    if(!p.items||!p.items.length){cobRows.push([p.id,p.fecha,p.cliente,catLbl,'','','','','','','',p.estado,cob.estado,cob.fecha||'']);continue;}
+    p.items.forEach(it=>{
+      const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
+      const arsXcj=pr?(esUSD?pr*tc:pr):0;
+      cobRows.push([p.id,p.fecha,p.cliente,catLbl,it.prod,'x'+it.caja,it.cajas||0,
+        it.uds||(it.cajas||0)*(it.caja||0),arsXcj||'',arsXcj*(it.cajas||0)||'',
+        (esUSD&&pr)?pr*(it.cajas||0):'',p.estado,cob.estado,cob.fecha||'']);
+    });
+  }
+  const wsCob=XLSX.utils.aoa_to_sheet(cobRows);
+  wsCob['!cols']=[{wch:5},{wch:12},{wch:22},{wch:12},{wch:8},{wch:7},{wch:7},{wch:10},{wch:13},{wch:14},{wch:10},{wch:14},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,wsCob,'Cobranzas');
+
+  // 3. PRODUCCION
+  const prodRows=[['Mes','Fecha','Turno','Producto','Partida','Bobina','Producido (uds)','Eficiencia %','Operario']];
+  Object.keys(STATE.prodRegistros||{}).sort().forEach(mes=>{
+    (STATE.prodRegistros[mes]||[]).forEach(r=>{
+      prodRows.push([mes,r.fecha,r.turno,r.prod,r.partida||'',r.nbobina||'',r.producido||0,r.eficiencia||'',r.operario||'']);
     });
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pedRows), 'Pedidos');
+  const wsProd=XLSX.utils.aoa_to_sheet(prodRows);
+  wsProd['!cols']=[{wch:10},{wch:12},{wch:8},{wch:8},{wch:12},{wch:10},{wch:14},{wch:12},{wch:15}];
+  XLSX.utils.book_append_sheet(wb,wsProd,'Producción');
 
-  // Hoja 3: Producción
-  const prodRows = [['Mes','Fecha','Turno','Producto','Producido','Un/Caja','Cajas','Partida PET','Kg','Eficiencia %','Obs']];
-  MESES_LIST.forEach(m => { (STATE.prodRegistros[m]||[]).forEach(r=>prodRows.push([m,r.fecha,r.turno,r.prod,r.producido,r.unicaja,r.cajas,r.partida,r.kg,Math.round((r.efic||0)*100),r.obs])); });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodRows), 'Produccion');
+  // 4. STOCK
+  const st=calcStock();
+  const PDESC={E900:'Ensaladera Cristal 900ml',T900:'Tapa 900ml',E910:'Ensaladera Negra 900ml',S900:'Separador'};
+  const stockRows=[['Producto','Descripción','Stock actual (uds)']];
+  PRODS.forEach(p=>stockRows.push([p,PDESC[p]||'',st[p]||0]));
+  stockRows.push(['','TOTAL',PRODS.reduce((a,p)=>a+(st[p]||0),0)]);
+  const wsSt=XLSX.utils.aoa_to_sheet(stockRows);
+  wsSt['!cols']=[{wch:8},{wch:25},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,wsSt,'Stock');
 
-  // Hoja 4: Resumen mensual
-  const resRows = [['Mes','E900','T900','Total','Efic. Prom %']];
-  MESES_LIST.forEach(m => {
-    const regs=STATE.prodRegistros[m]||[];
-    const e9=regs.filter(r=>r.prod==='E900').reduce((a,r)=>a+r.producido,0);
-    const t9=regs.filter(r=>r.prod==='T900').reduce((a,r)=>a+r.producido,0);
-    const avg=regs.length?Math.round(regs.reduce((a,r)=>a+r.efic,0)/regs.length*100):0;
-    resRows.push([m,e9,t9,e9+t9,avg]);
+  // 5. COSTOS
+  const costoPET=parseFloat((document.getElementById('cos-pet-kg')||{}).value)||1.412761;
+  const moARS=parseFloat((document.getElementById('cos-mo-ars')||{}).value)||7000;
+  const cosRows=[['Producto','Descripción','USD/millar','ARS/millar','% Materia Prima','% Mano Obra','% Energía','% Otros','uds/hora','uds/turno','uds/día','uds/mes']];
+  PRODS.forEach(prod=>{
+    const b=COSTOS_BASE[prod]; if(!b) return;
+    const petKg=costoPET*(b.petNegroFactor||1);
+    const moT=moARS*b.operarios*(1+b.cargasSoc), moU=(moT/b.udsHora)/tc;
+    const d=(b.pesoBruto_g-b.pesoNeto_g)/1000, mpU=b.pesoNeto_g/1000+d*(1-b.tasaRecup);
+    const cMP=mpU*petKg, cEn=b.energiaUSD_kg*mpU, cOt=b.otrosUSD_kg*mpU;
+    const cU=cMP+moU+cEn+cOt, cMil=cU*1000;
+    const udsTurno=b.udsHora*b.horasTurno;
+    cosRows.push([prod,b.label||prod,+cMil.toFixed(2),+(cMil*tc).toFixed(0),
+      +(cMP/cU*100).toFixed(1),+(moU/cU*100).toFixed(1),+(cEn/cU*100).toFixed(1),+(cOt/cU*100).toFixed(1),
+      b.udsHora,udsTurno,udsTurno*b.turnosPorDia,udsTurno*b.turnosPorDia*b.diasMes]);
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resRows), 'Resumen Mensual');
+  const wsCos=XLSX.utils.aoa_to_sheet(cosRows);
+  wsCos['!cols']=[{wch:8},{wch:25},{wch:12},{wch:16},{wch:14},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsCos,'Costos');
 
-  // Hoja 5: Por cliente
-  const cliMap = {};
-  STATE.pedidos.forEach(p => {
-    if (!cliMap[p.cliente]) cliMap[p.cliente]={total:0,entregado:0,pendiente:0};
-    p.items.forEach(i=>{ const u=i.uds||0; cliMap[p.cliente].total+=u; if(p.estado==='Entregado') cliMap[p.cliente].entregado+=u; else cliMap[p.cliente].pendiente+=u; });
-  });
-  const cliRows = [['Cliente','Total Uds','Entregado','Pendiente']];
-  Object.entries(cliMap).sort((a,b)=>b[1].total-a[1].total).forEach(([k,v])=>cliRows.push([k,v.total,v.entregado,v.pendiente]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cliRows), 'Por Cliente');
-
-  XLSX.writeFile(wb, `Winflex_Informe_Completo_${new Date().toISOString().split('T')[0]}.xlsx`);
-  toast('Informe completo descargado');
+  XLSX.writeFile(wb,'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('Informe completo descargado \u2713');
 }
 
 </script>
