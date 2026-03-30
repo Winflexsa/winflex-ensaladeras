@@ -915,7 +915,7 @@ function renderPedidos() {
       '<td style="padding:8px 6px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
       '' +
       '<td style="padding:8px 6px" onclick="event.stopPropagation()">' +
-        (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
+        (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="event.stopPropagation();abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
         '<button class="btn btn-sm" onclick="abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
         '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
       '</td>' +
@@ -1493,6 +1493,8 @@ const COSTOS_BASE = {
     horasTurno: 9, turnosPorDia: 2, diasMes: 22,
   }
 };
+
+function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}
 
 function calcCostoMillar(prod, costoPET_kg, tc) {
   const b = COSTOS_BASE[prod];
