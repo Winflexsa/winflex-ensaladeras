@@ -2055,9 +2055,11 @@ function renderMargenes(tc, costosTotales, prods) {
 // ─── PRECIOS - RENDER COMPLETO ─────────────────────────────────
 
 async function renderPrecios() {
-  const tc = await fetchTCBNA();
+  // Use cached TC immediately — don't block table render on network
+  const tc = window._cachedTC || 1405;
   const tcEl = document.getElementById('pr-tc');
   if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
+
   const costoPET = parseFloat((document.getElementById('pr-costo-pet')||{}).value)||1.412761;
   if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
   const pv = STATE.preciosVigentes;
@@ -2070,7 +2072,7 @@ async function renderPrecios() {
   const RF = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
   function mil(ck,p){var r=RF[ck];var v=(pv[ck]&&pv[ck][p]&&pv[ck][p][r])?pv[ck][p][r]:0;return v?v/r*1000:0;}
 
-  // Fill tbody with innerHTML (tbody accepts inputs fine)
+  // Fill tbody synchronously (no await needed)
   var tb = document.getElementById('pr-millar-tbody');
   if (tb) {
     tb.innerHTML = PR.map(function(prod) {
@@ -2083,18 +2085,18 @@ async function renderPrecios() {
         var id = 'prm_'+ck+'_'+prod;
         return '<td style="padding:5px 6px;border-left:2px solid #e2e8f0">' +
           '<input type="number" id="'+id+'" step="'+(eu?'0.1':'100')+'" value="'+dv+'" ' +
-          'oninput="actualizarARS(\''+id+'\','+(eu?1:0)+','+tc+')" ' +
+          'oninput="actualizarARS(\''+id+'\','+(eu?'1':'0')+',window._cachedTC||1405)" ' +
           'style="width:88px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;font-weight:700;text-align:right;background:#fffbeb">' +
-        '</td>' +
-        '<td id="'+id+'_ars" style="padding:5px 8px;text-align:right;font-size:12px;color:#475569;white-space:nowrap">' +
+          '</td>' +
+          '<td id="'+id+'_ars" style="padding:5px 8px;text-align:right;font-size:12px;color:#475569;white-space:nowrap">' +
           (av>0?av.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—') +
-        '</td>';
+          '</td>';
       }).join('');
       return '<tr style="border-top:1px solid #f1f5f9">' +
         '<td style="padding:8px 12px;font-weight:700;font-size:13px">'+prod+'</td>' +
         cells +
         '<td style="padding:8px 10px;text-align:right;color:#475569;font-size:11px;border-left:2px solid #e2e8f0">' +
-          (cos?cos.costoMillar.toFixed(2)+' USD':'—') +
+        (cos?cos.costoMillar.toFixed(2)+' USD':'—') +
         '</td></tr>';
     }).join('');
   }
@@ -2107,7 +2109,7 @@ async function renderPrecios() {
       return '<div style="display:inline-flex;align-items:center;gap:4px;margin-right:12px">'+
         '<span style="font-size:11px;font-weight:600;color:'+x.c+'">'+x.l+':</span>'+
         [5,10,12,15].map(function(p){
-          return '<button type="button" onclick="aplicarAumento(\''+x.k+'\','+p+','+tc+')" '+
+          return '<button type="button" onclick="aplicarAumento(\''+x.k+'\','+p+',window._cachedTC||1405)" '+
             'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+x.c+';border:1.5px solid '+x.c+';border-radius:5px;cursor:pointer">+'+p+'%</button>';
         }).join('') + '</div>';
     }).join('');
@@ -2117,11 +2119,9 @@ async function renderPrecios() {
   var grid = document.getElementById('precios-grid');
   if (grid) {
     var CJ=[100,300,440,500,1000];
-    var GBGS={WINFLEX:'#dbeafe',NITOPI:'#ede9fe',ENVASES_GROUP:'#cffafe',BANDEX_USD:'#fef3c7'};
-    var GCS={WINFLEX:'#0369a1',NITOPI:'#7c3aed',ENVASES_GROUP:'#0891b2',BANDEX_USD:'#b45309'};
-    var GLS={WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex'};
+    var GD={WINFLEX:{bg:'#dbeafe',c:'#0369a1',l:'Winflex'},NITOPI:{bg:'#ede9fe',c:'#7c3aed',l:'Nitopi'},ENVASES_GROUP:{bg:'#cffafe',c:'#0891b2',l:'Env.Group'},BANDEX_USD:{bg:'#fef3c7',c:'#b45309',l:'Bandex'}};
     grid.innerHTML = CK.map(function(ck){
-      var eu=ck==='BANDEX_USD';
+      var eu=ck==='BANDEX_USD'; var g=GD[ck];
       var rows=PR.map(function(prod){
         var m=mil(ck,prod);
         return '<tr style="border-top:1px solid #f8fafc"><td style="padding:4px 8px;font-weight:700;font-size:12px">'+prod+'</td>'+
@@ -2132,7 +2132,7 @@ async function renderPrecios() {
           }).join('')+'</tr>';
       }).join('');
       return '<div class="card" style="padding:0;overflow:hidden">'+
-        '<div style="padding:6px 12px;background:'+GBGS[ck]+';border-bottom:1px solid #e2e8f0;font-weight:700;font-size:12px;color:'+GCS[ck]+'">'+GLS[ck]+
+        '<div style="padding:6px 12px;background:'+g.bg+';border-bottom:1px solid #e2e8f0;font-weight:700;font-size:12px;color:'+g.c+'">'+g.l+
         '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:6px">ARS/caja</span></div>'+
         '<div style="overflow-x:auto;padding:4px 6px"><table style="width:100%;border-collapse:collapse">'+
         '<thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>'+
@@ -2143,6 +2143,21 @@ async function renderPrecios() {
 
   renderComparativoPrecios(tc, costoPET);
   renderHistorialPrecios();
+
+  // Update TC in background and refresh displays
+  fetchTCBNA().then(function(realTC) {
+    if (realTC && realTC !== tc) {
+      window._cachedTC = realTC;
+      if (tcEl) tcEl.textContent = '$' + realTC.toLocaleString('es-AR');
+      // Refresh ARS columns with real TC
+      ['BANDEX_USD'].forEach(function(ck) {
+        PR.forEach(function(prod) {
+          var inp = document.getElementById('prm_'+ck+'_'+prod);
+          if (inp && inp.value) actualizarARS('prm_'+ck+'_'+prod, 1, realTC);
+        });
+      });
+    }
+  }).catch(function(){});
 }
 
 
