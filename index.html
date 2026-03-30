@@ -1982,7 +1982,7 @@ const COSTO_COMPONENTES = [
 
 function actualizarTotalesCosto() {
   const prods = ['E900','T900'];
-  const tc = parseFloat(document.getElementById('costo-tc').textContent.replace(/[^0-9.]/g,'')) || 1405;
+  const tc = parseFloat((document.getElementById('costo-tc')||{textContent:''}).textContent.replace(/[^0-9.]/g,'')) || 1405;
   const totales = prods.map(function(prod) {
     return COSTO_COMPONENTES.reduce(function(a,c){
       const el = document.getElementById('costo_' + prod + '_' + c.key);
