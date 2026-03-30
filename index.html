@@ -359,16 +359,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <div class="form-group"><label>Partida PET</label><input type="text" id="rp-partida" placeholder="ej: 4926S-1T1"></div>
           <div class="form-group"><label>Kg procesados</label><input type="number" id="rp-kg" min="0" value="0"></div>
           <div class="form-group"><label>Eficiencia (0 a 1)</label><input type="number" id="rp-efic" min="0" max="2" step="0.001" value="0" placeholder="ej: 0.75"></div>
-          <div class="form-group">
-          <label>Lista de precios</label>
-          <select id="np-lista" onchange="calcPrecioPreview()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:14px">
-            <option value="">Auto (por cliente)</option>
-            <option value="WINFLEX">Winflex</option>
-            <option value="NITOPI">Nitopi</option>
-            <option value="ENVASES_GROUP">Envases Group</option>
-            <option value="BANDEX_USD">Bandex (USD)</option>
-          </select>
-        </div>
+          
         <div class="form-group"><label>Observaciones</label><input type="text" id="rp-obs" placeholder="Cambio de matriz, parada..."></div>
         </div>
         <div class="btn-row">
@@ -417,7 +408,13 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
             <button class="btn" onclick="exportPedidos('pendientes')">Solo pendientes</button>
             <button class="btn" onclick="exportPedidos('entregados')">Solo entregados</button>
           </div>
+        
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="card-title">📊 Cobranzas</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.6">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Formato Excel.</p>
+          <button class="btn btn-primary" onclick="exportarCobranzas()">&#11015; Descargar Cobranzas</button>
         </div>
+      </div>
         <div class="card" style="display:flex;flex-direction:column;gap:10px">
           <div class="card-title">Producción</div>
           <p style="font-size:13px;color:var(--text2);line-height:1.6">Exporta todos los registros de producción del año con turnos, eficiencia y partidas PET.</p>
@@ -436,12 +433,6 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <button class="btn btn-primary" onclick="exportCompleto()">Descargar informe completo</button>
       </div>
     </div>
-
-        <div class="card">
-          <div class="card-title">📊 Cobranzas CSV</div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Descargá todos los pedidos con valor ARS, estado de entrega y cobranza. Abre directo en Excel.</p>
-          <button class="btn btn-primary" onclick="exportarCobranzas()">⬇ Descargar Cobranzas</button>
-        </div>
 
   <div class="page" id="pg-cobranzas">
     <div class="page-title">Cobranzas</div>
