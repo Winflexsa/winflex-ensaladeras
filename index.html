@@ -2025,137 +2025,142 @@ async function renderPrecios() {
   const lastH = STATE.historicoPrecios && STATE.historicoPrecios.length ? STATE.historicoPrecios[STATE.historicoPrecios.length-1] : null;
   if (vigEl) vigEl.textContent = lastH ? lastH.vigencia : 'Enero 2026 (base)';
 
-  const CATS = [
+  const CATS_RP = [
     { key:'WINFLEX',       label:'Winflex',       color:'#0369a1', bg:'#dbeafe' },
     { key:'NITOPI',        label:'Nitopi',         color:'#7c3aed', bg:'#ede9fe' },
     { key:'ENVASES_GROUP', label:'Env.Group',      color:'#0891b2', bg:'#cffafe' },
     { key:'BANDEX_USD',    label:'Bandex',         color:'#b45309', bg:'#fef3c7' },
   ];
-  const PRODS   = ['E900','T900','E910'];
-  const REF_CAJ = {WINFLEX:300, NITOPI:300, ENVASES_GROUP:100, BANDEX_USD:440};
+  const PRODS_RP   = ['E900','T900','E910'];
+  const REF_CAJ_RP = {WINFLEX:300, NITOPI:300, ENVASES_GROUP:100, BANDEX_USD:440};
 
-  // ── Botones de aumento ──
-  // Write editable millar table to wrapper div (not the table itself — browsers strip inputs from table.innerHTML)
-  const millarWrap = document.getElementById('pr-millar-wrap');
-  if (!millarWrap) { renderComparativoPrecios(tc, costoPET); renderHistorialPrecios(); return; }
-
-
-  function getMil(cat, prod) {
-    const esUSD = cat==='BANDEX_USD';
-    const ref = REF_CAJ[cat];
-    const pr = (pv[cat]&&pv[cat][prod]&&pv[cat][prod][ref]) ? pv[cat][prod][ref] : 0;
-    return pr ? pr/ref*1000 : 0;
+  function getMilRP(catKey, prod) {
+    var ref = REF_CAJ_RP[catKey];
+    var pr = (pv[catKey] && pv[catKey][prod] && pv[catKey][prod][ref]) ? pv[catKey][prod][ref] : 0;
+    return pr ? pr / ref * 1000 : 0;
   }
 
-  // Build table using DOM (only way to have inputs inside <td>)
-  const tbl = document.createElement('table');
-  tbl.style.cssText = 'width:100%;border-collapse:collapse';
+  // ── Millar table: DOM manipulation (browsers strip inputs from table.innerHTML) ──
+  var millarWrap = document.getElementById('pr-millar-wrap');
+  if (millarWrap) {
+    var tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse';
 
-  // THEAD row 1: product + cat labels (colspan 2 each) + cost
-  const thead = tbl.createTHead();
-  const hr1 = thead.insertRow();
-  hr1.style.background = '#f8fafc';
-  var th0 = document.createElement('th');
-  th0.textContent = 'Producto'; th0.style.cssText='padding:8px 10px;font-size:11px;color:#64748b;text-align:left';
-  hr1.appendChild(th0);
-  CATS.forEach(function(cat) {
-    var th = document.createElement('th');
-    th.colSpan = 2;
-    th.style.cssText = 'padding:8px 8px;font-size:11px;color:'+cat.color+';text-align:center;border-left:2px solid #f1f5f9';
-    th.textContent = cat.label;
-    hr1.appendChild(th);
-  });
-  var thCos = document.createElement('th');
-  thCos.style.cssText = 'padding:8px 10px;font-size:11px;color:#64748b;text-align:right;border-left:2px solid #f1f5f9';
-  thCos.innerHTML = 'Costo<br>USD/mil';
-  hr1.appendChild(thCos);
+    var thead = tbl.createTHead();
+    var hr1 = thead.insertRow();
+    hr1.style.background = '#f8fafc';
+    var th0 = document.createElement('th');
+    th0.textContent = 'Producto';
+    th0.style.cssText = 'padding:8px 10px;font-size:11px;color:#64748b;text-align:left';
+    hr1.appendChild(th0);
+    CATS_RP.forEach(function(cat) {
+      var th = document.createElement('th');
+      th.colSpan = 2;
+      th.style.cssText = 'padding:8px 8px;font-size:11px;color:'+cat.color+';text-align:center;border-left:2px solid #f1f5f9';
+      th.textContent = cat.label;
+      hr1.appendChild(th);
+    });
+    var thCos = document.createElement('th');
+    thCos.innerHTML = 'Costo<br>USD/mil';
+    thCos.style.cssText = 'padding:8px 10px;font-size:11px;color:#64748b;text-align:right;border-left:2px solid #f1f5f9';
+    hr1.appendChild(thCos);
 
-  // THEAD row 2: subheaders
-  const hr2 = thead.insertRow();
-  hr2.style.background = '#fafafa';
-  var th00 = document.createElement('th');
-  hr2.appendChild(th00);
-  CATS.forEach(function(cat) {
-    var esUSD = cat.key==='BANDEX_USD';
-    var th1 = document.createElement('th');
-    th1.style.cssText = 'padding:3px 6px;font-size:10px;color:'+cat.color+';font-weight:700;border-left:2px solid #f1f5f9';
-    th1.innerHTML = (esUSD?'USD':'ARS')+'/millar<br><span style="font-size:8px;font-weight:400;color:#94a3b8">editable</span>';
-    hr2.appendChild(th1);
-    var th2 = document.createElement('th');
-    th2.style.cssText = 'padding:3px 6px;font-size:10px;color:#64748b';
-    th2.textContent = 'ARS/millar';
-    hr2.appendChild(th2);
-  });
-  var thCos2 = document.createElement('th');
-  thCos2.style.cssText = 'border-left:2px solid #f1f5f9';
-  hr2.appendChild(thCos2);
+    var hr2 = thead.insertRow();
+    hr2.style.background = '#fafafa';
+    hr2.insertCell();
+    CATS_RP.forEach(function(cat) {
+      var esUSD = cat.key === 'BANDEX_USD';
+      var th1 = document.createElement('th');
+      th1.style.cssText = 'padding:3px 6px;font-size:10px;color:'+cat.color+';font-weight:700;border-left:2px solid #f1f5f9';
+      th1.innerHTML = (esUSD?'USD':'ARS')+'/millar<br><span style="font-size:8px;font-weight:400;color:#94a3b8">editable</span>';
+      hr2.appendChild(th1);
+      var th2 = document.createElement('th');
+      th2.style.cssText = 'padding:3px 6px;font-size:10px;color:#64748b';
+      th2.textContent = 'ARS/millar';
+      hr2.appendChild(th2);
+    });
+    var thCos2 = document.createElement('th');
+    thCos2.style.cssText = 'border-left:2px solid #f1f5f9';
+    hr2.appendChild(thCos2);
 
-  // TBODY: one row per product
-  const tbody = tbl.createTBody();
-  PRODS.forEach(function(prod) {
-    var cos = calcCostoMillar(prod, costoPET, tc);
-    var tr = tbody.insertRow();
-    tr.style.borderTop = '1px solid #f1f5f9';
-    var tdProd = tr.insertCell();
-    tdProd.style.cssText = 'padding:8px 10px;font-weight:700;font-size:13px';
-    tdProd.textContent = prod;
+    var tbody = tbl.createTBody();
+    PRODS_RP.forEach(function(prod) {
+      var cos = calcCostoMillar(prod, costoPET, tc);
+      var tr = tbody.insertRow();
+      tr.style.borderTop = '1px solid #f1f5f9';
+      var tdProd = tr.insertCell();
+      tdProd.textContent = prod;
+      tdProd.style.cssText = 'padding:8px 10px;font-weight:700;font-size:13px';
 
-    CATS.forEach(function(cat) {
-      var esUSD = cat.key==='BANDEX_USD';
-      var curMil = getMil(cat.key, prod);
-      var dispVal = curMil ? (esUSD ? curMil.toFixed(1) : Math.round(curMil)) : '';
-      var arsVal  = curMil ? (esUSD ? curMil*tc : curMil) : 0;
-      var inputId = 'prm_'+cat.key+'_'+prod;
+      CATS_RP.forEach(function(cat) {
+        var esUSD = cat.key === 'BANDEX_USD';
+        var curMil = getMilRP(cat.key, prod);
+        var dispVal = curMil ? (esUSD ? curMil.toFixed(1) : Math.round(curMil)) : '';
+        var arsVal  = curMil ? (esUSD ? curMil*tc : curMil) : 0;
+        var inputId = 'prm_'+cat.key+'_'+prod;
 
-      // Input cell
-      var tdInput = tr.insertCell();
-      tdInput.style.cssText = 'padding:6px 6px;border-left:2px solid #f1f5f9';
-      var inp = document.createElement('input');
-      inp.type = 'number';
-      inp.id = inputId;
-      inp.step = esUSD ? '0.1' : '100';
-      inp.value = dispVal;
-      inp.style.cssText = 'width:90px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;font-weight:700;text-align:right;background:#fffbeb';
-      inp.setAttribute('oninput', 'actualizarARS("'+inputId+'",'+(esUSD?1:0)+','+tc+')');
-      tdInput.appendChild(inp);
+        var tdInput = tr.insertCell();
+        tdInput.style.cssText = 'padding:6px 6px;border-left:2px solid #f1f5f9';
+        var inp = document.createElement('input');
+        inp.type = 'number';
+        inp.id = inputId;
+        inp.step = esUSD ? '0.1' : '100';
+        inp.value = dispVal;
+        inp.style.cssText = 'width:90px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;font-weight:700;text-align:right;background:#fffbeb';
+        inp.setAttribute('oninput', 'actualizarARS("'+inputId+'",'+(esUSD?1:0)+','+tc+')');
+        tdInput.appendChild(inp);
 
-      // ARS display cell
-      var tdARS = tr.insertCell();
-      tdARS.id = inputId+'_ars';
-      tdARS.style.cssText = 'padding:6px 8px;text-align:right;font-size:12px;color:#475569';
-      tdARS.textContent = arsVal > 0 ? arsVal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+        var tdARS = tr.insertCell();
+        tdARS.id = inputId+'_ars';
+        tdARS.style.cssText = 'padding:6px 8px;text-align:right;font-size:12px;color:#475569';
+        tdARS.textContent = arsVal > 0 ? arsVal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+      });
+
+      var tdCos = tr.insertCell();
+      tdCos.textContent = cos ? cos.costoMillar.toFixed(2)+' USD' : '—';
+      tdCos.style.cssText = 'padding:8px 10px;text-align:right;color:#475569;font-size:12px;border-left:2px solid #f1f5f9';
     });
 
-    // Cost cell
-    var tdCos = tr.insertCell();
-    tdCos.style.cssText = 'padding:8px 10px;text-align:right;color:#475569;font-size:12px;border-left:2px solid #f1f5f9';
-    tdCos.textContent = cos ? cos.costoMillar.toFixed(2)+' USD' : '—';
-  });
+    millarWrap.innerHTML = '';
+    millarWrap.appendChild(tbl);
+  }
 
-  millarWrap.innerHTML = '';
-  millarWrap.appendChild(tbl);
+  // ── Botones de aumento ──
+  var pctEl = document.getElementById('pr-pct-btns');
+  if (pctEl) {
+    pctEl.innerHTML = CATS_RP.map(function(cat) {
+      var esUSD = cat.key==='BANDEX_USD' ? 1 : 0;
+      var btns = [5,10,12,15].map(function(pct) {
+        return '<button type="button" onclick="aplicarAumento(\''+cat.key+'\','+pct+','+tc+')" '+
+          'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+cat.color+';border:1.5px solid '+cat.color+';border-radius:5px;cursor:pointer;margin-right:3px">+'+pct+'%</button>';
+      }).join('');
+      return '<div style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;margin-bottom:4px">'+
+        '<span style="font-size:11px;font-weight:600;color:'+cat.color+'">'+cat.label+':</span>'+btns+'</div>';
+    }).join('');
+  }
 
-  const grid = document.getElementById('precios-grid');
+  // ── Per-caja grids (calculado automaticamente) ──
+  var grid = document.getElementById('precios-grid');
   if (grid) {
-    grid.innerHTML = CATS.map(function(cat) {
+    var CAJAS_L = [100,300,440,500,1000];
+    grid.innerHTML = CATS_RP.map(function(cat) {
       var esUSD = cat.key==='BANDEX_USD';
-      const CAJAS_L = [100,300,440,500,1000];
-      var rows = PRODS.map(function(prod) {
-        var curMil = getMil(cat.key, prod);
+      var rows = PRODS_RP.map(function(prod) {
+        var curMil = getMilRP(cat.key, prod);
         var cells = CAJAS_L.map(function(c) {
-          var prC = curMil ? curMil*c/1000 : 0;
+          var prC  = curMil ? curMil*c/1000 : 0;
           var arsC = prC ? (esUSD ? prC*tc : prC) : 0;
-          var dispC = arsC>0 ? arsC.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
-          return '<td style="padding:4px 8px;text-align:right;font-size:11px;color:#475569" id="prg_cj_'+cat.key+'_'+prod+'_'+c+'">'+dispC+'</td>';
+          var disp = arsC > 0 ? arsC.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+          return '<td style="padding:4px 8px;text-align:right;font-size:11px;color:#475569" id="prg_cj_'+cat.key+'_'+prod+'_'+c+'">'+disp+'</td>';
         }).join('');
         return '<tr style="border-top:1px solid #f8fafc"><td style="padding:4px 8px;font-weight:700;font-size:12px">'+prod+'</td>'+cells+'</tr>';
       }).join('');
-      return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:6px">' +
+      return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:6px">'+
         '<div style="padding:6px 12px;background:'+cat.bg+';border-bottom:1px solid #e2e8f0;font-weight:700;font-size:12px;color:'+cat.color+'">'+cat.label+
-          '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:6px">precios por caja</span></div>' +
-        '<div style="overflow-x:auto;padding:4px 6px"><table style="width:100%;border-collapse:collapse">' +
-          '<thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>' +
-          CAJAS_L.map(function(c){ return '<th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:right">x'+c+'</th>'; }).join('') +
+          '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:6px">precios por caja</span></div>'+
+        '<div style="overflow-x:auto;padding:4px 6px"><table style="width:100%;border-collapse:collapse">'+
+          '<thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>'+
+          CAJAS_L.map(function(c){ return '<th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:right">x'+c+'</th>'; }).join('')+
           '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
     }).join('');
   }
