@@ -500,7 +500,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <!-- Reference: precios por millar -->
     <div class="card" style="margin-bottom:16px;overflow-x:auto">
       <div class="card-title" style="margin-bottom:10px">💡 Referencia — precio por millar de unidades</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px" id="pr-millar-tabla"></table>
+      <div id="pr-millar-wrap"></div>
     </div>
 
     <!-- Editable grids -->
@@ -2035,86 +2035,106 @@ async function renderPrecios() {
   const REF_CAJ = {WINFLEX:300, NITOPI:300, ENVASES_GROUP:100, BANDEX_USD:440};
 
   // ── Botones de aumento ──
-  const millarEl = document.getElementById('pr-millar-tabla');
-  if (!millarEl) { renderComparativoPrecios(tc, costoPET); renderHistorialPrecios(); return; }
+  // Write editable millar table to wrapper div (not the table itself — browsers strip inputs from table.innerHTML)
+  const millarWrap = document.getElementById('pr-millar-wrap');
+  if (!millarWrap) { renderComparativoPrecios(tc, costoPET); renderHistorialPrecios(); return; }
 
-  // Get current millar values from preciosVigentes
+
   function getMil(cat, prod) {
     const esUSD = cat==='BANDEX_USD';
     const ref = REF_CAJ[cat];
     const pr = (pv[cat]&&pv[cat][prod]&&pv[cat][prod][ref]) ? pv[cat][prod][ref] : 0;
-    return pr ? pr/ref*1000 : 0;  // in USD for Bandex, ARS for others
+    return pr ? pr/ref*1000 : 0;
   }
 
-  // ── Build the editable table ──
-  var thead = '<thead>' +
-    '<tr style="background:#f8fafc">' +
-      '<th style="padding:8px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
-      CATS.map(function(c){
-        return '<th colspan="2" style="padding:8px 8px;font-size:11px;color:'+c.color+';text-align:center;border-left:2px solid #f1f5f9">'+c.label+'</th>';
-      }).join('') +
-      '<th style="padding:8px 10px;font-size:11px;color:#64748b;text-align:right;border-left:2px solid #f1f5f9">Costo<br>USD/mil</th>' +
-    '</tr>' +
-    '<tr style="background:#fafafa">' +
-      '<th style="padding:3px 10px;font-size:10px;color:#94a3b8"></th>' +
-      CATS.map(function(c){
-        var esUSD = c.key==='BANDEX_USD';
-        return '<th style="padding:3px 6px;font-size:10px;color:'+c.color+';font-weight:700;border-left:2px solid #f1f5f9">'+
-          (esUSD?'USD':'ARS')+'/millar<br><span style="font-size:8px;font-weight:400;color:#94a3b8">editable</span></th>'+
-          '<th style="padding:3px 6px;font-size:10px;color:#64748b">ARS/millar</th>';
-      }).join('') +
-      '<th style="border-left:2px solid #f1f5f9"></th>' +
-    '</tr>' +
-  '</thead>';
+  // Build table using DOM (only way to have inputs inside <td>)
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse';
 
-  var tbody = '<tbody>' + PRODS.map(function(prod) {
+  // THEAD row 1: product + cat labels (colspan 2 each) + cost
+  const thead = tbl.createTHead();
+  const hr1 = thead.insertRow();
+  hr1.style.background = '#f8fafc';
+  var th0 = document.createElement('th');
+  th0.textContent = 'Producto'; th0.style.cssText='padding:8px 10px;font-size:11px;color:#64748b;text-align:left';
+  hr1.appendChild(th0);
+  CATS.forEach(function(cat) {
+    var th = document.createElement('th');
+    th.colSpan = 2;
+    th.style.cssText = 'padding:8px 8px;font-size:11px;color:'+cat.color+';text-align:center;border-left:2px solid #f1f5f9';
+    th.textContent = cat.label;
+    hr1.appendChild(th);
+  });
+  var thCos = document.createElement('th');
+  thCos.style.cssText = 'padding:8px 10px;font-size:11px;color:#64748b;text-align:right;border-left:2px solid #f1f5f9';
+  thCos.innerHTML = 'Costo<br>USD/mil';
+  hr1.appendChild(thCos);
+
+  // THEAD row 2: subheaders
+  const hr2 = thead.insertRow();
+  hr2.style.background = '#fafafa';
+  var th00 = document.createElement('th');
+  hr2.appendChild(th00);
+  CATS.forEach(function(cat) {
+    var esUSD = cat.key==='BANDEX_USD';
+    var th1 = document.createElement('th');
+    th1.style.cssText = 'padding:3px 6px;font-size:10px;color:'+cat.color+';font-weight:700;border-left:2px solid #f1f5f9';
+    th1.innerHTML = (esUSD?'USD':'ARS')+'/millar<br><span style="font-size:8px;font-weight:400;color:#94a3b8">editable</span>';
+    hr2.appendChild(th1);
+    var th2 = document.createElement('th');
+    th2.style.cssText = 'padding:3px 6px;font-size:10px;color:#64748b';
+    th2.textContent = 'ARS/millar';
+    hr2.appendChild(th2);
+  });
+  var thCos2 = document.createElement('th');
+  thCos2.style.cssText = 'border-left:2px solid #f1f5f9';
+  hr2.appendChild(thCos2);
+
+  // TBODY: one row per product
+  const tbody = tbl.createTBody();
+  PRODS.forEach(function(prod) {
     var cos = calcCostoMillar(prod, costoPET, tc);
-    var cells = CATS.map(function(cat) {
+    var tr = tbody.insertRow();
+    tr.style.borderTop = '1px solid #f1f5f9';
+    var tdProd = tr.insertCell();
+    tdProd.style.cssText = 'padding:8px 10px;font-weight:700;font-size:13px';
+    tdProd.textContent = prod;
+
+    CATS.forEach(function(cat) {
       var esUSD = cat.key==='BANDEX_USD';
       var curMil = getMil(cat.key, prod);
       var dispVal = curMil ? (esUSD ? curMil.toFixed(1) : Math.round(curMil)) : '';
       var arsVal  = curMil ? (esUSD ? curMil*tc : curMil) : 0;
       var inputId = 'prm_'+cat.key+'_'+prod;
-      return '<td style="padding:6px 6px;border-left:2px solid #f1f5f9">' +
-          '<input id="'+inputId+'" type="number" step="'+(esUSD?'0.1':'100')+'" value="'+dispVal+'" ' +
-          'oninput="actualizarARS(\''+inputId+'\','+(esUSD?1:0)+','+tc+')" ' +
-          'style="width:90px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;font-weight:700;text-align:right;background:#fffbeb">'+
-        '</td>' +
-        '<td style="padding:6px 8px;text-align:right;font-size:12px;color:#475569" id="'+inputId+'_ars">'+
-          (arsVal>0?arsVal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—')+
-        '</td>';
-    }).join('');
-    return '<tr style="border-top:1px solid #f1f5f9">' +
-      '<td style="padding:8px 10px;font-weight:700;font-size:13px">'+prod+'</td>' +
-      cells +
-      '<td style="padding:8px 10px;text-align:right;color:#475569;font-size:12px;border-left:2px solid #f1f5f9">'+
-        (cos?cos.costoMillar.toFixed(2)+' USD':'—')+
-      '</td>' +
-    '</tr>';
-  }).join('') + '</tbody>';
 
-  // Use wrapper div to parse inputs correctly (table.innerHTML strips inputs in some browsers)
-  var _tmpDiv = document.createElement('div');
-  _tmpDiv.innerHTML = '<table>' + thead + tbody + '</table>';
-  var _newTbl = _tmpDiv.firstChild;
-  while (millarEl.firstChild) millarEl.removeChild(millarEl.firstChild);
-  while (_newTbl.firstChild) millarEl.appendChild(_newTbl.firstChild);
+      // Input cell
+      var tdInput = tr.insertCell();
+      tdInput.style.cssText = 'padding:6px 6px;border-left:2px solid #f1f5f9';
+      var inp = document.createElement('input');
+      inp.type = 'number';
+      inp.id = inputId;
+      inp.step = esUSD ? '0.1' : '100';
+      inp.value = dispVal;
+      inp.style.cssText = 'width:90px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;font-weight:700;text-align:right;background:#fffbeb';
+      inp.setAttribute('oninput', 'actualizarARS("'+inputId+'",'+(esUSD?1:0)+','+tc+')');
+      tdInput.appendChild(inp);
 
-  // ── Botones de aumento (abajo de la tabla) ──
-  const pctEl = document.getElementById('pr-pct-btns');
-  if (pctEl) {
-    pctEl.innerHTML = CATS.map(function(cat) {
-      var esUSD = cat.key==='BANDEX_USD';
-      var btns = [5,10,12,15].map(function(pct) {
-        return '<button type="button" onclick="aplicarAumento(\''+cat.key+'\','+pct+','+tc+')" ' +
-          'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+cat.color+';border:1.5px solid '+cat.color+';border-radius:5px;cursor:pointer;margin-right:3px">+'+pct+'%</button>';
-      }).join('');
-      return '<div style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;margin-bottom:4px">' +
-        '<span style="font-size:11px;font-weight:600;color:'+cat.color+'">'+cat.label+':</span>'+btns+'</div>';
-    }).join('');
-  }
+      // ARS display cell
+      var tdARS = tr.insertCell();
+      tdARS.id = inputId+'_ars';
+      tdARS.style.cssText = 'padding:6px 8px;text-align:right;font-size:12px;color:#475569';
+      tdARS.textContent = arsVal > 0 ? arsVal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+    });
 
-  // ── Second grid (per-caja view) ──
+    // Cost cell
+    var tdCos = tr.insertCell();
+    tdCos.style.cssText = 'padding:8px 10px;text-align:right;color:#475569;font-size:12px;border-left:2px solid #f1f5f9';
+    tdCos.textContent = cos ? cos.costoMillar.toFixed(2)+' USD' : '—';
+  });
+
+  millarWrap.innerHTML = '';
+  millarWrap.appendChild(tbl);
+
   const grid = document.getElementById('precios-grid');
   if (grid) {
     grid.innerHTML = CATS.map(function(cat) {
@@ -2188,34 +2208,6 @@ async function renderPrecios() {
   const REF = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
 
   // Tabla referencia por millar
-  const tMillar = document.getElementById('pr-millar-tabla');
-  if (tMillar) {
-    const hdrs = '<thead><tr style="background:#f8fafc"><th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:left">Producto</th>' +
-      CATS.map(c=>'<th style="padding:6px 8px;font-size:11px;color:'+c.color+';text-align:right;font-weight:700">'+c.label+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400">ARS/millar</span></th>').join('') +
-      CATS.map(c=>'<th style="padding:6px 8px;font-size:11px;color:'+c.color+';text-align:right">'+c.label+'<br><span style="font-size:9px;color:#94a3b8;font-weight:400">USD/millar</span></th>').join('') +
-      '<th style="padding:6px 10px;font-size:11px;color:#64748b;text-align:right">Costo USD/mil</th>' +
-      '</tr></thead>';
-    const rows = PRODS.map(prod => {
-      const cos = calcCostoMillar(prod, costoPET, tc);
-      const arsMillarCells = CATS.map(cat => {
-        const catPV = (pv[cat.key]||{})[prod]||{};
-        const rc = REF[cat.key]; const prCaja = catPV[rc];
-        if (!prCaja) return '<td style="padding:6px 8px;text-align:right;color:#cbd5e1">—</td>';
-        const pvM = cat.key==='BANDEX_USD' ? prCaja/rc*1000*tc : prCaja/rc*1000;
-        return '<td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px">'+pvM.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'</td>';
-      }).join('');
-      const usdMillarCells = CATS.map(cat => {
-        const catPV = (pv[cat.key]||{})[prod]||{};
-        const rc = REF[cat.key]; const prCaja = catPV[rc];
-        if (!prCaja) return '<td style="padding:6px 8px;text-align:right;color:#cbd5e1">—</td>';
-        const pvUSD = cat.key==='BANDEX_USD' ? prCaja/rc*1000 : prCaja/rc*1000/tc;
-        return '<td style="padding:6px 8px;text-align:right;font-size:12px;color:#475569">'+pvUSD.toFixed(1)+'</td>';
-      }).join('');
-      return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:6px 10px;font-weight:700">'+prod+'</td>'+arsMillarCells+usdMillarCells+
-        '<td style="padding:6px 10px;text-align:right;color:#475569">'+(cos?cos.costoMillar.toFixed(2)+' USD':'—')+'</td></tr>';
-    }).join('');
-    tMillar.innerHTML = hdrs + '<tbody>'+rows+'</tbody>';
-  }
 
   // Grids editables
   const grid = document.getElementById('precios-grid');
