@@ -1332,6 +1332,7 @@ function renderAnual() {
 // ─── Toast ─────────────────────────────────────────────────────
 function toast(msg, type = 'ok') {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = 'toast ' + type;
   t.classList.add('show');
@@ -3309,5 +3310,5 @@ async function exportCompleto() {
   
 
   
-<script>function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}</script></body>
+<script>function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}</script><div id="toast"></div></body>
 </html>
