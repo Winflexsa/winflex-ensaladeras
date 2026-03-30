@@ -2020,8 +2020,8 @@ function renderMargenes(tc, costosTotales, prods) {
 
 // ─── PRECIOS - RENDER COMPLETO ─────────────────────────────────
 
-function renderPrecios() {
-  const tc = window._cachedTC || 1405;
+async function renderPrecios() {
+  const tc = await fetchTCBNA(); window._cachedTC = tc;
   const costoPET = parseFloat((document.getElementById('pr-costo-pet')||{}).value)||1.412761;
   if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
   const pv = STATE.preciosVigentes;
@@ -2102,7 +2102,7 @@ function renderPrecios() {
 // PRECIOS
 // ════════════════════════════════════════════════════════════
 
-function renderPrecios() {
+async function renderPrecios() {
   const tc = await fetchTCBNA();
   const tcEl = document.getElementById('pr-tc');
   if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
