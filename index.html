@@ -2093,7 +2093,12 @@ async function renderPrecios() {
     '</tr>';
   }).join('') + '</tbody>';
 
-  millarEl.innerHTML = thead + tbody;
+  // Use wrapper div to parse inputs correctly (table.innerHTML strips inputs in some browsers)
+  var _tmpDiv = document.createElement('div');
+  _tmpDiv.innerHTML = '<table>' + thead + tbody + '</table>';
+  var _newTbl = _tmpDiv.firstChild;
+  while (millarEl.firstChild) millarEl.removeChild(millarEl.firstChild);
+  while (_newTbl.firstChild) millarEl.appendChild(_newTbl.firstChild);
 
   // ── Botones de aumento (abajo de la tabla) ──
   const pctEl = document.getElementById('pr-pct-btns');
