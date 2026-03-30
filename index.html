@@ -287,7 +287,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <div class="form-grid">
           <div class="form-group"><label>Fecha del pedido</label><input type="date" id="np-fecha"></div>
           <div class="form-group"><label>Fecha entrega estimada</label><input type="date" id="np-entrega"></div>
-          <div class="form-group"><label>Cliente</label><input type="text" id="np-cliente" onchange="calcPrecioPreview()" onblur="calcPrecioPreview()" list="list-clientes" placeholder="Cliente..." autocomplete="off"><datalist id="list-clientes"></datalist></div>
+          <div class="form-group"><label>Cliente</label><input type="text" id="np-cliente" onchange="actualizarPreciosItems()" onblur="actualizarPreciosItems()" list="list-clientes" placeholder="Cliente..." autocomplete="off"><datalist id="list-clientes"></datalist></div>
           <div class="form-group"><label>Lugar de despacho</label><input type="text" id="np-despacho" list="list-despachos" placeholder="Despacho..." autocomplete="off"><datalist id="list-despachos"></datalist></div>
           <div class="form-group"><label>Vendedor</label><select id="np-vendedor"><option value="">— Seleccionar —</option><option>Nitopi</option><option>Winflex</option></select></div>
           <div class="form-group"><label>Observaciones / N° OC</label><input type="text" id="np-obs" placeholder="OC 1234, nota..."></div>
@@ -296,6 +296,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         <div id="np-prods"></div>
         <p class="hint">Dejá en 0 los productos que no apliquen. Las unidades se calculan solas.</p>
         <div class="btn-row">
+          <button type="button" class="btn" onclick="actualizarPreciosItems()" style="font-size:12px;padding:5px 14px;background:#eff6ff;color:#0369a1;border-color:#bfdbfe">💰 Calcular precios</button>
           <button class="btn btn-primary" onclick="guardarPedido()">Guardar pedido</button>
           <button class="btn" onclick="limpiarPedido()">Limpiar</button>
         </div>
@@ -1053,9 +1054,6 @@ function initNuevoForm() {
     });
   }
 
-  // Live price preview
-  document.getElementById('np-items-body').addEventListener('change', function(){ setTimeout(calcPrecioPreview, 50); });
-  document.getElementById('np-items-body').addEventListener('input', function(){ setTimeout(calcPrecioPreview, 50); });
 }
 
 async function guardarPedido() {
