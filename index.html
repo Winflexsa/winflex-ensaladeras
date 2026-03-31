@@ -185,6 +185,12 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 .parcial-item .max { color:var(--text3);font-size:11px; }
 .parcial-item input { width:72px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right; }
 .modal-parcial-actions { display:flex;gap:10px;margin-top:20px;justify-content:flex-end; }
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;color:white;background:#1e293b}
+.toast.show{opacity:1}
+.toast.ok{background:#166534}
+.toast.warn{background:#92400e}
+.toast.err{background:#991b1b}
 </style>
 </head>
 <body>
@@ -915,9 +921,9 @@ function renderPedidos() {
       '<td style="padding:8px 6px"><span class="badge '+eC+'">'+p.estado+'</span></td>' +
       '' +
       '<td style="padding:8px 6px" onclick="event.stopPropagation()">' +
-        (p.estado!=='Entregado'?'<button class="btn btn-sm" onclick="event.stopPropagation();abrirParcial('+p.id+')" style="padding:3px 8px;font-size:11px;background:#dcfce7;color:#166534;border-color:#86efac">Entregar</button> ':'') +
-        '<button class="btn btn-sm" onclick="event.stopPropagation();abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
-        '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
+        
+        '<button class="btn btn-sm" onclick="abrirEditar('+p.id+')" style="padding:3px 8px;font-size:11px">Editar</button> ' +
+        '<button class="btn btn-sm btn-danger" onclick="eliminarPedido('+p.id+')" style="padding:3px 7px;font-size:11px">\u00d7</button>' +
       '</td>' +
     '</tr>';
 
@@ -1332,7 +1338,6 @@ function renderAnual() {
 // ─── Toast ─────────────────────────────────────────────────────
 function toast(msg, type = 'ok') {
   const t = document.getElementById('toast');
-  if (!t) return;
   t.textContent = msg;
   t.className = 'toast ' + type;
   t.classList.add('show');
@@ -1659,7 +1664,7 @@ async function renderCobranzas() {
     rows.push('<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">'+
       '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;</td>'+
       '<td style="padding:8px 4px;width:90px;font-size:12px;color:#64748b">'+p.fecha+'</td>'+
-      '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
+      '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b> <span style="font-size:10px;color:#94a3b8">#'+p.id+'</span><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
       '<td style="padding:8px 4px"><span style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>'+
       '<td style="padding:8px 4px;font-weight:700;text-align:right;white-space:nowrap">'+vStr+'</td>'+
       '<td style="padding:8px 14px 8px 4px;text-align:right">'+
@@ -2164,64 +2169,10 @@ async function renderPrecios() {
 
 
 
-// ════════════════════════════════════════════════════════════
-// PRECIOS
-// ════════════════════════════════════════════════════════════
 
-async function renderPrecios() {
-  const tc = await fetchTCBNA();
-  const tcEl = document.getElementById('pr-tc');
-  if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
-  const costoPetEl = document.getElementById('pr-costo-pet');
-  const costoPET = costoPetEl ? parseFloat(costoPetEl.value)||1.412761 : 1.412761;
-  if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
-  const pv = STATE.preciosVigentes;
-  const vigEl = document.getElementById('pr-vigencia');
-  const lastH = STATE.historicoPrecios && STATE.historicoPrecios.length ? STATE.historicoPrecios[STATE.historicoPrecios.length-1] : null;
-  if (vigEl) vigEl.textContent = lastH ? lastH.vigencia : 'Enero 2026 (base)';
-  const CATS = [
-    { key:'WINFLEX',       label:'Winflex',      color:'#0369a1', bg:'#e0f2fe', note:'ARS/caja' },
-    { key:'NITOPI',        label:'Nitopi',        color:'#7c3aed', bg:'#ede9fe', note:'ARS/caja' },
-    { key:'ENVASES_GROUP', label:'Env.Group',     color:'#0891b2', bg:'#ecfeff', note:'ARS/caja' },
-    { key:'BANDEX_USD',    label:'Bandex',        color:'#b45309', bg:'#fef3c7', note:'USD/millar' },
-  ];
-  const PRODS = ['E900','T900','E910']; const CAJAS_L = [100,300,440,500,1000];
-  const CAJAS_LBL = {100:'x100',300:'x300',440:'x440',500:'x500',1000:'x1000'};
-  const REF = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
-
-  // Tabla referencia por millar
-
-  // Grids editables
-  const grid = document.getElementById('precios-grid');
-  if (grid) {
-    grid.innerHTML = CATS.map(cat => {
-      const catPV = pv[cat.key]||{}; const esUSD = cat.key==='BANDEX_USD';
-      const rows = PRODS.map(prod => {
-        const cells = CAJAS_L.map(c => {
-          const v = catPV[prod]&&catPV[prod][c] ? catPV[prod][c] : 0;
-          const ars = v ? (esUSD?v*tc:v) : 0;
-          const id = 'pr_'+cat.key+'_'+prod+'_'+c;
-          return '<td style="padding:3px 4px;text-align:right">'+
-            '<input id="'+id+'" type="number" step="0.01" value="'+(v||'')+'" oninput="previewPrecio(\''+id+'\','+(esUSD?1:0)+','+tc+')" '+
-            'style="width:78px;padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-weight:600;text-align:right">'+
-            '<div style="font-size:9px;color:#94a3b8;margin-top:1px">'+(ars>0?ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'—')+'</div></td>';
-        }).join('');
-        return '<tr><td style="padding:3px 8px;font-weight:700;font-size:12px">'+prod+'</td>'+cells+'</tr>';
-      }).join('');
-      return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:8px 12px;background:'+cat.bg+';border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">'+
-        '<span style="font-weight:700;font-size:13px;color:'+cat.color+'">'+cat.label+'</span><span style="font-size:10px;color:#64748b">'+cat.note+'</span></div>'+
-        '<div style="overflow-x:auto;padding:5px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc"><th style="padding:3px 8px;font-size:10px;color:#64748b;text-align:left">Prod.</th>'+
-        CAJAS_L.map(c=>'<th style="padding:3px 4px;font-size:10px;color:#64748b;text-align:right">'+CAJAS_LBL[c]+'</th>').join('')+
-        '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-    }).join('');
-  }
-
-  renderComparativoPrecios(tc, costoPET);
-  renderHistorialPrecios();
-}
 
 function renderComparativoPrecios(tc, costoPET) {
-  const tComp = document.getElementById('pr-comparativo');
+  const tComp = document.getElementById('pr-comp-table');
   if (!tComp) return;
   const PRODS = ['E900','T900','E910'];
   const CATS = [
@@ -2976,7 +2927,6 @@ function abrirEditar(id) {
   }).join('');
 
   const modal = document.getElementById('edit-modal');
-  document.getElementById('modal-parcial').style.display='none';
   modal.style.display = 'flex';
   initCombo('ed-vendedor', null);
 }
@@ -3310,5 +3260,15 @@ async function exportCompleto() {
   
 
   
-<script>function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}</script><div id="toast"></div></body>
+
+<div id="toast"></div>
+
+<script>
+function togglePedDet(id){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';
+}
+</script>
+</body>
 </html>
