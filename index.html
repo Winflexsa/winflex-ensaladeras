@@ -510,6 +510,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <input type="text" id="pr-vigencia-nueva" placeholder="Ej: Abril 2026"
         style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit">
       <button class="btn btn-primary" onclick="guardarPrecios()">&#128190; Guardar nueva lista</button>
+      <button class="btn" onclick="exportarPreciosExcel()" style="background:#f0fdf4;color:#166534;border-color:#86efac">&#128202; Exportar Excel</button>
     </div>
   </div>
 
@@ -1090,6 +1091,7 @@ function initNuevoForm() {
           <div class="form-group"><label>Tam. caja</label><select id="np-${p}-s" onchange="actualizarPreciosItems()"><option value="">—</option>${CAJAS.map(c => `<option>${c}</option>`).join('')}</select></div>
           <div class="form-group"><label>Unidades</label><input type="number" id="np-${p}-u" readonly></div>
           <div class="form-group"><label style="color:#0369a1">💰 Precio/caja</label><div id="np-${p}-precio" style="font-size:13px;font-weight:600;color:#0369a1;padding:6px 0;min-height:32px"><span style="color:#cbd5e1">—</span></div></div>
+          <div class="form-group"><label style="color:#64748b;font-size:11px">Precio especial/caja <span style="font-weight:400">(opcional)</span></label><input type="number" id="np-${p}-precio-manual" min="0" step="0.01" placeholder="Ej: 8500" style="border:1px dashed #94a3b8;background:#fafafa" oninput="actualizarPreciosItems()"></div>
         </div>
       </div>`).join('');
     PRODUCTOS.forEach(p => {
@@ -1133,7 +1135,7 @@ async function guardarPedido() {
 }
 
 function limpiarPedido() {
-  PRODUCTOS.forEach(p => { document.getElementById(`np-${p}-c`).value = 0; document.getElementById(`np-${p}-s`).value = ''; document.getElementById(`np-${p}-u`).value = 0; });
+  PRODUCTOS.forEach(p => { document.getElementById(`np-${p}-c`).value = 0; document.getElementById(`np-${p}-s`).value = ''; document.getElementById(`np-${p}-u`).value = 0; var me=document.getElementById(`np-${p}-precio-manual`); if(me) me.value=''; });
   ['np-cliente','np-despacho','np-vendedor','np-entrega','np-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 }
 
@@ -1663,7 +1665,7 @@ async function renderCobranzas() {
     const vStr=totalARS>0?fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8;font-weight:400">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':''):'<span style="color:#cbd5e1">s/p</span>';
     // Summary row
     rows.push('<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">'+
-      '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;<div style="font-size:9px;color:#cbd5e1;text-align:center">#'+p.id+'</div></td>'+
+      '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;<div style="font-size:9px;color:#cbd5e1;text-align:center;margin-top:1px">#'+p.id+'</div></td>'+
       '<td style="padding:8px 4px;width:90px;font-size:12px;color:#64748b">'+p.fecha+'</td>'+
       '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
       '<td style="padding:8px 4px"><span style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>'+
@@ -2117,7 +2119,7 @@ async function renderPrecios() {
           return '<button type="button" onclick="aplicarAumento(\''+x.k+'\','+p+','+tc+')" '+
             'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+x.c+';border:1.5px solid '+x.c+';border-radius:5px;cursor:pointer">+'+p+'%</button>';
         }).join('') + '</div>';
-    }).join('') + '<button id="pr-undo-btn" type="button" onclick="deshacerAumento()" style="display:none;align-items:center;gap:4px;padding:4px 12px;font-size:11px;font-weight:700;background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:5px;cursor:pointer;margin-left:8px">↩ Deshacer</button>';
+    }).join('');
   }
 
   // Per-caja grids
@@ -2794,19 +2796,26 @@ async function actualizarPreciosItems() {
     var cajas = parseInt((document.getElementById('np-'+prod+'-c')||{}).value)||0;
     var caja  = parseInt((document.getElementById('np-'+prod+'-s')||{}).value)||0;
     if (!caja || !cajas) { prEl.innerHTML = '<span style="color:#cbd5e1">—</span>'; return; }
+    // Verificar si hay precio manual ingresado
+    var manualEl = document.getElementById('np-'+prod+'-precio-manual');
+    var manualVal = manualEl ? parseFloat(manualEl.value)||0 : 0;
     var p = getItemPrecio(prod, caja, cliente, listaOvr);
-    if (!p) { prEl.innerHTML = '<span style="color:#e2e8f0">sin precio</span>'; return; }
-    var sub = p.ars * cajas;
+    if (!p && !manualVal) { prEl.innerHTML = '<span style="color:#e2e8f0">sin precio</span>'; return; }
+    // Usar precio manual si está cargado, sino el de lista
+    var precioFinal = manualVal ? manualVal : (p ? p.ars : 0);
+    var sub = precioFinal * cajas;
     totalARS += sub;
-    if (p.esUSD) totalUSD += p.prCaja * cajas;
+    if (p && p.esUSD && !manualVal) totalUSD += p.prCaja * cajas;
+    var esManual = manualVal > 0;
     prEl.innerHTML =
-      '<div style="font-weight:700;color:#0369a1">' +
-        p.ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cj' +
+      '<div style="font-weight:700;color:'+(esManual?'#d97706':'#0369a1')+'">' +
+        precioFinal.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cj' +
+        (esManual ? ' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px">especial</span>' : '') +
       '</div>' +
       (cajas>0 ? '<div style="font-size:11px;color:#475569">= ' +
         sub.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) +
       '</div>' : '') +
-      (p.esUSD ? '<div style="font-size:10px;color:#94a3b8">USD '+p.prCaja+'/cj</div>' : '');
+      (p && p.esUSD && !esManual ? '<div style="font-size:10px;color:#94a3b8">USD '+p.prCaja+'/cj</div>' : '');
   });
   // Update global preview
   var prev = document.getElementById('np-precio-preview');
@@ -2850,24 +2859,11 @@ function _calcMarkupBadgeMillar(pvUSD, cosUSDMil) {
 function actualizarARS(inputId, esUSD, tc) {
   var el = document.getElementById(inputId);
   if (!el) return;
-  // Guardar el valor anterior la primera vez que se edita (para comparar)
-  if (!el.dataset.prevVal && el.dataset.prevVal !== '0') {
-    el.dataset.prevVal = el.defaultValue || el.getAttribute('value') || '';
-  }
   var milVal = parseFloat(el.value)||0;
-  var prevMil = parseFloat(el.dataset.prevVal)||0;
   var arsEl = document.getElementById(inputId+'_ars');
   if (arsEl) {
-    // Mostrar: precio nuevo (actualizado) y precio anterior tachado para comparar
-    var arsNuevo = milVal ? (esUSD ? milVal*tc : milVal) : 0;
-    var arsPrev  = prevMil ? (esUSD ? prevMil*tc : prevMil) : 0;
-    var nuevoStr = arsNuevo>0 ? arsNuevo.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
-    if (arsPrev>0 && Math.abs(arsNuevo-arsPrev)>1) {
-      var prevStr = arsPrev.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
-      arsEl.innerHTML = nuevoStr + '<br><span style="font-size:10px;color:#94a3b8;text-decoration:line-through">'+prevStr+'</span>';
-    } else {
-      arsEl.textContent = nuevoStr;
-    }
+    var ars = milVal ? (esUSD ? milVal*tc : milVal) : 0;
+    arsEl.textContent = ars>0 ? ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
   }
   // Update per-caja table
   var parts = inputId.split('_'); // prm_CAT_PROD or prm_BANDEX_USD_PROD
@@ -2887,20 +2883,7 @@ function actualizarARS(inputId, esUSD, tc) {
   });
 }
 
-// Guarda snapshot de precios para poder deshacer
-window._preciosSnapshot = {};
-
 function aplicarAumento(catKey, pct, tc) {
-  // Guardar snapshot antes de aplicar
-  ['E900','T900','E910'].forEach(function(prod) {
-    var id = 'prm_'+catKey+'_'+prod;
-    var el = document.getElementById(id);
-    if (!el) return;
-    window._preciosSnapshot[id] = el.value;
-  });
-  window._lastAumentoKey = catKey;
-  window._lastAumentoTc = tc;
-
   ['E900','T900','E910'].forEach(function(prod) {
     var el = document.getElementById('prm_'+catKey+'_'+prod);
     if (!el || !el.value) return;
@@ -2910,25 +2893,6 @@ function aplicarAumento(catKey, pct, tc) {
     el.value = catKey==='BANDEX_USD' ? nuevo.toFixed(1) : Math.round(nuevo);
     actualizarARS('prm_'+catKey+'_'+prod, catKey==='BANDEX_USD'?1:0, tc);
   });
-  // Mostrar botón deshacer
-  var undoBtn = document.getElementById('pr-undo-btn');
-  if (undoBtn) { undoBtn.style.display='inline-flex'; undoBtn.textContent='↩ Deshacer +'+pct+'% '+catKey.replace('_USD','').replace('_',' '); }
-}
-
-function deshacerAumento() {
-  var snap = window._preciosSnapshot || {};
-  var tc = window._lastAumentoTc || 1405;
-  Object.keys(snap).forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.value = snap[id];
-    var esUSD = id.indexOf('BANDEX') > -1;
-    actualizarARS(id, esUSD?1:0, tc);
-  });
-  window._preciosSnapshot = {};
-  var undoBtn = document.getElementById('pr-undo-btn');
-  if (undoBtn) undoBtn.style.display='none';
-  toast('Precios restaurados ↩', 'ok');
 }
 
 boot();
@@ -3310,11 +3274,7 @@ async function exportCompleto() {
 <div id="toast"></div>
 
 <script>
-function togglePedDet(id){
-  var el=document.getElementById(id);
-  if(!el)return;
-  el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';
-}
+function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}
 </script>
 </body>
 </html>
