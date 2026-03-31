@@ -511,6 +511,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <input type="text" id="pr-vigencia-nueva" placeholder="Ej: Abril 2026"
         style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit">
       <button class="btn btn-primary" onclick="guardarPrecios()">&#128190; Guardar nueva lista</button>
+      <button class="btn" onclick="exportarPreciosExcel()" style="background:#f0fdf4;color:#166534;border-color:#86efac">&#128202; Exportar Excel</button>
     </div>
   </div>
 
@@ -908,8 +909,9 @@ function renderPedidos() {
   let rows = '';
   for (const p of sorted) {
     const eC = p.estado==='Pendiente'?'badge-pend':p.estado==='Entregado parcial'?'badge-parcial':'badge-ent';
-    const totalUds = p.items.reduce((a,i) => a + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0);
-    const itemsShort = p.items.filter(i=>i.cajas>0).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+'cj)').join(' · ');
+    const totalUds = (p.itemsOriginal||p.items).reduce((a,i) => a + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0);
+    const itemsRef = p.itemsOriginal || p.items;
+    const itemsShort = itemsRef.filter(i=>i.cajas>0).map(i=>i.prod+' x'+i.caja+' ('+i.cajas+'cj)').join(' · ');
     const detId = 'peddet-'+p.id;
 
     // Summary row — clickable
@@ -960,6 +962,18 @@ function renderPedidos() {
           '</tr></thead><tbody>'+itemRows+'</tbody>' +
         '</table>' +
         // Obs
+        (p.itemsOriginal && p.entregas && p.entregas.length > 0 ?
+          '<div style="margin-bottom:8px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">' +
+            '<div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px">HISTORIAL DE ENTREGAS</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-bottom:6px">TOTAL PEDIDO: ' +
+              (p.itemsOriginal||[]).filter(i=>i.cajas>0).map(i=>i.prod+' '+i.cajas+'cj = '+((i.cajas||0)*(i.caja||0)).toLocaleString('es-AR')+' uds').join(' · ') +
+            '</div>' +
+            (p.entregas||[]).map((e,ei)=>'<div style="font-size:11px;color:#475569;padding:3px 0;border-top:1px solid #fde68a"><b>Entrega '+(ei+1)+'</b> ('+e.fecha+'): '+e.items.map(i=>i.prod+' '+i.cajas+'cj').join(', ')+'</div>').join('') +
+            (p.items && p.items.filter(i=>i.cajas>0).length > 0 ?
+              '<div style="font-size:11px;font-weight:700;color:#d97706;margin-top:6px;border-top:1px solid #fde68a;padding-top:6px">' +
+              'Pendiente: '+(p.items||[]).filter(i=>i.cajas>0).map(i=>i.prod+' '+i.cajas+'cj').join(', ')+'</div>' : '') +
+          '</div>'
+        : '') +
         (p.obs ? '<div style="font-size:11px;color:#64748b;margin-top:4px">&#128172; <b>Obs:</b> '+p.obs+'</div>' : '') +
       '</div>' +
     '</td></tr>';
@@ -1021,62 +1035,42 @@ async function confirmarParcial() {
   const p = STATE.pedidos.find(x => x.id === id);
   if (!p) return;
 
-  // Leer cantidades ingresadas
-  const cantidades = p.items.map((it, idx) => {
+  const itemsFiltrados = p.items.filter(it => it.cajas > 0);
+  const cantidades = itemsFiltrados.map((it, idx) => {
     const val = parseInt(document.getElementById('parcial-' + idx)?.value || '0');
     return Math.min(Math.max(0, val), it.cajas);
   });
 
-  const totalPedido = p.items.reduce((a, it) => a + it.cajas, 0);
+  const totalPedido = itemsFiltrados.reduce((a, it) => a + it.cajas, 0);
   const totalEntrega = cantidades.reduce((a, v) => a + v, 0);
+  if (totalEntrega === 0) { toast('Ingresá al menos una caja', 'warn'); return; }
 
-  if (totalEntrega === 0) { toast('Ingresá al menos una caja a entregar', 'warn'); return; }
+  // Guardar items originales la primera vez
+  if (!p.itemsOriginal) p.itemsOriginal = JSON.parse(JSON.stringify(p.items));
 
-  const entregaTotal = cantidades.every((c, i) => c === p.items[i].cajas);
+  // Registrar entrega en historial
+  if (!p.entregas) p.entregas = [];
+  p.entregas.push({
+    fecha: today(),
+    items: itemsFiltrados.map((it, i) => ({...it, cajas: cantidades[i], uds: cantidades[i]*it.caja})).filter(it => it.cajas > 0)
+  });
 
-  if (entregaTotal) {
-    // Entrega completa
-    p.estado = 'Entregado'; p.entrega = today();
-    toast('Pedido #' + id + ' entregado completo');
+  const esTotal = cantidades.every((c, i) => c === itemsFiltrados[i].cajas);
+  if (esTotal) {
+    p.estado = 'Entregado'; p.entrega = today(); p.items = [];
+    toast('Pedido #' + id + ' entregado completo ✓');
   } else {
-    // Entrega parcial: marcar original como entregado parcial con las cantidades entregadas
-    const itemsEntregados = p.items.map((it, i) => ({
-      ...it, cajas: cantidades[i], uds: cantidades[i] * it.caja
-    })).filter(it => it.cajas > 0);
-
-    const itemsResto = p.items.map((it, i) => ({
-      ...it, cajas: it.cajas - cantidades[i], uds: (it.cajas - cantidades[i]) * it.caja
-    })).filter(it => it.cajas > 0);
-
-    // Actualizar pedido original: queda como entrega parcial
+    p.items = itemsFiltrados
+      .map((it, i) => ({...it, cajas: it.cajas - cantidades[i], uds: (it.cajas - cantidades[i]) * it.caja}))
+      .filter(it => it.cajas > 0);
     p.estado = 'Entregado parcial'; p.entrega = today();
-    p.items = itemsEntregados;
-
-    // Crear nuevo pedido pendiente con el saldo
-    if (itemsResto.length > 0) {
-      STATE.nextId = (STATE.nextId || 1);
-      const nuevo = {
-        id: STATE.nextId++,
-        fecha: p.fecha,
-        cliente: p.cliente,
-        estado: 'Pendiente',
-        entrega: p.entrega,
-        despacho: p.despacho,
-        vendedor: p.vendedor,
-        obs: '(Saldo de pedido #' + id + ')',
-        items: itemsResto
-      };
-      STATE.pedidos.push(nuevo);
-      toast('Entrega parcial registrada. Saldo guardado como nuevo pedido pendiente.');
-    }
+    toast('Parcial registrada. Quedan ' + (totalPedido - totalEntrega) + ' cajas pendientes.');
   }
-
   cerrarParcial();
   await saveToCloud();
   renderStock();
   renderPedidos(); setTimeout(loadValoresPedidos, 100);
 }
-
 async function entregar(id) {
   const p = STATE.pedidos.find(x => x.id === id);
   if (!p) return;
@@ -1478,6 +1472,57 @@ async function actualizarDesdeNube() {
     setSyncState('err', '✗ Sin conexión');
     setTimeout(() => setSyncState('idle', ''), 5000);
   }
+}
+
+
+function exportarPreciosExcel() {
+  var wb = XLSX.utils.book_new();
+  var tc = window._cachedTC || 1405;
+  var pv = STATE.preciosVigentes || PRECIOS;
+  var CATS = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
+  var CL = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex (USD)'};
+  var PRODS = ['E900','T900','E910'];
+  var CAJAS = [100,300,440,500,1000];
+  var REF = {WINFLEX:300,NITOPI:300,ENVASES_GROUP:100,BANDEX_USD:440};
+  var cPET = parseFloat((document.getElementById('pr-costo-pet')||{value:'1.412761'}).value)||1.412761;
+  var d1=[['Producto','Lista','ARS/millar','USD/millar']];
+  PRODS.forEach(function(p){CATS.forEach(function(c){
+    var r=REF[c],u=c==='BANDEX_USD',v=pv[c]&&pv[c][p]&&pv[c][p][r];
+    if(!v)return;
+    var m=v/r*1000;
+    d1.push([p,CL[c],u?Math.round(m*tc):Math.round(m),u?parseFloat(m.toFixed(2)):'']);
+  });});
+  var s1=XLSX.utils.aoa_to_sheet(d1);s1['!cols']=[{wch:10},{wch:14},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,s1,'Por Millar');
+  var d2=[['Producto','Lista'].concat(CAJAS.map(function(c){return 'x'+c+' ARS/cj';}))];
+  PRODS.forEach(function(p){CATS.forEach(function(c){
+    var u=c==='BANDEX_USD',cp=pv[c]&&pv[c][p];if(!cp)return;
+    var row=[p,CL[c]];
+    CAJAS.forEach(function(k){var v=cp[k];row.push(v?(u?Math.round(v*tc):Math.round(v)):'');});
+    d2.push(row);
+  });});
+  var s2=XLSX.utils.aoa_to_sheet(d2);s2['!cols']=[{wch:10},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13}];
+  XLSX.utils.book_append_sheet(wb,s2,'Por Caja');
+  var d3=[['Producto','Costo ARS/mil','WF ARS/mil','WF Margen','NI ARS/mil','NI Margen','EG ARS/mil','EG Margen','BX ARS/mil','BX Margen']];
+  PRODS.forEach(function(p){
+    var cos=typeof calcCostoMillar==='function'?calcCostoMillar(p,cPET,tc):null;
+    var cARS=cos?cos.costoMillar*tc:0;
+    var row=[p,cARS?Math.round(cARS):''];
+    CATS.forEach(function(c){
+      var r=REF[c],u=c==='BANDEX_USD',cp=pv[c]&&pv[c][p],pr=cp&&cp[r];
+      if(!pr||!cos){row.push('','');return;}
+      var pvM=u?pr/r*1000*tc:pr/r*1000;
+      row.push(Math.round(pvM),cARS>0?((pvM-cARS)/pvM*100).toFixed(1)+'%':'');
+    });
+    d3.push(row);
+  });
+  var s3=XLSX.utils.aoa_to_sheet(d3);s3['!cols']=[{wch:10},{wch:14},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,s3,'Comparativo');
+  var vig=(STATE.historicoPrecios&&STATE.historicoPrecios.length?STATE.historicoPrecios[STATE.historicoPrecios.length-1].vigencia:'Enero 2026 (base)');
+  var s4=XLSX.utils.aoa_to_sheet([['Precios Winflex'],['Fecha:',new Date().toLocaleDateString('es-AR')],['TC BNA:',tc],['Costo PET:',cPET],[],['Vigencia:',vig]]);
+  s4['!cols']=[{wch:16},{wch:20}];XLSX.utils.book_append_sheet(wb,s4,'Info');
+  XLSX.writeFile(wb,'Precios_Winflex_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('Excel exportado ✓','ok');
 }
 
 async function boot() {
