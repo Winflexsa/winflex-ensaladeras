@@ -534,13 +534,13 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
           <tr style="background:#fafafa">
             <th></th>
             <th style="padding:3px 6px;font-size:10px;color:#0369a1;font-weight:700;border-left:2px solid #e2e8f0">ARS/mil<br><span style="font-size:8px;color:#94a3b8;font-weight:400">editable</span></th>
-            <th style="padding:3px 6px;font-size:10px;color:#64748b">ARS/mil</th>
+            <th style="padding:3px 6px;font-size:10px;color:#94a3b8;font-style:italic">Anterior</th>
             <th style="padding:3px 6px;font-size:10px;color:#7c3aed;font-weight:700;border-left:2px solid #e2e8f0">ARS/mil<br><span style="font-size:8px;color:#94a3b8;font-weight:400">editable</span></th>
-            <th style="padding:3px 6px;font-size:10px;color:#64748b">ARS/mil</th>
+            <th style="padding:3px 6px;font-size:10px;color:#94a3b8;font-style:italic">Anterior</th>
             <th style="padding:3px 6px;font-size:10px;color:#0891b2;font-weight:700;border-left:2px solid #e2e8f0">ARS/mil<br><span style="font-size:8px;color:#94a3b8;font-weight:400">editable</span></th>
-            <th style="padding:3px 6px;font-size:10px;color:#64748b">ARS/mil</th>
+            <th style="padding:3px 6px;font-size:10px;color:#94a3b8;font-style:italic">Anterior</th>
             <th style="padding:3px 6px;font-size:10px;color:#b45309;font-weight:700;border-left:2px solid #e2e8f0">USD/mil<br><span style="font-size:8px;color:#94a3b8;font-weight:400">editable</span></th>
-            <th style="padding:3px 6px;font-size:10px;color:#64748b">ARS/mil</th>
+            <th style="padding:3px 6px;font-size:10px;color:#94a3b8;font-style:italic">Anterior</th>
             <th style="border-left:2px solid #e2e8f0"></th>
           </tr>
         </thead>
@@ -973,70 +973,42 @@ function abrirParcial(id) {
   const p = STATE.pedidos.find(x => x.id === id);
   if (!p) return;
   window._parcialId = id;
-
-  // Título con cliente y número
-  const tit = document.getElementById('parcial-titulo');
-  if (tit) tit.textContent = 'Pedido #' + p.id + ' — ' + (p.cliente||'');
-
+  const titulo = document.getElementById('parcial-titulo');
+  if (titulo) titulo.textContent = 'Pedido #' + p.id + ' — ' + (p.cliente||'');
   const cont = document.getElementById('parcial-items');
-  cont.innerHTML = p.items.filter(it => it.cajas > 0).map((it, idx) => {
-    const totalUds = it.cajas * it.caja;
-    return '<div class="parcial-item">' +
-      '<div>' +
-        '<div style="font-weight:700;font-size:13px">' + it.prod + ' × ' + it.caja + ' un/caja</div>' +
-        '<div style="font-size:11px;color:#94a3b8">Total pedido: ' + it.cajas + ' cajas = ' + totalUds.toLocaleString('es-AR') + ' uds</div>' +
-      '</div>' +
-      '<span class="max" style="font-size:11px;color:#64748b">Máx:<br>' + it.cajas + ' cj</span>' +
-      '<div style="text-align:center">' +
-        '<input type="number" id="parcial-' + idx + '" min="0" max="' + it.cajas + '" value="' + it.cajas + '" step="1" oninput="actualizarResumenParcial()">' +
-        '<div style="font-size:10px;color:#94a3b8;margin-top:2px" id="parcial-sub-' + idx + '">' + (it.cajas * it.caja).toLocaleString('es-AR') + ' uds</div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-
-  // Explicación dinámica
-  actualizarResumenParcial();
+  const itemsFiltrados = p.items.filter(it => it.cajas > 0);
+  cont.innerHTML = itemsFiltrados.map((it, idx) => `
+    <div class="parcial-item">
+      <label><b>${it.prod}</b> &times;${it.caja} un/caja</label>
+      <span class="max">Máx: ${it.cajas}</span>
+      <input type="number" id="parcial-${idx}" min="0" max="${it.cajas}" value="${it.cajas}" step="1" oninput="actualizarNotaParcial()">
+    </div>
+  `).join('');
+  actualizarNotaParcial();
   document.getElementById('modal-parcial').classList.add('open');
 }
 
-function actualizarResumenParcial() {
+function actualizarNotaParcial() {
   const id = window._parcialId;
-  const p = STATE.pedidos.find(x => x.id === id);
+  const p = STATE.pedidos && STATE.pedidos.find(x => x.id === id);
   if (!p) return;
   const items = p.items.filter(it => it.cajas > 0);
   let totalPed = 0, totalEnt = 0;
   items.forEach(function(it, idx) {
-    const val = parseInt(document.getElementById('parcial-' + idx)?.value || '0');
-    const entrega = Math.min(Math.max(0, val), it.cajas);
+    const el = document.getElementById('parcial-' + idx);
+    const val = el ? Math.min(parseInt(el.value)||0, it.cajas) : 0;
     totalPed += it.cajas;
-    totalEnt += entrega;
-    // Actualizar subtotal
-    const sub = document.getElementById('parcial-sub-' + idx);
-    if (sub) sub.textContent = (entrega * it.caja).toLocaleString('es-AR') + ' uds';
+    totalEnt += val;
   });
   const nota = document.getElementById('parcial-nota');
   if (!nota) return;
   if (totalEnt === 0) {
     nota.innerHTML = '<span style="color:#dc2626">⚠ Ingresá al menos una caja.</span>';
-  } else if (totalEnt === totalPed) {
-    nota.innerHTML = '<span style="color:#16a34a">✓ Entrega completa — el pedido pasa a <b>Entregado</b>.</span>';
+  } else if (totalEnt >= totalPed) {
+    nota.innerHTML = '<span style="color:#16a34a">✓ Entrega completa → el pedido pasa a <b>Entregado</b>.</span>';
   } else {
-    const resto = totalPed - totalEnt;
-    nota.innerHTML = '<span style="color:#d97706">⚡ Entrega parcial — se crea un nuevo pedido pendiente con las <b>' + resto + ' cajas restantes</b>.</span>';
+    nota.innerHTML = '<span style="color:#d97706">⚡ Entrega parcial → se crea un nuevo pedido pendiente con las <b>' + (totalPed-totalEnt) + ' cajas restantes</b>.</span>';
   }
-}
-
-
-function entregarTodoParcial() {
-  // Setear todos los inputs al máximo
-  const id = window._parcialId;
-  const p = STATE.pedidos.find(x => x.id === id);
-  if (!p) return;
-  p.items.filter(it => it.cajas > 0).forEach(function(it, idx) {
-    const el = document.getElementById('parcial-' + idx);
-    if (el) el.value = it.cajas;
-  });
-  actualizarResumenParcial();
 }
 
 function cerrarParcial() {
@@ -2174,7 +2146,8 @@ async function renderPrecios() {
           return '<button type="button" onclick="aplicarAumento(\''+x.k+'\','+p+','+tc+')" '+
             'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+x.c+';border:1.5px solid '+x.c+';border-radius:5px;cursor:pointer">+'+p+'%</button>';
         }).join('') + '</div>';
-    }).join('');
+    }).join('') +
+    '<button id="pr-undo-btn" type="button" onclick="deshacerAumento()" style="display:none;align-items:center;padding:4px 14px;font-size:11px;font-weight:700;background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:5px;cursor:pointer;margin-left:12px">↩ Deshacer</button>';
   }
 
   // Per-caja grids
@@ -2908,11 +2881,7 @@ function actualizarARS(inputId, esUSD, tc) {
   var el = document.getElementById(inputId);
   if (!el) return;
   var milVal = parseFloat(el.value)||0;
-  var arsEl = document.getElementById(inputId+'_ars');
-  if (arsEl) {
-    var ars = milVal ? (esUSD ? milVal*tc : milVal) : 0;
-    arsEl.textContent = ars>0 ? ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
-  }
+  // Columna _ars NO se actualiza al editar — queda fija con el valor anterior (referencia)
   // Update per-caja table
   var parts = inputId.split('_'); // prm_CAT_PROD or prm_BANDEX_USD_PROD
   // inputId format: prm_CATKEY_PROD  where CATKEY can have _
@@ -2931,7 +2900,18 @@ function actualizarARS(inputId, esUSD, tc) {
   });
 }
 
+window._preciosSnapshot = {};
+
 function aplicarAumento(catKey, pct, tc) {
+  // Guardar snapshot para poder deshacer
+  window._preciosSnapshot = {};
+  window._lastAumentoInfo = {catKey:catKey, pct:pct, tc:tc};
+  ['E900','T900','E910'].forEach(function(prod) {
+    var id = 'prm_'+catKey+'_'+prod;
+    var el = document.getElementById(id);
+    if (el) window._preciosSnapshot[id] = el.value;
+  });
+
   ['E900','T900','E910'].forEach(function(prod) {
     var el = document.getElementById('prm_'+catKey+'_'+prod);
     if (!el || !el.value) return;
@@ -2941,6 +2921,30 @@ function aplicarAumento(catKey, pct, tc) {
     el.value = catKey==='BANDEX_USD' ? nuevo.toFixed(1) : Math.round(nuevo);
     actualizarARS('prm_'+catKey+'_'+prod, catKey==='BANDEX_USD'?1:0, tc);
   });
+
+  // Mostrar botón deshacer
+  var btn = document.getElementById('pr-undo-btn');
+  if (btn) {
+    var lbl = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Env.Group',BANDEX_USD:'Bandex'}[catKey]||catKey;
+    btn.textContent = '↩ Deshacer +'+pct+'% '+lbl;
+    btn.style.display = 'inline-flex';
+  }
+}
+
+function deshacerAumento() {
+  var snap = window._preciosSnapshot||{};
+  var info = window._lastAumentoInfo||{tc:1405};
+  Object.keys(snap).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = snap[id];
+    var esUSD = id.indexOf('BANDEX') > -1;
+    actualizarARS(id, esUSD?1:0, info.tc);
+  });
+  window._preciosSnapshot = {};
+  var btn = document.getElementById('pr-undo-btn');
+  if (btn) btn.style.display = 'none';
+  toast('↩ Precios restaurados', 'ok');
 }
 
 boot();
@@ -3306,22 +3310,14 @@ async function exportCompleto() {
 
 <div class="modal-parcial" id="modal-parcial">
   <div class="modal-parcial-box">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-      <div>
-        <h3 style="margin:0;font-size:15px">Registrar entrega</h3>
-        <div id="parcial-titulo" style="font-size:12px;color:#64748b;margin-top:2px"></div>
-      </div>
-      <button onclick="cerrarParcial()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8;padding:0 4px">✕</button>
-    </div>
-    <p style="font-size:12px;color:#64748b;margin-bottom:14px;padding:8px 12px;background:#f8fafc;border-radius:6px;border-left:3px solid #e2e8f0">
-      Ajustá las cajas a entregar. Si no entregás todo, se crea automáticamente un nuevo pedido con el saldo.
-    </p>
+    <h3>Registrar entrega</h3>
+    <div id="parcial-titulo" style="font-size:12px;color:#64748b;margin:-10px 0 14px"></div>
+    <p style="font-size:12px;color:#64748b;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-bottom:14px;border-left:3px solid #cbd5e1">Modificá las cajas si la entrega es parcial. Si no entregás todo, se crea un nuevo pedido con el saldo.</p>
     <div id="parcial-items"></div>
-    <div id="parcial-nota" style="margin:12px 0 8px;font-size:12px;padding:8px 12px;background:#f8fafc;border-radius:6px"></div>
+    <div id="parcial-nota" style="font-size:12px;margin:10px 0;padding:8px 12px;background:#f8fafc;border-radius:6px;min-height:36px"></div>
     <div class="modal-parcial-actions">
       <button class="btn" onclick="cerrarParcial()">Cancelar</button>
-      <button class="btn" onclick="entregarTodoParcial()" style="background:#f0fdf4;color:#166534;border-color:#86efac">✓ Entregar todo</button>
-      <button class="btn btn-primary" onclick="confirmarParcial()">Confirmar</button>
+      <button class="btn btn-primary" onclick="confirmarParcial()">Confirmar entrega</button>
     </div>
   </div>
 </div>
