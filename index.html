@@ -1338,6 +1338,7 @@ function renderAnual() {
 // ─── Toast ─────────────────────────────────────────────────────
 function toast(msg, type = 'ok') {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = 'toast ' + type;
   t.classList.add('show');
@@ -1662,9 +1663,9 @@ async function renderCobranzas() {
     const vStr=totalARS>0?fmtPeso(totalARS)+(esUSD?'<br><small style="color:#94a3b8;font-weight:400">USD '+Math.round(usdAmt).toLocaleString('es-AR')+'</small>':''):'<span style="color:#cbd5e1">s/p</span>';
     // Summary row
     rows.push('<tr style="cursor:pointer;border-bottom:1px solid #f1f5f9" onclick="toggleCobDet(\''+detId+'\')">'+
-      '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;</td>'+
+      '<td style="font-size:13px;color:#94a3b8;padding:8px 8px 8px 14px;width:24px">&#9660;<div style="font-size:9px;color:#cbd5e1;text-align:center">#'+p.id+'</div></td>'+
       '<td style="padding:8px 4px;width:90px;font-size:12px;color:#64748b">'+p.fecha+'</td>'+
-      '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b> <span style="font-size:10px;color:#94a3b8">#'+p.id+'</span><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
+      '<td style="padding:8px 4px"><b style="font-size:13px">'+(p.cliente||'')+'</b><br><span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:1px 5px;border-radius:3px">'+catLabel+'</span></td>'+
       '<td style="padding:8px 4px"><span style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+eB+';color:'+eC+'">'+p.estado.replace('Entregado parcial','Parcial')+'</span></td>'+
       '<td style="padding:8px 4px;font-weight:700;text-align:right;white-space:nowrap">'+vStr+'</td>'+
       '<td style="padding:8px 14px 8px 4px;text-align:right">'+
@@ -2116,7 +2117,7 @@ async function renderPrecios() {
           return '<button type="button" onclick="aplicarAumento(\''+x.k+'\','+p+','+tc+')" '+
             'style="padding:3px 9px;font-size:11px;font-weight:700;background:white;color:'+x.c+';border:1.5px solid '+x.c+';border-radius:5px;cursor:pointer">+'+p+'%</button>';
         }).join('') + '</div>';
-    }).join('');
+    }).join('') + '<button id="pr-undo-btn" type="button" onclick="deshacerAumento()" style="display:none;align-items:center;gap:4px;padding:4px 12px;font-size:11px;font-weight:700;background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:5px;cursor:pointer;margin-left:8px">↩ Deshacer</button>';
   }
 
   // Per-caja grids
@@ -2849,11 +2850,24 @@ function _calcMarkupBadgeMillar(pvUSD, cosUSDMil) {
 function actualizarARS(inputId, esUSD, tc) {
   var el = document.getElementById(inputId);
   if (!el) return;
+  // Guardar el valor anterior la primera vez que se edita (para comparar)
+  if (!el.dataset.prevVal && el.dataset.prevVal !== '0') {
+    el.dataset.prevVal = el.defaultValue || el.getAttribute('value') || '';
+  }
   var milVal = parseFloat(el.value)||0;
+  var prevMil = parseFloat(el.dataset.prevVal)||0;
   var arsEl = document.getElementById(inputId+'_ars');
   if (arsEl) {
-    var ars = milVal ? (esUSD ? milVal*tc : milVal) : 0;
-    arsEl.textContent = ars>0 ? ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+    // Mostrar: precio nuevo (actualizado) y precio anterior tachado para comparar
+    var arsNuevo = milVal ? (esUSD ? milVal*tc : milVal) : 0;
+    var arsPrev  = prevMil ? (esUSD ? prevMil*tc : prevMil) : 0;
+    var nuevoStr = arsNuevo>0 ? arsNuevo.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : '—';
+    if (arsPrev>0 && Math.abs(arsNuevo-arsPrev)>1) {
+      var prevStr = arsPrev.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+      arsEl.innerHTML = nuevoStr + '<br><span style="font-size:10px;color:#94a3b8;text-decoration:line-through">'+prevStr+'</span>';
+    } else {
+      arsEl.textContent = nuevoStr;
+    }
   }
   // Update per-caja table
   var parts = inputId.split('_'); // prm_CAT_PROD or prm_BANDEX_USD_PROD
@@ -2873,7 +2887,20 @@ function actualizarARS(inputId, esUSD, tc) {
   });
 }
 
+// Guarda snapshot de precios para poder deshacer
+window._preciosSnapshot = {};
+
 function aplicarAumento(catKey, pct, tc) {
+  // Guardar snapshot antes de aplicar
+  ['E900','T900','E910'].forEach(function(prod) {
+    var id = 'prm_'+catKey+'_'+prod;
+    var el = document.getElementById(id);
+    if (!el) return;
+    window._preciosSnapshot[id] = el.value;
+  });
+  window._lastAumentoKey = catKey;
+  window._lastAumentoTc = tc;
+
   ['E900','T900','E910'].forEach(function(prod) {
     var el = document.getElementById('prm_'+catKey+'_'+prod);
     if (!el || !el.value) return;
@@ -2883,6 +2910,25 @@ function aplicarAumento(catKey, pct, tc) {
     el.value = catKey==='BANDEX_USD' ? nuevo.toFixed(1) : Math.round(nuevo);
     actualizarARS('prm_'+catKey+'_'+prod, catKey==='BANDEX_USD'?1:0, tc);
   });
+  // Mostrar botón deshacer
+  var undoBtn = document.getElementById('pr-undo-btn');
+  if (undoBtn) { undoBtn.style.display='inline-flex'; undoBtn.textContent='↩ Deshacer +'+pct+'% '+catKey.replace('_USD','').replace('_',' '); }
+}
+
+function deshacerAumento() {
+  var snap = window._preciosSnapshot || {};
+  var tc = window._lastAumentoTc || 1405;
+  Object.keys(snap).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = snap[id];
+    var esUSD = id.indexOf('BANDEX') > -1;
+    actualizarARS(id, esUSD?1:0, tc);
+  });
+  window._preciosSnapshot = {};
+  var undoBtn = document.getElementById('pr-undo-btn');
+  if (undoBtn) undoBtn.style.display='none';
+  toast('Precios restaurados ↩', 'ok');
 }
 
 boot();
