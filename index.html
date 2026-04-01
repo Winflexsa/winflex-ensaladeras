@@ -3062,6 +3062,13 @@ function calcEdUds(prod) {
   document.getElementById(`ed-${prod}-u`).value = c * s;
 }
 
+function abrirEntregaDesdeEditar() {
+  var id = editingId;
+  if (!id) return;
+  document.getElementById('edit-modal').style.display = 'none';
+  abrirParcial(id);
+}
+
 function cerrarEditar() {
   document.getElementById('edit-modal').style.display = 'none';
   editingId = null;
