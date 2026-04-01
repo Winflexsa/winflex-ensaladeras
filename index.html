@@ -2393,7 +2393,7 @@ async function guardarPrecios() {
 }
 
 function renderHistorialPrecios() {
-  const el = document.getElementById('precios-historial');
+  const el = document.getElementById('pr-hist-body');
   if (!el) return;
   const hist = STATE.historicoPrecios || [];
   if (!hist.length) {
