@@ -3162,6 +3162,28 @@ function importarXLSX(input) {
           const prod_final = producido || (cajas * unicaja);
           pendingImport.push({ fecha, turno, prod, nbobina, partida, unicaja, cajas, producido: prod_final, kg, efic, obs });
         }
+        // Leer eficiencia y kg totales desde hoja resumen y asignar por fecha+turno+producto
+        if (resumenSheet && wb.Sheets[resumenSheet]) {
+          const wsR = wb.Sheets[resumenSheet];
+          const rowsR = XLSX.utils.sheet_to_json(wsR, { defval: '' });
+          const eficMap = {};
+          for (const r of rowsR) {
+            const f = parseFecha(r['Fecha'] || r['fecha'] || '');
+            const t = String(r['Turno'] || r['turno'] || '').trim();
+            const p = String(r['Producto'] || r['producto'] || '').trim();
+            const ef = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+            const kgT = parseFloat(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+            if (f && t && p) eficMap[f + '|' + t + '|' + p] = { efic: ef, kgTotal: kgT };
+          }
+          // Asignar eficiencia a cada bobina y distribuir kg proporcional
+          pendingImport.forEach(function(reg) {
+            const key = reg.fecha + '|' + reg.turno + '|' + reg.prod;
+            if (eficMap[key]) {
+              reg.efic = eficMap[key].efic;
+              // Si la bobina no tiene kg propio, dejar en 0 (el kg total está en el resumen)
+            }
+          });
+        }
         document.getElementById('import-status').textContent =
           pendingImport.length + ' bobinas encontradas en "' + detalleSheet + '"';
       } else {
