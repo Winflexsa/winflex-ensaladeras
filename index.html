@@ -740,9 +740,23 @@ async function loadFromCloud() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
-    STATE.pedidos       = d.record.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
-    STATE.prodRegistros = d.record.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
-    STATE.nextId        = d.record.nextId         || 1;
+    STATE.pedidos          = d.record.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+    STATE.prodRegistros    = d.record.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
+    STATE.nextId           = d.record.nextId         || 1;
+    STATE.cobranzas        = d.record.cobranzas      || {};
+    STATE.historicoPrecios = d.record.historicoPrecios || [];
+    if (d.record.preciosVigentes) {
+      STATE.preciosVigentes = d.record.preciosVigentes;
+      // Sincronizar PRECIOS con la lista vigente
+      Object.keys(STATE.preciosVigentes).forEach(function(cat) {
+        if (!PRECIOS[cat]) PRECIOS[cat] = {};
+        Object.keys(STATE.preciosVigentes[cat]).forEach(function(prod) {
+          if (!PRECIOS[cat][prod]) PRECIOS[cat][prod] = {};
+          Object.assign(PRECIOS[cat][prod], STATE.preciosVigentes[cat]);
+          PRECIOS[cat][prod] = Object.assign({}, STATE.preciosVigentes[cat][prod]);
+        });
+      });
+    }
     localStorage.setItem('wf_local', JSON.stringify(d.record));
     setSyncState('ok', '✓ Sincronizado');
     setTimeout(() => setSyncState('idle', ''), 4000);
@@ -752,9 +766,12 @@ async function loadFromCloud() {
     if (local) {
       try {
         const d = JSON.parse(local);
-        STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
-        STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
-        STATE.nextId        = d.nextId         || 1;
+        STATE.pedidos          = d.pedidos          || JSON.parse(JSON.stringify(PEDIDOS_INIT));
+        STATE.prodRegistros    = d.prodRegistros    || JSON.parse(JSON.stringify(PROD_INIT));
+        STATE.nextId           = d.nextId           || 1;
+        STATE.cobranzas        = d.cobranzas        || {};
+        STATE.historicoPrecios = d.historicoPrecios  || [];
+        if (d.preciosVigentes) STATE.preciosVigentes = d.preciosVigentes;
       } catch(e2) {}
     }
     // Keep error visible — don't go to idle
@@ -763,7 +780,14 @@ async function loadFromCloud() {
 
 async function saveToCloud(isNew) {
   setSyncState('loading', 'Guardando...');
-  const payload = { pedidos: STATE.pedidos, prodRegistros: STATE.prodRegistros, nextId: STATE.nextId };
+  const payload = {
+    pedidos: STATE.pedidos,
+    prodRegistros: STATE.prodRegistros,
+    nextId: STATE.nextId,
+    cobranzas: STATE.cobranzas || {},
+    preciosVigentes: STATE.preciosVigentes || null,
+    historicoPrecios: STATE.historicoPrecios || []
+  };
   localStorage.setItem('wf_local', JSON.stringify(payload));
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
@@ -2322,6 +2346,11 @@ function previewPrecio(id, esUSD, tc) {
 }
 
 async function guardarPrecios() {
+  // Validar nombre de vigencia
+  const vigenciaEl = document.getElementById('pr-vigencia-nueva');
+  const vigencia = vigenciaEl ? vigenciaEl.value.trim() : '';
+  if (!vigencia) { toast('Escribá el nombre de la lista (ej: Abril 2026)', 'warn'); return; }
+
   if (!STATE.preciosVigentes) STATE.preciosVigentes = {};
   const CATS  = ['WINFLEX','NITOPI','ENVASES_GROUP','BANDEX_USD'];
   const PRODS = ['E900','T900','E910'];
@@ -2329,7 +2358,6 @@ async function guardarPrecios() {
   const tc    = await fetchTCBNA();
 
   CATS.forEach(function(cat) {
-    const esUSD = cat==='BANDEX_USD';
     if (!STATE.preciosVigentes[cat]) STATE.preciosVigentes[cat] = {};
     PRODS.forEach(function(prod) {
       var el = document.getElementById('prm_'+cat+'_'+prod);
@@ -2338,7 +2366,6 @@ async function guardarPrecios() {
       if (!milVal) return;
       if (!STATE.preciosVigentes[cat][prod]) STATE.preciosVigentes[cat][prod] = {};
       CAJAS.forEach(function(c) {
-        // Store in the same unit as original (USD for Bandex, ARS for others)
         STATE.preciosVigentes[cat][prod][c] = parseFloat((milVal*c/1000).toFixed(4));
       });
       if (!PRECIOS[cat]) PRECIOS[cat] = {};
@@ -2349,23 +2376,45 @@ async function guardarPrecios() {
     });
   });
 
+  // Guardar en historial
+  if (!STATE.historicoPrecios) STATE.historicoPrecios = [];
+  STATE.historicoPrecios.push({
+    vigencia: vigencia,
+    fecha: today(),
+    precios: JSON.parse(JSON.stringify(STATE.preciosVigentes))
+  });
+
+  // Limpiar el campo de vigencia
+  if (vigenciaEl) vigenciaEl.value = '';
+
   await saveToCloud();
-  toast('Precios guardados \u2713', 'ok');
+  toast('Lista "' + vigencia + '" guardada ✓', 'ok');
   await renderPrecios();
 }
 
 function renderHistorialPrecios() {
-  const el=document.getElementById('precios-historial'); if(!el) return;
-  const hist=STATE.historicoPrecios||[];
-  if(!hist.length){el.innerHTML='<span style="color:var(--text3)">Sin historial guardado.</span>';return;}
-  el.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
-    [...hist].reverse().map((h,idx)=>{
-      const isLast=idx===0;
-      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:'+(isLast?'#f0fdf4':'#f8fafc')+';border:1px solid '+(isLast?'#86efac':'#e2e8f0')+';border-radius:8px">'+
-        '<div style="flex:1"><b style="font-size:13px">'+h.vigencia+'</b><span style="font-size:11px;color:#94a3b8;margin-left:8px">'+h.fecha+'</span>'+(isLast?'<span style="font-size:11px;color:#16a34a;margin-left:8px;font-weight:600">✓ vigente</span>':'')+'</div>'+
-        '<button onclick="restaurarListaPrecios('+(hist.length-1-idx)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Restaurar</button>'+
+  const el = document.getElementById('precios-historial');
+  if (!el) return;
+  const hist = STATE.historicoPrecios || [];
+  if (!hist.length) {
+    el.innerHTML = '<span style="color:var(--text3)">Sin historial guardado. Guardá una lista para verla acá.</span>';
+    return;
+  }
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' +
+    [...hist].reverse().map(function(h, idx) {
+      const realIdx = hist.length - 1 - idx; // índice real en el array
+      const isVigente = idx === 0; // el último = vigente
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:' + (isVigente?'#f0fdf4':'#f8fafc') + ';border:1px solid ' + (isVigente?'#86efac':'#e2e8f0') + ';border-radius:8px">' +
+        '<div style="flex:1">' +
+          '<b style="font-size:13px">' + h.vigencia + '</b>' +
+          '<span style="font-size:11px;color:#94a3b8;margin-left:8px">' + h.fecha + '</span>' +
+          (isVigente ? '<span style="font-size:11px;color:#16a34a;margin-left:8px;font-weight:600;background:#dcfce7;padding:1px 7px;border-radius:4px">✓ vigente</span>' : '') +
+        '</div>' +
+        (!isVigente ? '<button onclick="activarListaPrecios(' + realIdx + ')" style="padding:4px 10px;font-size:11px;border:1px solid #86efac;background:#f0fdf4;color:#166534;border-radius:4px;cursor:pointer">Usar como vigente</button>' : '') +
+        '<button onclick="verListaPrecios(' + realIdx + ')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Ver precios</button>' +
       '</div>';
-    }).join('')+'</div>';
+    }).join('') +
+  '</div>';
 }
 
 function restaurarListaPrecios(idx) {
@@ -2881,7 +2930,9 @@ async function updateProdSections(prod) {
 
 function getItemPrecio(prod, caja, cliente, listaOvr) {
   var cat    = getClienteCat(cliente||'', listaOvr||'');
-  var pv     = PRECIOS[cat];
+  // Usar siempre la lista vigente (STATE.preciosVigentes tiene prioridad sobre PRECIOS base)
+  var pvSrc  = (STATE.preciosVigentes && STATE.preciosVigentes[cat]) ? STATE.preciosVigentes : PRECIOS;
+  var pv     = pvSrc[cat];
   var esUSD  = cat === 'BANDEX_USD';
   var pr     = pv && pv[prod] && pv[prod][caja];
   if (!pr) return null;
