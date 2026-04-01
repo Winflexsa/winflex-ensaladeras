@@ -1311,6 +1311,7 @@ function renderProdDetail(m) {
             '<th style="padding:5px;font-size:11px;font-weight:600">Kg</th>' +
             '<th style="padding:5px;font-size:11px;font-weight:600">Efic.</th>' +
             '<th style="padding:5px;font-size:11px;font-weight:600">Obs.</th>' +
+            '<th style="padding:5px 8px;font-size:11px;font-weight:600"></th>' +
           '</tr></thead><tbody>' +
           tRegs.map(function(x, bi) {
             var r = x.r;
@@ -1324,6 +1325,9 @@ function renderProdDetail(m) {
               '<td style="padding:5px;font-size:12px">' + (r.kg||'—') + '</td>' +
               '<td style="padding:5px;font-size:12px">' + (r.efic ? (r.efic*100).toFixed(1)+'%' : '—') + '</td>' +
               '<td style="padding:5px;font-size:11px;color:var(--text2)">' + (r.obs||'—') + '</td>' +
+              '<td style="padding:5px 8px;white-space:nowrap">' +
+                '<button onclick="event.stopPropagation();eliminarProdReg(\'' + selMes + '\',' + x.idx + ')" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>' +
+              '</td>' +
               '</tr>';
           }).join('') +
           '</tbody></table>' +
@@ -1331,6 +1335,16 @@ function renderProdDetail(m) {
     });
   });
   body.innerHTML = html;
+}
+
+
+async function eliminarProdReg(mes, idx) {
+  if (!confirm('\u00bfEliminar este registro de producci\u00f3n?')) return;
+  if (!STATE.prodRegistros[mes]) return;
+  STATE.prodRegistros[mes].splice(idx, 1);
+  await saveToCloud();
+  renderProduccion();
+  toast('Registro eliminado', 'ok');
 }
 
 function toggleTurnoDetail(id) {
