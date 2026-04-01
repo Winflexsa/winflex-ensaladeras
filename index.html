@@ -1488,6 +1488,11 @@ async function initApp() {
       STATE.pedidos       = d.pedidos       || JSON.parse(JSON.stringify(PEDIDOS_INIT));
       STATE.prodRegistros = d.prodRegistros  || JSON.parse(JSON.stringify(PROD_INIT));
       STATE.nextId        = d.nextId         || 1;
+      if (d.costos)          STATE.costos          = d.costos;
+      if (d.costoParams)     STATE.costoParams     = d.costoParams;
+      if (d.preciosVigentes) STATE.preciosVigentes = d.preciosVigentes;
+      if (d.historicoPrecios) STATE.historicoPrecios = d.historicoPrecios;
+      if (d.cobranzas)       STATE.cobranzas       = d.cobranzas;
     } catch(e) {
       STATE.pedidos       = JSON.parse(JSON.stringify(PEDIDOS_INIT));
       STATE.prodRegistros = JSON.parse(JSON.stringify(PROD_INIT));
