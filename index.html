@@ -1158,7 +1158,7 @@ function initNuevoForm() {
           <div class="form-group"><label>${p}</label><input type="number" id="np-${p}-c" min="0" value="0" oninput="actualizarPreciosItems()"></div>
           <div class="form-group"><label>Tam. caja</label><select id="np-${p}-s" onchange="actualizarPreciosItems()"><option value="">—</option>${CAJAS.map(c => `<option>${c}</option>`).join('')}</select></div>
           <div class="form-group"><label>Unidades</label><input type="number" id="np-${p}-u" readonly></div>
-          <div class="form-group"><label style="color:#0369a1">💰 Precio/caja</label><div id="np-${p}-precio" style="font-size:13px;font-weight:600;color:#0369a1;padding:6px 0;min-height:32px"><span style="color:#cbd5e1">—</span></div></div>
+          <div class="form-group"><label style="color:#0369a1">💰 Precio/caja <span style="font-size:10px;color:#94a3b8;font-weight:400">(editable)</span></label><input type="number" id="np-${p}-precio-input" min="0" step="1" placeholder="—" oninput="this.dataset.manual='1';recalcPrecioTotal()" style="width:130px;padding:4px 8px;border:1.5px solid #bfdbfe;border-radius:6px;font-size:13px;font-weight:700;color:#0369a1;background:#eff6ff;text-align:right"><div id="np-${p}-precio-sub" style="font-size:11px;color:#475569;margin-top:3px;min-height:14px"></div></div>
         </div>
       </div>`).join('');
     PRODUCTOS.forEach(p => {
@@ -1208,6 +1208,12 @@ async function guardarPedido() {
 function limpiarPedido() {
   PRODUCTOS.forEach(p => { document.getElementById(`np-${p}-c`).value = 0; document.getElementById(`np-${p}-s`).value = ''; document.getElementById(`np-${p}-u`).value = 0; });
   ['np-cliente','np-despacho','np-vendedor','np-lista','np-entrega','np-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['E900','T900','E910','S900'].forEach(function(p) {
+    var pi = document.getElementById('np-'+p+'-precio-input');
+    if (pi) { pi.value=''; pi.placeholder='—'; pi.style.borderColor='#bfdbfe'; delete pi.dataset.manual; }
+    var ps = document.getElementById('np-'+p+'-precio-sub');
+    if (ps) ps.textContent='';
+  });
 }
 
 // ─── PRODUCCION ────────────────────────────────────────────────
@@ -3009,6 +3015,35 @@ function getItemPrecio(prod, caja, cliente, listaOvr) {
            catLabel: {WINFLEX:'WF',NITOPI:'NI',ENVASES_GROUP:'EG',BANDEX_USD:'BX'}[cat]||cat };
 }
 
+
+function recalcPrecioTotal() {
+  var PRODS_FORM = ['E900','T900','E910','S900'];
+  var totalARS = 0;
+  PRODS_FORM.forEach(function(prod) {
+    var prInput = document.getElementById('np-'+prod+'-precio-input');
+    var prSub   = document.getElementById('np-'+prod+'-precio-sub');
+    var cajas = parseInt((document.getElementById('np-'+prod+'-c')||{}).value)||0;
+    if (!prInput || !cajas) return;
+    var precio = parseFloat(prInput.value)||0;
+    if (!precio) { if(prSub) prSub.textContent=''; return; }
+    var sub = precio * cajas;
+    totalARS += sub;
+    if (prSub) prSub.textContent = '= ' + sub.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+  });
+  var prev = document.getElementById('np-precio-preview');
+  var val  = document.getElementById('np-precio-valor');
+  var det  = document.getElementById('np-precio-detalle');
+  if (prev && val) {
+    if (totalARS > 0) {
+      prev.style.display = '';
+      val.textContent = totalARS.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+      if (det) det.textContent = 'Precio editado manualmente';
+    } else {
+      prev.style.display = 'none';
+    }
+  }
+}
+
 async function actualizarPreciosItems() {
     var tc = await fetchTCBNA(); window._cachedTC = tc;
   var cliente  = (document.getElementById('np-cliente')||{}).value||'';
@@ -3017,24 +3052,31 @@ async function actualizarPreciosItems() {
   var PRODS_FORM = ['E900','T900','E910','S900'];
   var totalARS = 0, totalUSD = 0;
   PRODS_FORM.forEach(function(prod) {
-    var prEl = document.getElementById('np-'+prod+'-precio');
-    if (!prEl) return;
+    var prInput = document.getElementById('np-'+prod+'-precio-input');
+    var prSub   = document.getElementById('np-'+prod+'-precio-sub');
+    if (!prInput) return;
     var cajas = parseInt((document.getElementById('np-'+prod+'-c')||{}).value)||0;
     var caja  = parseInt((document.getElementById('np-'+prod+'-s')||{}).value)||0;
-    if (!caja || !cajas) { prEl.innerHTML = '<span style="color:#cbd5e1">—</span>'; return; }
+    if (!caja || !cajas) {
+      if (!prInput.dataset.manual) { prInput.value = ''; prInput.placeholder = '—'; }
+      if (prSub) prSub.textContent = '';
+      return;
+    }
     var p = getItemPrecio(prod, caja, cliente, listaOvr);
-    if (!p) { prEl.innerHTML = '<span style="color:#e2e8f0">sin precio</span>'; return; }
-    var sub = p.ars * cajas;
+    // Solo sobreescribir si el usuario NO editó manualmente
+    if (!prInput.dataset.manual) {
+      prInput.value = p ? Math.round(p.ars) : '';
+      prInput.placeholder = p ? '' : 'sin precio';
+      prInput.style.borderColor = '#bfdbfe';
+    }
+    var precioUsado = parseFloat(prInput.value) || 0;
+    if (!precioUsado) { if (prSub) prSub.textContent = ''; return; }
+    var sub = precioUsado * cajas;
     totalARS += sub;
-    if (p.esUSD) totalUSD += p.prCaja * cajas;
-    prEl.innerHTML =
-      '<div style="font-weight:700;color:#0369a1">' +
-        p.ars.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cj' +
-      '</div>' +
-      (cajas>0 ? '<div style="font-size:11px;color:#475569">= ' +
-        sub.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) +
-      '</div>' : '') +
-      (p.esUSD ? '<div style="font-size:10px;color:#94a3b8">USD '+p.prCaja+'/cj</div>' : '');
+    if (p && p.esUSD && !prInput.dataset.manual) totalUSD += p.prCaja * cajas;
+    if (prSub) prSub.textContent = '= ' + sub.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+    // Si fue editado manualmente, marcarlo visualmente
+    if (prInput.dataset.manual) prInput.style.borderColor = '#f59e0b';
   });
   // Update global preview
   var prev = document.getElementById('np-precio-preview');
