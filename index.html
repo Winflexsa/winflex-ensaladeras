@@ -191,6 +191,20 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 .toast.ok{background:#166534}
 .toast.warn{background:#92400e}
 .toast.err{background:#991b1b}
+
+/* PIN overlay */
+#pin-overlay{position:fixed;inset:0;background:rgba(15,20,30,.85);z-index:9000;display:flex;align-items:center;justify-content:center}
+#pin-box{background:white;border-radius:16px;padding:36px 40px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+#pin-box h2{margin:0 0 6px;font-size:20px;font-weight:700}
+#pin-box p{font-size:13px;color:#64748b;margin:0 0 24px}
+#pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #cbd5e1;background:white;transition:.15s}
+.pin-dot.filled{background:#1a472a;border-color:#1a472a}
+#pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.pin-key{padding:14px;border:1px solid #e2e8f0;border-radius:10px;font-size:18px;font-weight:700;cursor:pointer;background:white;transition:.1s}
+.pin-key:hover{background:#f0fdf4;border-color:#86efac}
+.pin-key:active{background:#dcfce7}
+#pin-error{font-size:12px;color:#dc2626;min-height:18px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -662,7 +676,11 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div id="ed-prods" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:14px"></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary" onclick="guardarEditar()">Guardar cambios</button>
-      <button class="btn" onclick="cerrarEditar()">
+      <button class="btn" onclick="cerrarEditar()">Cancelar</button>
+      <button class="btn" onclick="abrirEntregaDesdeEditar()" style="background:#dcfce7;color:#166534;border-color:#86efac;margin-left:auto">✓ Confirmar entrega</button>
+    </div>
+  </div>
+</div>
 <script>
 // ─── 
 // ─── Constantes ───────────────────────────────────────────────
@@ -3375,6 +3393,75 @@ async function exportCompleto() {
 
 <script>
 function togglePedDet(id){var el=document.getElementById(id);if(!el)return;el.style.display=(el.style.display==='none'||el.style.display==='')?'table-row':'none';}
+</script>
+<div id="pin-overlay">
+  <div id="pin-box">
+    <div style="font-size:40px;margin-bottom:12px">🔒</div>
+    <h2>Winflex Ensaladeras</h2>
+    <p>Ingresá tu PIN para continuar</p>
+    <div id="pin-dots">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div id="pin-grid">
+      <button class="pin-key" onclick="pinKey(1)">1</button>
+      <button class="pin-key" onclick="pinKey(2)">2</button>
+      <button class="pin-key" onclick="pinKey(3)">3</button>
+      <button class="pin-key" onclick="pinKey(4)">4</button>
+      <button class="pin-key" onclick="pinKey(5)">5</button>
+      <button class="pin-key" onclick="pinKey(6)">6</button>
+      <button class="pin-key" onclick="pinKey(7)">7</button>
+      <button class="pin-key" onclick="pinKey(8)">8</button>
+      <button class="pin-key" onclick="pinKey(9)">9</button>
+      <button class="pin-key" onclick="pinClear()" style="color:#94a3b8">⌫</button>
+      <button class="pin-key" onclick="pinKey(0)">0</button>
+      <button class="pin-key" onclick="pinSubmit()" style="background:#1a472a;color:white;border-color:#1a472a">✓</button>
+    </div>
+    <div id="pin-error"></div>
+  </div>
+</div>
+<script>
+(function() {
+  var USERS = [{"nombre": "Matias", "pin": "1540", "bloqueadas": []}, {"nombre": "Mirta", "pin": "0104", "bloqueadas": ["cobranzas", "costos"]}, {"nombre": "Jonathan", "pin": "3080", "bloqueadas": ["cobranzas", "costos", "precios"]}];
+  var _pin = "";
+  window.pinKey = function(n) {
+    if (_pin.length >= 4) return;
+    _pin += String(n);
+    for (var i=0;i<4;i++) { var d=document.getElementById("dot-"+i); if(d) d.classList.toggle("filled",i<_pin.length); }
+    document.getElementById("pin-error").textContent="";
+    if (_pin.length===4) setTimeout(pinSubmit,150);
+  };
+  window.pinClear = function() {
+    _pin = _pin.slice(0,-1);
+    for (var i=0;i<4;i++) { var d=document.getElementById("dot-"+i); if(d) d.classList.toggle("filled",i<_pin.length); }
+  };
+  window.pinSubmit = function() {
+    var u = USERS.find(function(x){ return x.pin===_pin; });
+    if (!u) {
+      document.getElementById("pin-error").textContent="PIN incorrecto";
+      _pin="";
+      for (var i=0;i<4;i++){var d=document.getElementById("dot-"+i);if(d)d.classList.remove("filled");}
+      return;
+    }
+    // Ocultar secciones bloqueadas en sidebar
+    document.querySelectorAll(".sidebar button, .sidebar .nav-item").forEach(function(btn) {
+      var oc = btn.getAttribute("onclick")||"";
+      var blocked = u.bloqueadas.some(function(b){ return oc.indexOf(b) > -1; });
+      if (blocked) btn.style.display="none";
+    });
+    document.getElementById("pin-overlay").style.display="none";
+    // Mostrar nombre usuario
+    var brand = document.querySelector(".brand");
+    if (brand) {
+      var tag = document.createElement("div");
+      tag.style.cssText = "font-size:11px;color:#64748b;margin-top:6px;font-weight:600;padding-top:6px;border-top:1px solid #e2e8f0";
+      tag.textContent = "👤 " + u.nombre;
+      brand.appendChild(tag);
+    }
+  };
+})();
 </script>
 </body>
 </html>
