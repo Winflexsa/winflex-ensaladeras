@@ -344,7 +344,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="card">
         <div class="card-title" id="prod-detail-title">Seleccioná un mes</div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Eficiencia</th><th>Obs.</th><th></th></tr></thead>
+          <table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Obs.</th><th></th></tr></thead>
           <tbody id="prod-body"></tbody></table>
         </div>
       </div>
@@ -364,7 +364,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         </div>
         <div id="import-preview" style="margin-top:14px;display:none">
           <div class="card-title">Vista previa — registros a importar</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Eficiencia</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
           <div class="btn-row" style="margin-top:12px">
             <button class="btn btn-primary" onclick="confirmarImport()">Confirmar importación</button>
             <button class="btn" onclick="cancelarImport()">Cancelar</button>
@@ -3131,43 +3131,73 @@ function importarXLSX(input) {
   reader.onload = function(e) {
     try {
       const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      // Buscar hoja de resumen (primera hoja que no sea "Detalle")
-      let sheetName = wb.SheetNames.find(n => !n.toLowerCase().includes('detalle')) || wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      if (!rows.length) { document.getElementById('import-status').textContent = 'El archivo no tiene datos.'; return; }
-      
+
+      // Buscar hoja de detalle por bobina primero
+      const detalleSheet = wb.SheetNames.find(n =>
+        n.toLowerCase().includes('detalle') || n.toLowerCase().includes('bobina')
+      );
+      const resumenSheet = wb.SheetNames.find(n =>
+        !n.toLowerCase().includes('detalle') && !n.toLowerCase().includes('bobina')
+      ) || wb.SheetNames[0];
+
       pendingImport = [];
-      for (const r of rows) {
-        // Mapear columnas flexiblemente
-        const fecha = parseFecha(r['Fecha'] || r['fecha'] || '');
-        const turno = String(r['Turno'] || r['turno'] || '').trim();
-        const prod = String(r['Producto'] || r['producto'] || '').trim();
-        const producido = parseInt(r['Producido'] || r['producido'] || 0) || 0;
-        const unicaja = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || r['Unidades por Caja'] || 0) || 0;
-        const cajas = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
-        const nbobina = String(r['Nº Bobina'] || r['Nbobina'] || r['nbobina'] || r['Bobina'] || r['N° Bobina'] || '').trim();
-        const partida = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
-        const kg = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
-        const efic = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
-        const obs = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
-        if (!fecha || !prod || !producido) continue;
-        pendingImport.push({ fecha, turno, prod, producido, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), nbobina, partida, kg, efic, obs });
+
+      if (detalleSheet) {
+        // ── Importar desde hoja de detalle (1 fila = 1 bobina) ──────────────
+        const ws = wb.Sheets[detalleSheet];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        for (const r of rows) {
+          const fecha    = parseFecha(r['Fecha'] || r['fecha'] || '');
+          const turno    = String(r['Turno'] || r['turno'] || '').trim();
+          const prod     = String(r['Producto'] || r['producto'] || '').trim();
+          const nbobina  = String(r['N° Bobina'] || r['N° Bobina'] || r['Nbobina'] || r['nbobina'] || r['Bobina'] || '').trim();
+          const partida  = String(r['Partida'] || r['Partida PET'] || r['partida'] || '').trim();
+          const unicaja  = parseInt(r['Unidades x Caja'] || r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || 0) || 0;
+          const cajas    = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
+          const producido= parseInt(r['Unidades'] || r['Producido'] || r['producido'] || 0) || 0;
+          const kg       = parseFloat(r['Peso Kg'] || r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+          const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+          const obs      = String(r['Observaciones'] || r['Observacion'] || r['obs'] || '').trim();
+          if (!fecha || !prod || (!producido && !cajas)) continue;
+          const prod_final = producido || (cajas * unicaja);
+          pendingImport.push({ fecha, turno, prod, nbobina, partida, unicaja, cajas, producido: prod_final, kg, efic, obs });
+        }
+        document.getElementById('import-status').textContent =
+          pendingImport.length + ' bobinas encontradas en "' + detalleSheet + '"';
+      } else {
+        // ── Fallback: importar desde hoja de resumen ─────────────────────────
+        const ws = wb.Sheets[resumenSheet];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        for (const r of rows) {
+          const fecha    = parseFecha(r['Fecha'] || r['fecha'] || '');
+          const turno    = String(r['Turno'] || r['turno'] || '').trim();
+          const prod     = String(r['Producto'] || r['producto'] || '').trim();
+          const producido= parseInt(r['Producido'] || r['producido'] || 0) || 0;
+          const unicaja  = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || 0) || 0;
+          const cajas    = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
+          const partida  = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
+          const kg       = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+          const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+          const obs      = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
+          if (!fecha || !prod || !producido) continue;
+          pendingImport.push({ fecha, turno, prod, nbobina: '', partida, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), producido, kg, efic, obs });
+        }
+        document.getElementById('import-status').textContent =
+          pendingImport.length + ' registros encontrados en "' + resumenSheet + '"';
       }
-      
+
       if (!pendingImport.length) {
         document.getElementById('import-status').textContent = 'No se encontraron registros válidos.';
         return;
       }
-      
-      document.getElementById('import-status').textContent = `${pendingImport.length} registros encontrados en "${sheetName}"`;
+
       document.getElementById('import-preview').style.display = 'block';
       document.getElementById('import-body').innerHTML = pendingImport.map(r => `<tr>
         <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
         <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
         <td style="font-size:11px;font-family:'DM Mono',monospace">${r.nbobina||'-'}</td>
         <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
-        <td>${r.kg?fmt(r.kg):'-'}</td><td>${pct(r.efic)}</td><td style="font-size:12px">${r.obs||'-'}</td>
+        <td>${r.kg?fmt(r.kg):'-'}</td><td style="font-size:12px">${r.obs||'-'}</td>
       </tr>`).join('');
     } catch(err) {
       document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
