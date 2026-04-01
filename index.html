@@ -2412,9 +2412,51 @@ function renderHistorialPrecios() {
         '</div>' +
         (!isVigente ? '<button onclick="activarListaPrecios(' + realIdx + ')" style="padding:4px 10px;font-size:11px;border:1px solid #86efac;background:#f0fdf4;color:#166534;border-radius:4px;cursor:pointer">Usar como vigente</button>' : '') +
         '<button onclick="verListaPrecios(' + realIdx + ')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:white;border-radius:4px;cursor:pointer">Ver precios</button>' +
+        '<button onclick="eliminarListaPrecios(' + realIdx + ')" style="padding:4px 8px;font-size:11px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;border-radius:4px;cursor:pointer;margin-left:4px">×</button>' +
       '</div>';
     }).join('') +
   '</div>';
+}
+
+function activarListaPrecios(idx) {
+  const h = STATE.historicoPrecios && STATE.historicoPrecios[idx];
+  if (!h) return;
+  // Mover al final del array (= vigente)
+  STATE.historicoPrecios.splice(idx, 1);
+  STATE.historicoPrecios.push(h);
+  // Copiar precios a STATE.preciosVigentes y a PRECIOS
+  STATE.preciosVigentes = JSON.parse(JSON.stringify(h.precios));
+  Object.keys(h.precios).forEach(function(cat) {
+    if (!PRECIOS[cat]) PRECIOS[cat] = {};
+    Object.keys(h.precios[cat]).forEach(function(prod) {
+      if (!PRECIOS[cat][prod]) PRECIOS[cat][prod] = {};
+      PRECIOS[cat][prod] = Object.assign({}, h.precios[cat][prod]);
+    });
+  });
+  saveToCloud();
+  toast('Lista "' + h.vigencia + '" activada como vigente ✓', 'ok');
+  renderPrecios();
+  if (typeof actualizarPreciosItems === 'function') actualizarPreciosItems();
+}
+
+function verListaPrecios(idx) {
+  const h = STATE.historicoPrecios && STATE.historicoPrecios[idx];
+  if (!h) return;
+  const backup = STATE.preciosVigentes;
+  STATE.preciosVigentes = JSON.parse(JSON.stringify(h.precios));
+  renderPrecios();
+  STATE.preciosVigentes = backup;
+  toast('Mostrando lista "' + h.vigencia + '" — no es la vigente', 'warn');
+}
+
+function eliminarListaPrecios(idx) {
+  const h = STATE.historicoPrecios && STATE.historicoPrecios[idx];
+  if (!h) return;
+  if (!confirm('¿Eliminar la lista "' + h.vigencia + '"? Esta acción no se puede deshacer.')) return;
+  STATE.historicoPrecios.splice(idx, 1);
+  saveToCloud();
+  renderHistorialPrecios();
+  toast('Lista eliminada', 'ok');
 }
 
 function restaurarListaPrecios(idx) {
