@@ -747,16 +747,16 @@ async function loadFromCloud() {
     STATE.historicoPrecios = d.record.historicoPrecios || [];
     if (d.record.preciosVigentes) {
       STATE.preciosVigentes = d.record.preciosVigentes;
-      // Sincronizar PRECIOS con la lista vigente
       Object.keys(STATE.preciosVigentes).forEach(function(cat) {
         if (!PRECIOS[cat]) PRECIOS[cat] = {};
         Object.keys(STATE.preciosVigentes[cat]).forEach(function(prod) {
           if (!PRECIOS[cat][prod]) PRECIOS[cat][prod] = {};
-          Object.assign(PRECIOS[cat][prod], STATE.preciosVigentes[cat]);
           PRECIOS[cat][prod] = Object.assign({}, STATE.preciosVigentes[cat][prod]);
         });
       });
     }
+    if (d.record.costos) STATE.costos = d.record.costos;
+    if (d.record.costoParams) STATE.costoParams = d.record.costoParams;
     localStorage.setItem('wf_local', JSON.stringify(d.record));
     setSyncState('ok', '✓ Sincronizado');
     setTimeout(() => setSyncState('idle', ''), 4000);
@@ -772,6 +772,8 @@ async function loadFromCloud() {
         STATE.cobranzas        = d.cobranzas        || {};
         STATE.historicoPrecios = d.historicoPrecios  || [];
         if (d.preciosVigentes) STATE.preciosVigentes = d.preciosVigentes;
+        if (d.costos) STATE.costos = d.costos;
+        if (d.costoParams) STATE.costoParams = d.costoParams;
       } catch(e2) {}
     }
     // Keep error visible — don't go to idle
@@ -786,7 +788,9 @@ async function saveToCloud(isNew) {
     nextId: STATE.nextId,
     cobranzas: STATE.cobranzas || {},
     preciosVigentes: STATE.preciosVigentes || null,
-    historicoPrecios: STATE.historicoPrecios || []
+    historicoPrecios: STATE.historicoPrecios || [],
+    costos: STATE.costos || {},
+    costoParams: STATE.costoParams || {}
   };
   localStorage.setItem('wf_local', JSON.stringify(payload));
   try {
@@ -2197,7 +2201,9 @@ async function renderPrecios() {
   const tc = await fetchTCBNA();
   const tcEl = document.getElementById('pr-tc');
   if (tcEl) tcEl.textContent = '$' + tc.toLocaleString('es-AR');
-  const costoPET = parseFloat((document.getElementById('pr-costo-pet')||{}).value)||1.412761;
+  const costoPET = (STATE.costos&&STATE.costos.petKg) ? STATE.costos.petKg : (parseFloat((document.getElementById('pr-costo-pet')||{}).value)||1.412761);
+  // Actualizar input para que muestre el valor correcto
+  const prPetEl2=document.getElementById('pr-costo-pet'); if(prPetEl2&&STATE.costos&&STATE.costos.petKg) prPetEl2.value=STATE.costos.petKg;
   if (!STATE.preciosVigentes) STATE.preciosVigentes = JSON.parse(JSON.stringify(PRECIOS));
   const pv = STATE.preciosVigentes;
   const lastH = STATE.historicoPrecios&&STATE.historicoPrecios.length ? STATE.historicoPrecios[STATE.historicoPrecios.length-1] : null;
@@ -2483,6 +2489,9 @@ async function renderCostos() {
     const moEl=document.getElementById('cos-mo-ars');
     if(petEl&&STATE.costos.petKg) petEl.value=STATE.costos.petKg;
     if(moEl&&STATE.costos.moARS) moEl.value=STATE.costos.moARS;
+    // Sincronizar con el input de la página de Precios
+    const prPetEl=document.getElementById('pr-costo-pet');
+    if(prPetEl&&STATE.costos.petKg) prPetEl.value=STATE.costos.petKg;
   }
   refreshMargen(tc);
 }
@@ -2818,6 +2827,8 @@ async function guardarCostos() {
   if (prPetEl) prPetEl.value = STATE.costos.petKg;
   await saveToCloud();
   toast('Parámetros guardados ✓','ok');
+  // Recalcular precios con el nuevo costo
+  if (document.getElementById('pg-precios') && document.getElementById('pg-precios').classList.contains('active')) renderPrecios();
 }
 
 // ── Editable cost params per product ──
