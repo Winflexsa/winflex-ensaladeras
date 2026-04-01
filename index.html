@@ -1188,6 +1188,9 @@ async function guardarPedido() {
   const listaPrecio = (document.getElementById('np-lista')||{}).value||'';
   const ped = { id: STATE.nextId++, fecha, cliente, estado: 'Pendiente', entrega, despacho, vendedor, obs, items, listaPrecio };
   STATE.pedidos.unshift(ped);
+  // Inicializar entrada de cobranza para el nuevo pedido
+  if (!STATE.cobranzas) STATE.cobranzas = {};
+  STATE.cobranzas[ped.id] = { estado: 'Por cobrar', fecha: '' };
   await saveToCloud();
   document.getElementById('ultimo-ped').style.display = 'block';
   document.getElementById('ultimo-ped-body').innerHTML = `<table><tbody>
@@ -1769,6 +1772,13 @@ function getEstadoCob(id) {
 
 
 async function renderCobranzas() {
+  // Asegurar que todos los pedidos tengan entrada en cobranzas
+  if (!STATE.cobranzas) STATE.cobranzas = {};
+  (STATE.pedidos||[]).forEach(function(p) {
+    if (!STATE.cobranzas[p.id]) {
+      STATE.cobranzas[p.id] = { estado: p.estado === 'Entregado' ? 'Cobrado' : 'Por cobrar', fecha: '' };
+    }
+  });
   const tc = await fetchTCBNA();
   const tcEl = document.getElementById('cob-tc-label');
   if (tcEl) tcEl.textContent = 'TC BNA: $' + tc.toLocaleString('es-AR');
