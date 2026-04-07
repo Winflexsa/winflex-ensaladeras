@@ -364,7 +364,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         </div>
         <div id="import-preview" style="margin-top:14px;display:none">
           <div class="card-title">Vista previa — registros a importar</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Hora Fin</th><th>Efic.</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
           <div class="btn-row" style="margin-top:12px">
             <button class="btn btn-primary" onclick="confirmarImport()">Confirmar importación</button>
             <button class="btn" onclick="cancelarImport()">Cancelar</button>
@@ -1320,11 +1320,15 @@ function renderProdDetail(m) {
       var prods  = tRegs.map(function(x){ return x.r.prod; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
       var nBobinas = tRegs.length;
       var detId  = 'td-' + fecha.replace(/-/g,'') + '-' + turno;
+      // Hora fin del turno (primer valor no nulo)
+      var tHoraFin = null;
+      tRegs.forEach(function(x){ if (tHoraFin === null && x.r.horaFin != null) tHoraFin = x.r.horaFin; });
+      var turnoLabel = turno + (tHoraFin !== null ? ' <span style="font-size:10px;color:#0369a1;font-weight:400">7:00–' + fmtHora(tHoraFin) + '</span>' : '');
 
       // Turno summary row (clickable)
       html += '<tr style="cursor:pointer" onclick="toggleTurnoDetail(\'' + detId + '\')">' +
         '<td style="padding-left:18px"><span style="font-size:11px;color:var(--text3)">' + fecha + '</span></td>' +
-        '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turno + '</span></td>' +
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1">' + turnoLabel + '</span></td>' +
         '<td style="font-weight:600">' + prods + '</td>' +
         '<td style="font-weight:700">' + tTot.toLocaleString('es-AR') + '</td>' +
         '<td style="color:var(--text3)">—</td>' +
@@ -3319,11 +3323,41 @@ function importarXLSX(input) {
           const kg       = parseFloat(r['Peso Kg'] || r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
           const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
           const obs      = String(r['Observaciones'] || r['Observacion'] || r['obs'] || '').trim();
+          const horaInicio = parseHora(r['Hora Inicio'] || r['HoraInicio'] || r['hora_inicio'] || null);
+          const horaFin    = parseHora(r['Hora Fin']    || r['HoraFin']    || r['hora_fin']    || null);
           if (!fecha || !prod || (!producido && !cajas)) continue;
           const prod_final = producido || (cajas * unicaja);
-          pendingImport.push({ fecha, turno, prod, nbobina, partida, unicaja, cajas, producido: prod_final, kg, efic, obs });
+          pendingImport.push({ fecha, turno, prod, nbobina, partida, unicaja, cajas, producido: prod_final, kg, efic, obs, horaInicio, horaFin });
         }
-        // Leer eficiencia y kg totales desde hoja resumen y asignar por fecha+turno+producto
+
+        // ── Calcular eficiencia por turno desde Hora Inicio / Hora Fin ──────
+        // Velocidad nominal: 7200 uds/hora para todos los productos
+        const VEL_NOMINAL = 7200;
+        const grupoEfic = {};
+        pendingImport.forEach(function(reg) {
+          const key = reg.fecha + '|' + reg.turno;
+          if (!grupoEfic[key]) grupoEfic[key] = { horaInicio: null, horaFin: null, regs: [] };
+          const g = grupoEfic[key];
+          if (reg.horaInicio !== null && g.horaInicio === null) g.horaInicio = reg.horaInicio;
+          if (reg.horaFin    !== null && g.horaFin    === null) g.horaFin    = reg.horaFin;
+          g.regs.push(reg);
+        });
+        Object.values(grupoEfic).forEach(function(g) {
+          // Solo calcular si tenemos ambas horas Y no viene del Excel
+          if (g.horaInicio !== null && g.horaFin !== null) {
+            let horas = g.horaFin - g.horaInicio;
+            if (horas <= 0) horas += 24; // cruce de medianoche
+            if (horas > 0) {
+              const totalUds = g.regs.reduce(function(a,r){ return a + (r.producido||0); }, 0);
+              const eficCalc = Math.round((totalUds / (horas * VEL_NOMINAL)) * 10000) / 10000;
+              g.regs.forEach(function(reg) {
+                if (!reg.efic) reg.efic = eficCalc; // solo si no vino del archivo
+              });
+            }
+          }
+        });
+
+        // Leer eficiencia y kg totales desde hoja resumen y asignar por fecha+turno+producto (si existe)
         if (resumenSheet && wb.Sheets[resumenSheet]) {
           const wsR = wb.Sheets[resumenSheet];
           const rowsR = XLSX.utils.sheet_to_json(wsR, { defval: '' });
@@ -3334,15 +3368,11 @@ function importarXLSX(input) {
             const p = String(r['Producto'] || r['producto'] || '').trim();
             const ef = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
             const kgT = parseFloat(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
-            if (f && t && p) eficMap[f + '|' + t + '|' + p] = { efic: ef, kgTotal: kgT };
+            if (f && t && p && ef) eficMap[f + '|' + t + '|' + p] = { efic: ef, kgTotal: kgT };
           }
-          // Asignar eficiencia a cada bobina y distribuir kg proporcional
           pendingImport.forEach(function(reg) {
             const key = reg.fecha + '|' + reg.turno + '|' + reg.prod;
-            if (eficMap[key]) {
-              reg.efic = eficMap[key].efic;
-              // Si la bobina no tiene kg propio, dejar en 0 (el kg total está en el resumen)
-            }
+            if (eficMap[key]) reg.efic = eficMap[key].efic;
           });
         }
         document.getElementById('import-status').textContent =
@@ -3362,8 +3392,10 @@ function importarXLSX(input) {
           const kg       = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
           const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
           const obs      = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
+          const horaInicio = parseHora(r['Hora Inicio'] || r['HoraInicio'] || null);
+          const horaFin    = parseHora(r['Hora Fin']    || r['HoraFin']    || null);
           if (!fecha || !prod || !producido) continue;
-          pendingImport.push({ fecha, turno, prod, nbobina: '', partida, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), producido, kg, efic, obs });
+          pendingImport.push({ fecha, turno, prod, nbobina: '', partida, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), producido, kg, efic, obs, horaInicio, horaFin });
         }
         document.getElementById('import-status').textContent =
           pendingImport.length + ' registros encontrados en "' + resumenSheet + '"';
@@ -3380,7 +3412,10 @@ function importarXLSX(input) {
         <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
         <td style="font-size:11px;font-family:'DM Mono',monospace">${r.nbobina||'-'}</td>
         <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
-        <td>${r.kg?fmt(r.kg):'-'}</td><td style="font-size:12px">${r.obs||'-'}</td>
+        <td>${r.kg?fmt(r.kg):'-'}</td>
+        <td style="font-size:12px">${r.horaFin!==null&&r.horaFin!==undefined ? fmtHora(r.horaFin) : '-'}</td>
+        <td style="font-size:12px;color:var(--accent-text);font-weight:500">${r.efic ? (r.efic*100).toFixed(1)+'%' : '—'}</td>
+        <td style="font-size:12px">${r.obs||'-'}</td>
       </tr>`).join('');
     } catch(err) {
       document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
@@ -3405,6 +3440,30 @@ function parseFecha(v) {
     return d.toISOString().split('T')[0];
   }
   return String(v).substring(0,10);
+}
+
+// Convierte un valor de celda de hora a horas decimales (ej: "16:00" → 16.0)
+function parseHora(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return v.getHours() + v.getMinutes()/60 + v.getSeconds()/3600;
+  if (typeof v === 'number') {
+    // Excel serial time (fracción del día)
+    const totalHoras = v * 24;
+    return totalHoras;
+  }
+  const s = String(v).trim();
+  // Formato "HH:MM" o "H:MM"
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (m) return parseInt(m[1]) + parseInt(m[2])/60;
+  return null;
+}
+
+// Formatea horas decimales a "HH:MM"
+function fmtHora(h) {
+  if (h === null || h === undefined) return '—';
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return hh.toString().padStart(2,'0') + ':' + mm.toString().padStart(2,'0');
 }
 
 async function confirmarImport() {
