@@ -96,6 +96,15 @@ tbody tr:hover td { background: var(--surface2); }
 .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
 .badge-pend { background: var(--warn-light); color: var(--warn); }
 .badge-ent { background: var(--success-light); color: var(--success); }
+.badge-parcial { background: #dbeafe; color: #1d4ed8; }
+
+/* Ajuste stock modal */
+.modal-ajuste { display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center; }
+.modal-ajuste.open { display:flex; }
+.modal-ajuste-box { background:var(--surface);border-radius:12px;padding:28px 32px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18); }
+.ajuste-row { display:grid;grid-template-columns:90px 80px 1fr 1fr;gap:8px;align-items:end;margin-bottom:8px; }
+.efic-warn { background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:10px; }
+.efic-input-inline { width:70px;padding:3px 6px;border:1.5px solid #f59e0b;border-radius:4px;font-size:12px;text-align:right; }
 
 /* Forms */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -278,8 +287,16 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="page-title">Stock</div>
       <div class="page-sub">Estado actual del inventario de ensaladeras</div>
       <div class="metrics" id="stock-metrics"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="abrirAjusteStock()">⚖️ Ajuste de inventario</button>
+        <button class="btn" onclick="abrirEstablecerStock()" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe">📋 Establecer stock real</button>
+      </div>
       <div class="card"><div class="card-title">Stock actual (unidades)</div><div class="tbl-wrap"><table id="tbl-stock"></table></div></div>
       <div class="card"><div class="card-title">Producción acumulada 2026 (unidades)</div><div class="tbl-wrap"><table id="tbl-prod-stock"></table></div></div>
+      <div class="card" id="card-ajustes-hist" style="display:none">
+        <div class="card-title">Historial de ajustes de inventario</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Presentación</th><th>Cantidad</th><th>Motivo</th><th></th></tr></thead><tbody id="tbl-ajustes-hist"></tbody></table></div>
+      </div>
     </div>
 
     <!-- PEDIDOS -->
@@ -288,7 +305,8 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="page-sub">Historial completo de pedidos 2026</div>
       <div class="filter-bar">
         <input type="text" id="f-cli" placeholder="Buscar cliente..." oninput="renderPedidos()" style="width:160px">
-        <select id="f-est" onchange="renderPedidos()"><option value="">Todos los estados</option><option>Pendiente</option><option>Entregado</option></select>
+        <select id="f-est" onchange="renderPedidos()"><option value="">Todos los estados</option><option>Pendiente</option><option>Entregado parcial</option><option>Entregado</option></select>
+        <select id="f-mes" onchange="renderPedidos()"><option value="">Todos los meses</option><option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option><option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option><option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option></select>
         <select id="f-prod" onchange="renderPedidos()"><option value="">Todos los productos</option><option>E900</option><option>T900</option><option>S900</option><option>E910</option></select>
         <select id="f-vend" onchange="renderPedidos()"><option value="">Todos los vendedores</option><option>Nitopi</option><option>Winflex</option></select>
       </div>
@@ -702,7 +720,7 @@ const PEDIDOS_INIT = [{"id":1,"fecha":"2026-01-02","cliente":"Archilli","estado"
 const PROD_INIT = {"Enero":[{"fecha":"2026-01-02","turno":"M1","prod":"E900","producido":57500,"unicaja":500,"cajas":115,"partida":"27525S-1T1","kg":943,"efic":0.9983,"obs":""},{"fecha":"2026-01-06","turno":"M1","prod":"T900","producido":39600,"unicaja":300,"cajas":132,"partida":"27525S-1T1","kg":943,"efic":0.6875,"obs":""},{"fecha":"2026-01-07","turno":"M2","prod":"T900","producido":23700,"unicaja":300,"cajas":79,"partida":"27525S-1T1","kg":616,"efic":0.5909,"obs":""},{"fecha":"2026-01-07","turno":"M2","prod":"T900","producido":23100,"unicaja":300,"cajas":77,"partida":"27525S-1T1","kg":616,"efic":0.5909,"obs":""},{"fecha":"2026-01-08","turno":"M2","prod":"T900","producido":65400,"unicaja":300,"cajas":218,"partida":"27525/26125S-1T1","kg":1549,"efic":0.8258,"obs":""},{"fecha":"2026-01-09","turno":"M2","prod":"T900","producido":68000,"unicaja":1000,"cajas":68,"partida":"27525/526S-1T1","kg":1427,"efic":0.8586,"obs":""},{"fecha":"2026-01-12","turno":"M2","prod":"E900","producido":30300,"unicaja":300,"cajas":101,"partida":"29025S-1T2","kg":1137,"efic":0.3826,"obs":""},{"fecha":"2026-01-13","turno":"M2","prod":"E900","producido":29700,"unicaja":300,"cajas":99,"partida":"626S-1T2","kg":824,"efic":0.6275,"obs":""},{"fecha":"2026-01-13","turno":"M2","prod":"E900","producido":20000,"unicaja":500,"cajas":40,"partida":"626S-1T2","kg":818,"efic":0.6275,"obs":""},{"fecha":"2026-01-14","turno":"M2","prod":"E900","producido":24900,"unicaja":300,"cajas":83,"partida":"626S-1T2","kg":1440,"efic":0.3144,"obs":""},{"fecha":"2026-01-15","turno":"M2","prod":"E900","producido":33000,"unicaja":440,"cajas":75,"partida":"626S-1T2","kg":1028,"efic":0.4167,"obs":""},{"fecha":"2026-01-19","turno":"M1","prod":"T900","producido":22440,"unicaja":440,"cajas":51,"partida":"526S-1T1","kg":607,"efic":0.3896,"obs":""},{"fecha":"2026-01-20","turno":"M1","prod":"T900","producido":34760,"unicaja":440,"cajas":79,"partida":"526S-1T1","kg":619,"efic":0.6035,"obs":""},{"fecha":"2026-01-22","turno":"M2","prod":"T900","producido":65560,"unicaja":440,"cajas":149,"partida":"526S-1T1","kg":812,"efic":0.8278,"obs":""},{"fecha":"2026-01-23","turno":"M1","prod":"T900","producido":32000,"unicaja":100,"cajas":320,"partida":"526S-1T1","kg":617,"efic":0.5556,"obs":""},{"fecha":"2026-01-26","turno":"M1","prod":"T900","producido":46400,"unicaja":100,"cajas":464,"partida":"526S-1T1","kg":826,"efic":0.8056,"obs":""},{"fecha":"2026-01-28","turno":"M2","prod":"T900","producido":67500,"unicaja":300,"cajas":225,"partida":"1526S-1T1","kg":1437,"efic":0.8523,"obs":""},{"fecha":"2026-01-29","turno":"M1","prod":"T900","producido":41400,"unicaja":300,"cajas":138,"partida":"1526S-1T1","kg":822,"efic":0.7188,"obs":""},{"fecha":"2026-01-30","turno":"M1","prod":"T900","producido":39900,"unicaja":300,"cajas":133,"partida":"1526S-1T1","kg":826,"efic":0.6927,"obs":""},{"fecha":"2026-01-31","turno":"M2","prod":"T900","producido":77000,"unicaja":1000,"cajas":77,"partida":"1726S-1T1","kg":1437,"efic":0.9722,"obs":""}],"Febrero":[{"fecha":"2026-02-02","turno":"M1","prod":"T900","producido":39200,"unicaja":100,"cajas":392,"partida":"1726S-1T1","kg":400,"efic":0.6806,"obs":""},{"fecha":"2026-02-03","turno":"M1","prod":"E900","producido":60000,"unicaja":500,"cajas":120,"partida":"1826S-1T2","kg":1445,"efic":1.0417,"obs":""},{"fecha":"2026-02-04","turno":"M1","prod":"E900","producido":47700,"unicaja":300,"cajas":159,"partida":"1826S-1T2","kg":1438,"efic":0.8281,"obs":""},{"fecha":"2026-02-05","turno":"M1","prod":"E900","producido":39900,"unicaja":300,"cajas":133,"partida":"1826S-1T2","kg":1038,"efic":0.6927,"obs":""},{"fecha":"2026-02-06","turno":"M1","prod":"E900","producido":39600,"unicaja":300,"cajas":132,"partida":"1826S-1T2","kg":1644,"efic":0.6875,"obs":""},{"fecha":"2026-02-07","turno":"M1","prod":"E900","producido":48500,"unicaja":500,"cajas":97,"partida":"1826S-1T2","kg":1652,"efic":0.842,"obs":""},{"fecha":"2026-02-09","turno":"M1","prod":"E900","producido":27000,"unicaja":100,"cajas":270,"partida":"1826S-1T2","kg":1235,"efic":0.4688,"obs":""},{"fecha":"2026-02-10","turno":"M1","prod":"E900","producido":44800,"unicaja":100,"cajas":448,"partida":"2226S-1T2","kg":1857,"efic":0.7778,"obs":""},{"fecha":"2026-02-12","turno":"M2","prod":"E900","producido":28900,"unicaja":100,"cajas":289,"partida":"1826S-1T2","kg":725,"efic":0.3649,"obs":"Inicio 13am por transfo"},{"fecha":"2026-02-13","turno":"M1","prod":"E900","producido":21600,"unicaja":100,"cajas":216,"partida":"2226S-1T2","kg":1027,"efic":0.375,"obs":""},{"fecha":"2026-02-18","turno":"M1","prod":"T900","producido":2200,"unicaja":300,"cajas":7,"partida":"3126S-1T1","kg":369,"efic":0.0382,"obs":"Cambio de Matriz"},{"fecha":"2026-02-19","turno":"M1","prod":"T900","producido":20100,"unicaja":300,"cajas":67,"partida":"3126S-1T1","kg":412,"efic":0.349,"obs":""},{"fecha":"2026-02-20","turno":"M1","prod":"T900","producido":15600,"unicaja":300,"cajas":52,"partida":"3126S-1T1","kg":411,"efic":0.2708,"obs":""},{"fecha":"2026-02-23","turno":"M2","prod":"T900","producido":44700,"unicaja":300,"cajas":149,"partida":"3126S-1T1","kg":1031,"efic":0.5644,"obs":""},{"fecha":"2026-02-24","turno":"M2","prod":"T900","producido":19200,"unicaja":300,"cajas":64,"partida":"3126S-1T1","kg":919,"efic":0.598,"obs":""},{"fecha":"2026-02-24","turno":"M2","prod":"T900","producido":28160,"unicaja":440,"cajas":64,"partida":"3126S-1T1","kg":919,"efic":0.598,"obs":""},{"fecha":"2026-02-25","turno":"M2","prod":"E900","producido":38700,"unicaja":300,"cajas":129,"partida":"3226S-1T2","kg":1231,"efic":0.4886,"obs":"Cambio de Matriz"},{"fecha":"2026-02-26","turno":"M2","prod":"E900","producido":41360,"unicaja":440,"cajas":94,"partida":"3226S-1T2","kg":1028,"efic":0.5222,"obs":""},{"fecha":"2026-02-27","turno":"M2","prod":"E900","producido":34320,"unicaja":440,"cajas":78,"partida":"3226S-1T2","kg":1437,"efic":0.4333,"obs":""}],"Marzo":[{"fecha": "2026-03-02", "turno": "M2", "prod": "E900", "producido": 38400, "unicaja": 300, "cajas": 128, "partida": "3226S-1T2", "kg": 1200, "efic": 0.48, "obs": ""}, {"fecha": "2026-03-02", "turno": "M2", "prod": "E900", "producido": 22500, "unicaja": 500, "cajas": 45, "partida": "3226S-1T2", "kg": 0, "efic": 0.28, "obs": ""}, {"fecha": "2026-03-03", "turno": "M2", "prod": "E900", "producido": 53000, "unicaja": 500, "cajas": 106, "partida": "3226S-1T2", "kg": 1158, "efic": 0.67, "obs": ""}, {"fecha": "2026-03-04", "turno": "M2", "prod": "T900", "producido": 39000, "unicaja": 1000, "cajas": 39, "partida": "3126S-1T1", "kg": 1033, "efic": 0.49, "obs": "Cambio de Matriz"}, {"fecha": "2026-03-04", "turno": "M2", "prod": "T900", "producido": 55000, "unicaja": 1000, "cajas": 55, "partida": "4426S-1T1", "kg": 1247, "efic": 0.69, "obs": "Turno Noche"}, {"fecha": "2026-03-05", "turno": "M1", "prod": "T900", "producido": 25000, "unicaja": 1000, "cajas": 25, "partida": "4426S-1T1", "kg": 820, "efic": 0.71, "obs": ""}, {"fecha": "2026-03-05", "turno": "M1", "prod": "T900", "producido": 15900, "unicaja": 300, "cajas": 53, "partida": "4426S-1T1", "kg": 0, "efic": 0.71, "obs": ""}, {"fecha": "2026-03-05", "turno": "M2", "prod": "T900", "producido": 54000, "unicaja": 300, "cajas": 180, "partida": "4426S-1T1", "kg": 1235, "efic": 0.68, "obs": ""}, {"fecha": "2026-03-06", "turno": "M1", "prod": "T900", "producido": 16800, "unicaja": 300, "cajas": 56, "partida": "4426S-1T1", "kg": 623, "efic": 0.29, "obs": ""}, {"fecha": "2026-03-06", "turno": "M2", "prod": "T900", "producido": 52800, "unicaja": 440, "cajas": 120, "partida": "4926S-1T1", "kg": 1027, "efic": 0.67, "obs": ""}, {"fecha": "2026-03-09", "turno": "M2", "prod": "T900", "producido": 60600, "unicaja": 300, "cajas": 202, "partida": "4926S-1T1", "kg": 1237, "efic": 0.77, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 12600, "unicaja": 300, "cajas": 42, "partida": "4926S-1T1", "kg": 1450, "efic": 0.7, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 6600, "unicaja": 100, "cajas": 66, "partida": "4926S-1T1", "kg": 0, "efic": 0, "obs": ""}, {"fecha": "2026-03-10", "turno": "M2", "prod": "T900", "producido": 28000, "unicaja": 1000, "cajas": 28, "partida": "4926S-1T1", "kg": 0, "efic": 0, "obs": ""}, {"fecha": "2026-03-11", "turno": "M1", "prod": "T900", "producido": 47000, "unicaja": 1000, "cajas": 47, "partida": "4926S-1T1", "kg": 817, "efic": 0.82, "obs": ""}, {"fecha": "2026-03-12", "turno": "M2", "prod": "E900", "producido": 67000, "unicaja": 500, "cajas": 134, "partida": "4426S-1T2", "kg": 2060, "efic": 0.85, "obs": ""}, {"fecha": "2026-03-13", "turno": "M1", "prod": "E900", "producido": 53700, "unicaja": 300, "cajas": 179, "partida": "4426S-1T2", "kg": 1642, "efic": 0.93, "obs": ""}, {"fecha": "2026-03-18", "turno": "M2", "prod": "E900", "producido": 71400, "unicaja": 300, "cajas": 238, "partida": "4326S-1T2", "kg": 1634, "efic": 0.9, "obs": ""}, {"fecha": "2026-03-19", "turno": "M2", "prod": "E900", "producido": 45320, "unicaja": 440, "cajas": 103, "partida": "4326S-1T2", "kg": 1653, "efic": 0.57, "obs": ""}, {"fecha": "2026-03-20", "turno": "M1", "prod": "E900", "producido": 49720, "unicaja": 440, "cajas": 113, "partida": "4326S-1T2", "kg": 1439, "efic": 0.86, "obs": ""}, {"fecha": "2026-03-23", "turno": "M1", "prod": "E900", "producido": 35640, "unicaja": 440, "cajas": 81, "partida": "4326S-1T2", "kg": 1038, "efic": 0.62, "obs": ""}],"Abril":[],"Mayo":[],"Junio":[],"Julio":[],"Agosto":[],"Septiembre":[],"Octubre":[],"Noviembre":[],"Diciembre":[]};
 
 // ─── Estado global ─────────────────────────────────────────────
-let STATE = { pedidos: [], prodRegistros: {}, nextId: 71, cobranzas: {}, historicoPrecios: [], costos: {}, preciosVigentes: null, costoParams: {} };
+let STATE = { pedidos: [], prodRegistros: {}, nextId: 71, cobranzas: {}, historicoPrecios: [], costos: {}, preciosVigentes: null, costoParams: {}, ajustesStock: [] };
 let CFG = { apiKey: '', binId: '' };
 let selMes = null;
 
@@ -757,6 +775,7 @@ async function loadFromCloud() {
     }
     if (d.record.costos) STATE.costos = d.record.costos;
     if (d.record.costoParams) STATE.costoParams = d.record.costoParams;
+    STATE.ajustesStock = d.record.ajustesStock || [];
     localStorage.setItem('wf_local', JSON.stringify(d.record));
     setSyncState('ok', '✓ Sincronizado');
     setTimeout(() => setSyncState('idle', ''), 4000);
@@ -774,6 +793,7 @@ async function loadFromCloud() {
         if (d.preciosVigentes) STATE.preciosVigentes = d.preciosVigentes;
         if (d.costos) STATE.costos = d.costos;
         if (d.costoParams) STATE.costoParams = d.costoParams;
+        STATE.ajustesStock = d.ajustesStock || [];
       } catch(e2) {}
     }
     // Keep error visible — don't go to idle
@@ -790,7 +810,8 @@ async function saveToCloud(isNew) {
     preciosVigentes: STATE.preciosVigentes || null,
     historicoPrecios: STATE.historicoPrecios || [],
     costos: STATE.costos || {},
-    costoParams: STATE.costoParams || {}
+    costoParams: STATE.costoParams || {},
+    ajustesStock: STATE.ajustesStock || []
   };
   localStorage.setItem('wf_local', JSON.stringify(payload));
   try {
@@ -862,10 +883,26 @@ function calcStock() {
         salidas[it.prod][it.caja] += (it.uds || 0);
     });
   });
+  // Entregas parciales: también descontar lo ya entregado de pedidos "Entregado parcial"
+  (STATE.pedidos || []).filter(p => p.estado === 'Entregado parcial').forEach(p => {
+    (p.entregas || []).forEach(e => {
+      (e.items || []).forEach(it => {
+        if (salidas[it.prod] && salidas[it.prod][it.caja] !== undefined)
+          salidas[it.prod][it.caja] += (it.uds || 0);
+      });
+    });
+  });
+  // Ajustes de inventario
+  const ajustes = {};
+  PRODUCTOS.forEach(p => { ajustes[p] = {}; CAJAS.forEach(c => { ajustes[p][c] = 0; }); });
+  (STATE.ajustesStock || []).forEach(a => {
+    if (ajustes[a.prod] !== undefined && ajustes[a.prod][a.caja] !== undefined)
+      ajustes[a.prod][a.caja] += a.cantidad; // positivo=alta, negativo=baja
+  });
   const base = {};
   PRODUCTOS.forEach(p => {
     base[p] = { prod: prod[p], salidas: salidas[p], stock: {} };
-    CAJAS.forEach(c => { base[p].stock[c] = prod[p][c] - salidas[p][c]; });
+    CAJAS.forEach(c => { base[p].stock[c] = prod[p][c] - salidas[p][c] + (ajustes[p][c] || 0); });
   });
   return base;
 }
@@ -928,6 +965,29 @@ function renderStock() {
       '<td style="font-weight:700">' + total.toLocaleString('es-AR') + '</td></tr>';
   });
   document.getElementById('tbl-prod-stock').innerHTML = cajasHeaderP + '<tbody>' + prodRows + '</tbody>';
+
+  // Historial de ajustes
+  const ajList = STATE.ajustesStock || [];
+  const cardAj = document.getElementById('card-ajustes-hist');
+  const tbAj = document.getElementById('tbl-ajustes-hist');
+  if (ajList.length > 0) {
+    cardAj.style.display = '';
+    tbAj.innerHTML = [...ajList].reverse().map((a, ri) => {
+      const realIdx = ajList.length - 1 - ri;
+      const signo = a.cantidad >= 0 ? '+' : '';
+      const color = a.cantidad >= 0 ? '#166534' : '#991b1b';
+      return `<tr>
+        <td style="font-size:12px">${fmtD(a.fecha)}</td>
+        <td style="font-weight:700">${a.prod}</td>
+        <td>×${a.caja}</td>
+        <td style="font-weight:700;color:${color}">${signo}${(a.cantidad).toLocaleString('es-AR')} u</td>
+        <td style="font-size:12px;color:#64748b">${a.motivo||'—'}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="eliminarAjuste(${realIdx})" style="padding:2px 7px;font-size:11px">×</button></td>
+      </tr>`;
+    }).join('');
+  } else {
+    cardAj.style.display = 'none';
+  }
 }
 
 // ─── PEDIDOS ───────────────────────────────────────────────────
@@ -936,11 +996,13 @@ function renderPedidos() {
   const est  = document.getElementById('f-est').value;
   const prod = document.getElementById('f-prod').value;
   const vend = document.getElementById('f-vend').value;
+  const mes  = document.getElementById('f-mes') ? document.getElementById('f-mes').value : '';
   const list = STATE.pedidos.filter(p => {
     if (q && !p.cliente.toLowerCase().includes(q)) return false;
     if (est && p.estado !== est) return false;
     if (vend && p.vendedor !== vend) return false;
     if (prod && !p.items.some(i => i.prod === prod)) return false;
+    if (mes && mesDeDate(p.fecha) !== mes) return false;
     return true;
   });
   const pend    = list.filter(p => p.estado === 'Pendiente');
@@ -3407,16 +3469,34 @@ function importarXLSX(input) {
       }
 
       document.getElementById('import-preview').style.display = 'block';
-      document.getElementById('import-body').innerHTML = pendingImport.map(r => `<tr>
-        <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
-        <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
-        <td style="font-size:11px;font-family:'DM Mono',monospace">${r.nbobina||'-'}</td>
-        <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
-        <td>${r.kg?fmt(r.kg):'-'}</td>
-        <td style="font-size:12px">${r.horaFin!==null&&r.horaFin!==undefined ? fmtHora(r.horaFin) : '-'}</td>
-        <td style="font-size:12px;color:var(--accent-text);font-weight:500">${r.efic ? (r.efic*100).toFixed(1)+'%' : '—'}</td>
-        <td style="font-size:12px">${r.obs||'-'}</td>
-      </tr>`).join('');
+      const sinEfic = pendingImport.filter(r => !r.efic).length;
+      let warningHtml = '';
+      if (sinEfic > 0) {
+        warningHtml = `<div class="efic-warn">⚠️ <b>${sinEfic} registro${sinEfic>1?'s':''} sin eficiencia detectada</b> (marcados en naranja). Podés completarlos manualmente antes de confirmar, o dejarlos en 0.<br><span style="font-size:11px">Tip: si todos tienen la misma eficiencia, usá → <input type="number" id="efic-batch" min="0" max="2" step="0.01" placeholder="ej: 0.75" style="width:80px;padding:2px 6px;border:1px solid #f59e0b;border-radius:4px;font-size:11px"> <button onclick="aplicarEficBatch()" style="padding:2px 8px;background:#92400e;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer">Aplicar a todos los vacíos</button></span></div>`;
+      }
+      document.getElementById('import-body').innerHTML = '';
+      document.getElementById('import-preview').querySelector('.efic-warn-wrap') && document.getElementById('import-preview').querySelector('.efic-warn-wrap').remove();
+      const wrapDiv = document.createElement('div');
+      wrapDiv.className = 'efic-warn-wrap';
+      wrapDiv.innerHTML = warningHtml;
+      document.getElementById('import-preview').insertBefore(wrapDiv, document.getElementById('import-preview').querySelector('.tbl-wrap'));
+      document.getElementById('import-body').innerHTML = pendingImport.map((r, i) => {
+        const noEfic = !r.efic;
+        const rowStyle = noEfic ? 'background:#fffbeb' : '';
+        const eficCell = noEfic
+          ? `<td style="font-size:12px"><input type="number" id="efic-edit-${i}" class="efic-input-inline" min="0" max="2" step="0.01" placeholder="0.00" title="Ingresá eficiencia (0 a 1)"></td>`
+          : `<td style="font-size:12px;color:var(--accent-text);font-weight:500">${(r.efic*100).toFixed(1)}%<input type="hidden" id="efic-edit-${i}" value="${r.efic}"></td>`;
+        return `<tr style="${rowStyle}">
+          <td>${fmtD(r.fecha)}</td><td>${r.turno}</td><td style="font-weight:600">${r.prod}</td>
+          <td>${fmt(r.producido)}</td><td>${r.unicaja||'-'}</td><td>${fmt(r.cajas)}</td>
+          <td style="font-size:11px;font-family:'DM Mono',monospace">${r.nbobina||'-'}</td>
+          <td style="font-size:11px;font-family:'DM Mono',monospace">${r.partida||'-'}</td>
+          <td>${r.kg?fmt(r.kg):'-'}</td>
+          <td style="font-size:12px">${r.horaFin!==null&&r.horaFin!==undefined ? fmtHora(r.horaFin) : '-'}</td>
+          ${eficCell}
+          <td style="font-size:12px">${r.obs||'-'}</td>
+        </tr>`;
+      }).join('');
     } catch(err) {
       document.getElementById('import-status').textContent = 'Error al leer el archivo: ' + err.message;
       console.error(err);
@@ -3466,14 +3546,39 @@ function fmtHora(h) {
   return hh.toString().padStart(2,'0') + ':' + mm.toString().padStart(2,'0');
 }
 
+function aplicarEficBatch() {
+  const v = parseFloat(document.getElementById('efic-batch')?.value);
+  if (isNaN(v) || v <= 0) { toast('Ingresá un valor válido (ej: 0.75)', 'warn'); return; }
+  pendingImport.forEach(function(reg, i) {
+    if (!reg.efic) {
+      reg.efic = v;
+      const el = document.getElementById('efic-edit-' + i);
+      if (el) el.value = v;
+      // Cambiar fondo de la fila
+      if (el) {
+        const row = el.closest('tr');
+        if (row) { row.style.background = ''; el.style.border = '1.5px solid #86efac'; }
+      }
+    }
+  });
+  toast('Eficiencia ' + (v*100).toFixed(0) + '% aplicada a registros vacíos ✓', 'ok');
+}
+
 async function confirmarImport() {
   if (!pendingImport.length) return;
+  // Leer eficiencias editadas inline por el usuario
+  pendingImport.forEach(function(reg, i) {
+    const el = document.getElementById('efic-edit-' + i);
+    if (el) {
+      const v = parseFloat(el.value);
+      if (!isNaN(v) && v >= 0) reg.efic = v;
+    }
+  });
   let imported = 0, skipped = 0;
   for (const reg of pendingImport) {
     const mes = mesDeDate(reg.fecha);
     if (!mes) { skipped++; continue; }
     if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
-    // Evitar duplicados exactos (misma fecha+turno+producto+producido)
     const isDup = STATE.prodRegistros[mes].some(r => r.fecha === reg.fecha && r.turno === reg.turno && r.prod === reg.prod && r.producido === reg.producido && r.partida === reg.partida && String(r.nbobina||"") === String(reg.nbobina||""));
     if (!isDup) { STATE.prodRegistros[mes].push(reg); imported++; }
     else skipped++;
@@ -3490,6 +3595,118 @@ function cancelarImport() {
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-status').textContent = '';
   document.getElementById('xlsx-import').value = '';
+}
+
+// ─── AJUSTES DE STOCK ─────────────────────────────────────────
+
+function abrirAjusteStock() {
+  document.getElementById('aj-prod').value = '';
+  document.getElementById('aj-caja').value = '';
+  document.getElementById('aj-tipo').value = 'alta';
+  document.getElementById('aj-uds').value = 0;
+  document.getElementById('aj-motivo').value = '';
+  document.getElementById('aj-preview').textContent = '';
+  document.getElementById('modal-ajuste-stock').classList.add('open');
+}
+
+function cerrarAjusteStock() {
+  document.getElementById('modal-ajuste-stock').classList.remove('open');
+}
+
+function actualizarSignoAjuste() {
+  // solo visual, nada extra necesario
+}
+
+async function confirmarAjusteStock() {
+  const prod   = document.getElementById('aj-prod').value;
+  const caja   = parseInt(document.getElementById('aj-caja').value) || 0;
+  const tipo   = document.getElementById('aj-tipo').value;
+  const uds    = parseInt(document.getElementById('aj-uds').value) || 0;
+  const motivo = document.getElementById('aj-motivo').value.trim();
+  if (!prod) { toast('Seleccioná un producto', 'warn'); return; }
+  if (!caja) { toast('Seleccioná la presentación', 'warn'); return; }
+  if (uds <= 0) { toast('Ingresá una cantidad mayor a 0', 'warn'); return; }
+  if (!STATE.ajustesStock) STATE.ajustesStock = [];
+  const cantidad = tipo === 'baja' ? -uds : uds;
+  STATE.ajustesStock.push({ id: Date.now(), fecha: today(), prod, caja, cantidad, motivo });
+  await saveToCloud();
+  cerrarAjusteStock();
+  renderStock();
+  toast('Ajuste de inventario guardado ✓', 'ok');
+}
+
+async function eliminarAjuste(idx) {
+  if (!confirm('¿Eliminar este ajuste de inventario?')) return;
+  STATE.ajustesStock.splice(idx, 1);
+  await saveToCloud();
+  renderStock();
+  toast('Ajuste eliminado', 'warn');
+}
+
+function abrirEstablecerStock() {
+  const SB = calcStock();
+  let rows = '';
+  PRODUCTOS.forEach(function(p) {
+    CAJAS.forEach(function(c) {
+      const stockCalc = SB[p] ? (SB[p].stock[c] || 0) : 0;
+      if (stockCalc === 0) {
+        // Solo mostrar si hay producción en esa presentación
+        const hayProd = Object.values(STATE.prodRegistros || {}).some(function(mes) {
+          return (mes || []).some(function(r) { return r.prod === p && r.unicaja === c; });
+        });
+        if (!hayProd) return;
+      }
+      const cajas = c > 0 ? Math.round(stockCalc / c) : 0;
+      rows += `<tr>
+        <td style="font-weight:700">${p}</td>
+        <td>×${c} ud/caja</td>
+        <td style="text-align:right">${stockCalc.toLocaleString('es-AR')} u <span style="font-size:11px;color:#94a3b8">(${cajas} cj)</span></td>
+        <td><input type="number" class="sr-input" data-prod="${p}" data-caja="${c}" data-calc="${stockCalc}" min="0" placeholder="—" style="width:110px;padding:5px 8px;border:1.5px solid #bfdbfe;border-radius:6px;font-size:13px;text-align:right"></td>
+      </tr>`;
+    });
+  });
+  document.getElementById('tbl-stock-real').innerHTML = rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px">Sin datos de stock disponibles</td></tr>';
+  document.getElementById('modal-stock-real').classList.add('open');
+}
+
+function cerrarStockReal() {
+  document.getElementById('modal-stock-real').classList.remove('open');
+}
+
+async function confirmarStockReal() {
+  const inputs = document.querySelectorAll('#tbl-stock-real .sr-input');
+  if (!STATE.ajustesStock) STATE.ajustesStock = [];
+  let count = 0;
+  inputs.forEach(function(inp) {
+    const valStr = inp.value.trim();
+    if (valStr === '' || valStr === null) return;
+    const stockReal = parseInt(valStr);
+    if (isNaN(stockReal) || stockReal < 0) return;
+    const prod = inp.dataset.prod;
+    const caja = parseInt(inp.dataset.caja);
+    const calc = parseInt(inp.dataset.calc) || 0;
+    const diferencia = stockReal - calc;
+    // Eliminar ajustes anteriores de este prod+caja
+    STATE.ajustesStock = STATE.ajustesStock.filter(function(a) {
+      return !(a.prod === prod && a.caja === caja);
+    });
+    if (diferencia !== 0) {
+      STATE.ajustesStock.push({
+        id: Date.now() + count,
+        fecha: today(),
+        prod,
+        caja,
+        cantidad: diferencia,
+        motivo: 'Establecer stock real (' + (diferencia > 0 ? '+' : '') + diferencia.toLocaleString('es-AR') + ' u)'
+      });
+    }
+    count++;
+  });
+  if (count === 0) { toast('No ingresaste ningún valor', 'warn'); return; }
+  await saveToCloud();
+  cerrarStockReal();
+  renderStock();
+  toast('Stock real aplicado ✓', 'ok');
 }
 
 // ─── GRÁFICOS ──────────────────────────────────────────────────
@@ -3667,6 +3884,43 @@ async function exportCompleto() {
   XLSX.writeFile(wb, 'Winflex_Ensaladeras_'+new Date().toISOString().split('T')[0]+'.xlsx');
   toast('Informe completo descargado \u2713');
 }</script>
+
+<!-- Modal ajuste stock -->
+<div class="modal-ajuste" id="modal-ajuste-stock">
+  <div class="modal-ajuste-box">
+    <h3 style="margin:0 0 6px;font-size:16px;font-weight:700">⚖️ Ajuste de inventario</h3>
+    <p style="font-size:12px;color:#64748b;margin:0 0 18px">Registrá una entrada o salida de stock sin afectar pedidos ni producción.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="form-group"><label>Producto</label><select id="aj-prod"><option value="">— Seleccionar —</option><option>E900</option><option>T900</option><option>S900</option><option>E910</option></select></div>
+      <div class="form-group"><label>Presentación (un/caja)</label><select id="aj-caja"><option value="">— Seleccionar —</option><option>100</option><option>300</option><option>440</option><option>500</option><option>880</option><option>1000</option></select></div>
+      <div class="form-group"><label>Tipo</label><select id="aj-tipo" onchange="actualizarSignoAjuste()"><option value="alta">Alta (+)</option><option value="baja">Baja (−)</option></select></div>
+      <div class="form-group"><label>Unidades</label><input type="number" id="aj-uds" min="0" value="0" placeholder="0"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px"><label>Motivo</label><input type="text" id="aj-motivo" placeholder="ej: Merma, Error de conteo, Devolución..."></div>
+    <div id="aj-preview" style="font-size:12px;padding:8px 12px;background:#f8fafc;border-radius:6px;min-height:32px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="cerrarAjusteStock()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAjusteStock()">Confirmar ajuste</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal establecer stock real -->
+<div class="modal-ajuste" id="modal-stock-real">
+  <div class="modal-ajuste-box" style="width:600px">
+    <h3 style="margin:0 0 6px;font-size:16px;font-weight:700">📋 Establecer stock real</h3>
+    <p style="font-size:12px;color:#64748b;margin:0 0 4px">Ingresá el stock físico actual. El sistema calcula la diferencia y crea un ajuste automático por cada fila que completes.</p>
+    <p style="font-size:11px;color:#1d4ed8;background:#dbeafe;padding:6px 10px;border-radius:5px;margin:0 0 14px">Los ajustes anteriores de esta presentación serán anulados y reemplazados por uno nuevo.</p>
+    <div class="tbl-wrap" style="margin-bottom:14px">
+      <table><thead><tr><th>Producto</th><th>Presentación</th><th>Stock calculado</th><th>Stock real (editable)</th></tr></thead>
+      <tbody id="tbl-stock-real"></tbody></table>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="cerrarStockReal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarStockReal()">Aplicar ajustes</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-parcial" id="modal-parcial">
   <div class="modal-parcial-box">
