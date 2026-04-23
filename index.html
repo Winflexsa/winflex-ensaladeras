@@ -362,7 +362,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="card">
         <div class="card-title" id="prod-detail-title">Seleccioná un mes</div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Obs.</th><th></th></tr></thead>
+          <table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Bobinas</th><th>Kg</th><th>Efic.</th><th>Obs.</th><th></th></tr></thead>
           <tbody id="prod-body"></tbody></table>
         </div>
       </div>
@@ -382,7 +382,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
         </div>
         <div id="import-preview" style="margin-top:14px;display:none">
           <div class="card-title">Vista previa — registros a importar</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Hora Fin</th><th>Efic.</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Producto</th><th>Producido</th><th>Un/caja</th><th>Cajas</th><th>Nº Bobina</th><th>Partida PET</th><th>Kg</th><th>Hora Fin</th><th>Efic.</th><th>Obs.</th></tr></thead><tbody id="import-body"></tbody></table></div>
           <div class="btn-row" style="margin-top:12px">
             <button class="btn btn-primary" onclick="confirmarImport()">Confirmar importación</button>
             <button class="btn" onclick="cancelarImport()">Cancelar</button>
@@ -1348,7 +1348,7 @@ function renderProdDetail(m) {
   });
   var body = document.getElementById('prod-body');
   if (!regs.length) {
-    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text3)">Sin registros</td></tr>';
     return;
   }
 
@@ -1368,7 +1368,7 @@ function renderProdDetail(m) {
     ['M1','M2','N'].forEach(function(t){ (turnos[t]||[]).forEach(function(x){ fechaTot += x.r.producido||0; }); });
 
     // Date separator row
-    html += '<tr style="background:#f1f5f9"><td colspan="10" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
+    html += '<tr style="background:#f1f5f9"><td colspan="11" style="padding:5px 12px;font-size:11px;font-weight:700;color:#475569;letter-spacing:.5px">' +
       fecha + ' — Total: ' + fechaTot.toLocaleString('es-AR') + ' uds</td></tr>';
 
     ['M1','M2','N'].forEach(function(turno) {
@@ -1402,7 +1402,7 @@ function renderProdDetail(m) {
         '<td style="color:var(--text3);font-size:12px">&#9660;</td>' +
         '</tr>' +
       // Detail sub-table (hidden by default)
-      '<tr id="' + detId + '" style="display:none"><td colspan="10" style="padding:0">' +
+      '<tr id="' + detId + '" style="display:none"><td colspan="11" style="padding:0">' +
         '<table style="width:100%;border-collapse:collapse;background:#f8fafc">' +
           '<thead><tr style="background:#e2e8f0">' +
             '<th style="padding:5px 18px;font-size:11px;text-align:left;font-weight:600">Bobina</th>' +
