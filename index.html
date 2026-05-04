@@ -3386,9 +3386,12 @@ function importarXLSX(input) {
       const detalleSheet = wb.SheetNames.find(n =>
         n.toLowerCase().includes('detalle') || n.toLowerCase().includes('bobina')
       );
-      const resumenSheet = wb.SheetNames.find(n =>
+      // Todas las hojas mensuales (todas las que no son detalle/bobina)
+      // Antes solo se tomaba la PRIMERA, lo que dejaba sin eficiencia los meses siguientes.
+      const resumenSheets = wb.SheetNames.filter(n =>
         !n.toLowerCase().includes('detalle') && !n.toLowerCase().includes('bobina')
-      ) || wb.SheetNames[0];
+      );
+      if (!resumenSheets.length && wb.SheetNames.length) resumenSheets.push(wb.SheetNames[0]);
 
       pendingImport = [];
 
@@ -3442,18 +3445,21 @@ function importarXLSX(input) {
           }
         });
 
-        // Leer eficiencia y kg totales desde hoja resumen y asignar por fecha+turno+producto (si existe)
-        if (resumenSheet && wb.Sheets[resumenSheet]) {
-          const wsR = wb.Sheets[resumenSheet];
-          const rowsR = XLSX.utils.sheet_to_json(wsR, { defval: '' });
+        // Leer eficiencia y kg totales desde TODAS las hojas mensuales y asignar por fecha+turno+producto
+        if (resumenSheets.length) {
           const eficMap = {};
-          for (const r of rowsR) {
-            const f = parseFecha(r['Fecha'] || r['fecha'] || '');
-            const t = String(r['Turno'] || r['turno'] || '').trim();
-            const p = String(r['Producto'] || r['producto'] || '').trim();
-            const ef = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
-            const kgT = parseFloat(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
-            if (f && t && p && ef) eficMap[f + '|' + t + '|' + p] = { efic: ef, kgTotal: kgT };
+          for (const sheetName of resumenSheets) {
+            const wsR = wb.Sheets[sheetName];
+            if (!wsR) continue;
+            const rowsR = XLSX.utils.sheet_to_json(wsR, { defval: '' });
+            for (const r of rowsR) {
+              const f = parseFecha(r['Fecha'] || r['fecha'] || '');
+              const t = String(r['Turno'] || r['turno'] || '').trim();
+              const p = String(r['Producto'] || r['producto'] || '').trim();
+              const ef = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+              const kgT = parseFloat(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+              if (f && t && p && ef) eficMap[f + '|' + t + '|' + p] = { efic: ef, kgTotal: kgT };
+            }
           }
           pendingImport.forEach(function(reg) {
             const key = reg.fecha + '|' + reg.turno + '|' + reg.prod;
@@ -3463,27 +3469,30 @@ function importarXLSX(input) {
         document.getElementById('import-status').textContent =
           pendingImport.length + ' bobinas encontradas en "' + detalleSheet + '"';
       } else {
-        // ── Fallback: importar desde hoja de resumen ─────────────────────────
-        const ws = wb.Sheets[resumenSheet];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        for (const r of rows) {
-          const fecha    = parseFecha(r['Fecha'] || r['fecha'] || '');
-          const turno    = String(r['Turno'] || r['turno'] || '').trim();
-          const prod     = String(r['Producto'] || r['producto'] || '').trim();
-          const producido= parseInt(r['Producido'] || r['producido'] || 0) || 0;
-          const unicaja  = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || 0) || 0;
-          const cajas    = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
-          const partida  = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
-          const kg       = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
-          const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
-          const obs      = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
-          const horaInicio = parseHora(r['Hora Inicio'] || r['HoraInicio'] || null);
-          const horaFin    = parseHora(r['Hora Fin']    || r['HoraFin']    || null);
-          if (!fecha || !prod || !producido) continue;
-          pendingImport.push({ fecha, turno, prod, nbobina: '', partida, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), producido, kg, efic, obs, horaInicio, horaFin });
+        // ── Fallback: importar desde TODAS las hojas de resumen ───────────────
+        for (const sheetName of resumenSheets) {
+          const ws = wb.Sheets[sheetName];
+          if (!ws) continue;
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          for (const r of rows) {
+            const fecha    = parseFecha(r['Fecha'] || r['fecha'] || '');
+            const turno    = String(r['Turno'] || r['turno'] || '').trim();
+            const prod     = String(r['Producto'] || r['producto'] || '').trim();
+            const producido= parseInt(r['Producido'] || r['producido'] || 0) || 0;
+            const unicaja  = parseInt(r['UnixCaja'] || r['unicaja'] || r['Un/Caja'] || 0) || 0;
+            const cajas    = parseInt(r['Cajas'] || r['cajas'] || 0) || 0;
+            const partida  = String(r['Partida PET'] || r['Partida'] || r['partida'] || '').trim();
+            const kg       = parseInt(r['Kg Procesados'] || r['Kg'] || r['kg'] || 0) || 0;
+            const efic     = parseFloat(r['Eficiencia'] || r['efic'] || 0) || 0;
+            const obs      = String(r['Observacion'] || r['Observaciones'] || r['obs'] || '').trim();
+            const horaInicio = parseHora(r['Hora Inicio'] || r['HoraInicio'] || null);
+            const horaFin    = parseHora(r['Hora Fin']    || r['HoraFin']    || null);
+            if (!fecha || !prod || !producido) continue;
+            pendingImport.push({ fecha, turno, prod, nbobina: '', partida, unicaja, cajas: cajas || (unicaja ? Math.round(producido/unicaja) : 0), producido, kg, efic, obs, horaInicio, horaFin });
+          }
         }
         document.getElementById('import-status').textContent =
-          pendingImport.length + ' registros encontrados en "' + resumenSheet + '"';
+          pendingImport.length + ' registros encontrados en ' + resumenSheets.length + ' hoja(s) mensual(es)';
       }
 
       if (!pendingImport.length) {
