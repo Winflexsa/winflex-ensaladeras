@@ -373,8 +373,17 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="page" id="pg-nuevo-prod">
       <div class="page-title">Registrar producción</div>
       <div class="page-sub">Cargá manualmente o importá desde el archivo de la tablet</div>
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#ecfdf5 0%,#f0f9ff 100%);border:1px solid #86efac">
+        <div class="card-title">☁ Sincronización con Google Sheet</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Trae directamente los datos de producción desde el Sheet del termoformado. Funciona sola al abrir la app, pero podés forzarla con el botón. Se agregan solo los registros nuevos (los duplicados se omiten).</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" id="btn-sync-sheet" onclick="sincronizarConSheet(false)" style="background:#16a34a;border-color:#16a34a">☁ Sincronizar con Google Sheet</button>
+          <span style="font-size:12px;color:var(--text2)">Última sincronización automática al abrir la app.</span>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:16px">
-        <div class="card-title">Importar desde archivo Excel (tablet)</div>
+        <div class="card-title">Importar desde archivo Excel (tablet) <span style="font-size:11px;color:#64748b;font-weight:400">(backup manual)</span></div>
         <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Subí el archivo <strong>Produccion_Ensaladeras_Winflex.xlsx</strong> que generás en la tablet. Se van a importar todos los registros de la hoja de resumen.</p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="file" id="xlsx-import" accept=".xlsx" style="display:none" onchange="importarXLSX(this)">
@@ -752,6 +761,59 @@ function showCfgError(msg) {
   const el = document.getElementById('cfg-error');
   el.textContent = msg;
   el.style.display = 'block';
+}
+
+// ─── SINCRONIZACIÓN CON GOOGLE SHEET (Apps Script) ──────────────
+// Lee los datos de producción desde el Sheet de termoformado y los importa
+// con la misma deduplicación que usa "Importar XLSX". Llama a
+// sincronizarConSheet(true) silenciosa al abrir la app.
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxc4zqrqDkklK1hZt9aaNtOjpXQ0U9uBv9h2craDwqojryOMt3-U2nTiWhIrIVjGayZGg/exec';
+
+async function sincronizarConSheet(silencioso = false) {
+  const btn = document.getElementById('btn-sync-sheet');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+  if (!silencioso) toast('Sincronizando con Google Sheet...', 'info');
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?action=getProduccion');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error en el servidor');
+
+    const registros = data.registros || [];
+    let imported = 0, skipped = 0;
+    for (const reg of registros) {
+      const mes = mesDeDate(reg.fecha);
+      if (!mes) { skipped++; continue; }
+      if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
+      const isDup = STATE.prodRegistros[mes].some(r =>
+        r.fecha === reg.fecha &&
+        r.turno === reg.turno &&
+        r.prod === reg.prod &&
+        r.producido === reg.producido &&
+        r.partida === reg.partida &&
+        String(r.nbobina||"") === String(reg.nbobina||"")
+      );
+      if (!isDup) { STATE.prodRegistros[mes].push(reg); imported++; }
+      else skipped++;
+    }
+
+    if (imported > 0) {
+      await saveToCloud();
+      renderStock();
+      renderProduccion();
+    }
+
+    if (!silencioso) {
+      toast(`Sincronización: ${imported} nuevos${skipped ? ', ' + skipped + ' ya estaban' : ''}`, 'ok');
+    } else if (imported > 0) {
+      toast(`✓ ${imported} registros nuevos del Sheet`, 'ok');
+    }
+  } catch (e) {
+    console.error('Error sincronizando con Sheet:', e);
+    if (!silencioso) toast('Error: ' + e.message, 'warn');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '☁ Sincronizar con Google Sheet'; }
+  }
 }
 
 async function loadFromCloud() {
@@ -1765,6 +1827,9 @@ async function initApp() {
   });
 
   renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
+
+  // Sincronización silenciosa con Google Sheet (en background, no bloquea)
+  setTimeout(() => sincronizarConSheet(true), 1500);
 }
 
 async function actualizarDesdeNube() {
