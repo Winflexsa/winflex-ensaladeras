@@ -780,6 +780,22 @@ async function sincronizarConSheet(silencioso = false) {
     if (!data.ok) throw new Error(data.error || 'Error en el servidor');
 
     const registros = data.registros || [];
+
+    // Normalizar fecha: aceptar YYYY-MM-DD o cualquier formato Date parseable
+    const normFecha = v => {
+      if (!v) return '';
+      const s = String(v);
+      if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.substring(0, 10);
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return d.getFullYear() + '-' +
+          String(d.getMonth()+1).padStart(2,'0') + '-' +
+          String(d.getDate()).padStart(2,'0');
+      }
+      return s;
+    };
+    registros.forEach(r => { r.fecha = normFecha(r.fecha); });
+
     let imported = 0, skipped = 0;
     for (const reg of registros) {
       const mes = mesDeDate(reg.fecha);
