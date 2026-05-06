@@ -286,6 +286,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="page active" id="pg-stock">
       <div class="page-title">Stock</div>
       <div class="page-sub">Estado actual del inventario de ensaladeras</div>
+      <div id="stock-ignorados-aviso" style="display:none"></div>
       <div class="metrics" id="stock-metrics"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="abrirAjusteStock()">⚖️ Ajuste de inventario</button>
@@ -705,7 +706,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
 // ─── Constantes ───────────────────────────────────────────────
 // ─── 
 // ─── Constantes ───────────────────────────────────────────────
-const CAJAS = [300, 500, 1000, 100, 440, 880];
+const CAJAS = [100, 300, 440, 500, 880, 1000];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const PRODUCTOS = ['E900','T900','S900','E910'];
 
@@ -874,26 +875,39 @@ function calcStock() {
     prod[p] = {}; salidas[p] = {};
     CAJAS.forEach(c => { prod[p][c] = 0; salidas[p][c] = 0; });
   });
-  Object.values(STATE.prodRegistros || {}).forEach(mes => {
-    (mes || []).forEach(r => {
-      if (prod[r.prod] && prod[r.prod][r.unicaja] !== undefined)
+  const ignorados = [];
+  Object.entries(STATE.prodRegistros || {}).forEach(([mes, regs]) => {
+    (regs || []).forEach((r, idx) => {
+      if (prod[r.prod] && prod[r.prod][r.unicaja] !== undefined) {
         prod[r.prod][r.unicaja] += (r.producido || 0);
+      } else if ((r.producido || 0) > 0) {
+        // Registro con unidades cargadas pero producto o UnixCaja no válido
+        // → no suma al stock pero se reporta al usuario para que lo corrija
+        ignorados.push({ mes, idx, fecha: r.fecha, turno: r.turno, prod: r.prod, unicaja: r.unicaja, producido: r.producido, nbobina: r.nbobina, partida: r.partida });
+      }
     });
   });
-  (STATE.pedidos || []).filter(p => ['Entregado','Entregado parcial'].includes(p.estado)).forEach(p => {
-    (p.items || []).forEach(it => {
+  // Calcular salidas según estado del pedido:
+  // - Entregado sin entregas registradas: descontar p.items (entrega directa de una vez)
+  // - Entregado con entregas registradas (pasó por parcial): descontar p.entregas
+  // - Entregado parcial: descontar SOLO p.entregas (p.items es lo pendiente, NO se descuenta)
+  // - Pendiente / Cancelado / cualquier otro: no descontar
+  const sumarItems = items => {
+    (items || []).forEach(it => {
       if (salidas[it.prod] && salidas[it.prod][it.caja] !== undefined)
         salidas[it.prod][it.caja] += (it.uds || 0);
     });
-  });
-  // Entregas parciales: también descontar lo ya entregado de pedidos "Entregado parcial"
-  (STATE.pedidos || []).filter(p => p.estado === 'Entregado parcial').forEach(p => {
-    (p.entregas || []).forEach(e => {
-      (e.items || []).forEach(it => {
-        if (salidas[it.prod] && salidas[it.prod][it.caja] !== undefined)
-          salidas[it.prod][it.caja] += (it.uds || 0);
-      });
-    });
+  };
+  const sumarEntregas = entregas => {
+    (entregas || []).forEach(e => sumarItems(e.items));
+  };
+  (STATE.pedidos || []).forEach(p => {
+    if (p.estado === 'Entregado') {
+      if (p.entregas && p.entregas.length > 0) sumarEntregas(p.entregas);
+      else                                     sumarItems(p.items);
+    } else if (p.estado === 'Entregado parcial') {
+      sumarEntregas(p.entregas);
+    }
   });
   // Ajustes de inventario
   const ajustes = {};
@@ -907,11 +921,63 @@ function calcStock() {
     base[p] = { prod: prod[p], salidas: salidas[p], stock: {} };
     CAJAS.forEach(c => { base[p].stock[c] = prod[p][c] - salidas[p][c] + (ajustes[p][c] || 0); });
   });
+  base._ignorados = ignorados;
   return base;
+}
+
+function renderIgnoradosAviso(ignorados) {
+  const div = document.getElementById('stock-ignorados-aviso');
+  if (!div) return;
+  if (!ignorados || !ignorados.length) {
+    div.style.display = 'none';
+    div.innerHTML = '';
+    return;
+  }
+  const totalUds = ignorados.reduce((a,r) => a + (r.producido||0), 0);
+  const filas = ignorados.map(r =>
+    '<tr style="font-size:12px">' +
+    '<td style="padding:4px 8px">' + (r.fecha||'—') + '</td>' +
+    '<td style="padding:4px 8px">' + (r.mes||'—') + '</td>' +
+    '<td style="padding:4px 8px">' + (r.turno||'—') + '</td>' +
+    '<td style="padding:4px 8px;font-weight:600;color:#dc2626">' + (r.prod||'(sin producto)') + '</td>' +
+    '<td style="padding:4px 8px;font-weight:600;color:#dc2626">' + (r.unicaja!==undefined?r.unicaja:'(sin UnixCaja)') + '</td>' +
+    '<td style="padding:4px 8px;text-align:right">' + (r.producido||0).toLocaleString('es-AR') + '</td>' +
+    '<td style="padding:4px 8px">' + (r.partida||'—') + '</td>' +
+    '<td style="padding:4px 8px">' + (r.nbobina!=null && r.nbobina!==''?'N° '+r.nbobina:'—') + '</td>' +
+    '</tr>'
+  ).join('');
+  div.style.display = 'block';
+  div.innerHTML =
+    '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById(\'ign-detalle\').style.display = document.getElementById(\'ign-detalle\').style.display===\'none\'?\'block\':\'none\'">' +
+        '<div>' +
+          '<div style="font-weight:700;color:#991b1b;font-size:14px">⚠️ Hay ' + ignorados.length + ' registro(s) de producción que NO se cuentan en el stock</div>' +
+          '<div style="font-size:12px;color:#7f1d1d;margin-top:4px">Total: ' + totalUds.toLocaleString('es-AR') + ' unidades. Tienen producto o UnixCaja inválido. Click para ver detalle ↓</div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="ign-detalle" style="display:none;margin-top:12px;background:#fff;border-radius:8px;overflow:hidden">' +
+        '<table style="width:100%;border-collapse:collapse">' +
+          '<thead style="background:#fee2e2"><tr style="font-size:11px;text-transform:uppercase;color:#991b1b">' +
+            '<th style="padding:6px 8px;text-align:left">Fecha</th>' +
+            '<th style="padding:6px 8px;text-align:left">Mes</th>' +
+            '<th style="padding:6px 8px;text-align:left">Turno</th>' +
+            '<th style="padding:6px 8px;text-align:left">Producto</th>' +
+            '<th style="padding:6px 8px;text-align:left">UnixCaja</th>' +
+            '<th style="padding:6px 8px;text-align:right">Unidades</th>' +
+            '<th style="padding:6px 8px;text-align:left">Partida</th>' +
+            '<th style="padding:6px 8px;text-align:left">Bobina</th>' +
+          '</tr></thead>' +
+          '<tbody>' + filas + '</tbody>' +
+        '</table>' +
+        '<div style="font-size:11px;color:#7f1d1d;padding:8px 12px;background:#fef2f2">Para corregirlos: andá a <strong>Producción</strong>, encontrá el registro y editá el producto o UnixCaja.</div>' +
+      '</div>' +
+    '</div>';
 }
 
 function renderStock() {
   const SB = calcStock();
+  // Aviso de registros ignorados (producto o UnixCaja no válidos)
+  renderIgnoradosAviso(SB._ignorados || []);
   const totStock = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].stock[c]||0), 0), 0);
   const totProd  = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].prod[c] ||0), 0), 0);
   const e9 = CAJAS.reduce((a,c) => a + (SB['E900'].stock[c]||0), 0);
@@ -1193,16 +1259,22 @@ async function entregar(id) {
   } else {
     p.estado = 'Entregado'; p.entrega = today();
     await saveToCloud();
+    renderStock();
     renderPedidos(); setTimeout(loadValoresPedidos, 100);
     toast('Pedido #' + id + ' marcado como entregado');
   }
 }
 
 async function revertir(id) {
-  if (!confirm(`¿Revertir el pedido #${id} a Pendiente?`)) return;
+  if (!confirm(`¿Revertir el pedido #${id} a Pendiente?\n\n(Si tenía entregas parciales registradas, se borran.)`)) return;
   const p = STATE.pedidos.find(x => x.id === id);
-  if (p) { p.estado = 'Pendiente'; p.entrega = ''; p.entrega = ''; }
+  if (p) {
+    p.estado = 'Pendiente';
+    p.entrega = '';
+    p.entregas = [];
+  }
   await saveToCloud();
+  renderStock();
   renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast(`Pedido #${id} revertido a pendiente`, 'warn');
 }
@@ -1305,6 +1377,8 @@ async function guardarProduccion() {
   if (!STATE.prodRegistros[mes]) STATE.prodRegistros[mes] = [];
   STATE.prodRegistros[mes].push({ fecha, turno, prod, producido, unicaja, cajas: unicaja ? Math.round(producido / unicaja) : 0, nbobina, partida, kg, efic, obs });
   await saveToCloud();
+  renderStock();
+  renderProduccion();
   toast(`Registro de ${prod} guardado en ${mes}`);
   limpiarProd();
   selMes = mes;
@@ -1338,6 +1412,7 @@ async function borrarProd(mes, idx) {
   if (!confirm('¿Eliminar este registro?')) return;
   STATE.prodRegistros[mes].splice(idx, 1);
   await saveToCloud();
+  renderStock();
   renderProduccion();
   toast('Registro eliminado');
 }
@@ -1449,6 +1524,7 @@ async function eliminarProdReg(mes, idx) {
   if (!STATE.prodRegistros[mes]) return;
   STATE.prodRegistros[mes].splice(idx, 1);
   await saveToCloud();
+  renderStock();
   renderProduccion();
   toast('Registro eliminado', 'ok');
 }
@@ -1553,6 +1629,7 @@ async function eliminarPedido(id) {
   if(!confirm('¿Eliminar el pedido #' + id + '? Esta acción no se puede deshacer.')) return;
   STATE.pedidos = STATE.pedidos.filter(x=>x.id!==id);
   await saveToCloud();
+  renderStock();
   renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast('Pedido #' + id + ' eliminado');
 }
@@ -3619,6 +3696,7 @@ async function confirmarImport() {
   cancelarImport();
   toast(`Importación completa: ${imported} registros nuevos${skipped ? ', ' + skipped + ' duplicados omitidos' : ''}`);
   selMes = mesDeDate(pendingImport[0]?.fecha);
+  renderStock();
   renderProduccion();
 }
 
