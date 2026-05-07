@@ -3933,6 +3933,10 @@ function abrirEstablecerStock() {
   PRODUCTOS.forEach(function(p) {
     CAJAS.forEach(function(c) {
       const stockCalc = SB[p] ? (SB[p].stock[c] || 0) : 0;
+      // stockBase = producción − salidas, SIN ajustes. Es la referencia correcta
+      // para calcular el ajuste nuevo. El stockCalc (mostrado) tiene ajustes
+      // viejos que se van a borrar al aplicar el nuevo.
+      const stockBase = SB[p] ? ((SB[p].prod[c] || 0) - (SB[p].salidas[c] || 0)) : 0;
       if (stockCalc === 0) {
         // Solo mostrar si hay producción en esa presentación
         const hayProd = Object.values(STATE.prodRegistros || {}).some(function(mes) {
@@ -3945,7 +3949,7 @@ function abrirEstablecerStock() {
         <td style="font-weight:700">${p}</td>
         <td>×${c} ud/caja</td>
         <td style="text-align:right">${stockCalc.toLocaleString('es-AR')} u <span style="font-size:11px;color:#94a3b8">(${cajas} cj)</span></td>
-        <td><input type="number" class="sr-input" data-prod="${p}" data-caja="${c}" data-calc="${stockCalc}" min="0" placeholder="—" style="width:110px;padding:5px 8px;border:1.5px solid #bfdbfe;border-radius:6px;font-size:13px;text-align:right"></td>
+        <td><input type="number" class="sr-input" data-prod="${p}" data-caja="${c}" data-calc="${stockCalc}" data-base="${stockBase}" min="0" placeholder="—" style="width:110px;padding:5px 8px;border:1.5px solid #bfdbfe;border-radius:6px;font-size:13px;text-align:right"></td>
       </tr>`;
     });
   });
@@ -3968,8 +3972,10 @@ async function confirmarStockReal() {
     if (isNaN(stockReal) || stockReal < 0) return;
     const prod = inp.dataset.prod;
     const caja = parseInt(inp.dataset.caja);
-    const calc = parseInt(inp.dataset.calc) || 0;
-    const diferencia = stockReal - calc;
+    // Diferencia se calcula contra el stock SIN ajustes (producción − salidas).
+    // Los ajustes anteriores se borran abajo, así que NO hay que usar stockCalc.
+    const stockBase = parseInt(inp.dataset.base) || 0;
+    const diferencia = stockReal - stockBase;
     // Eliminar ajustes anteriores de este prod+caja
     STATE.ajustesStock = STATE.ajustesStock.filter(function(a) {
       return !(a.prod === prod && a.caja === caja);
