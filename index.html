@@ -895,7 +895,11 @@ async function saveToCloud(isNew) {
     costoParams: STATE.costoParams || {},
     ajustesStock: STATE.ajustesStock || []
   };
+  // 1. Guardar localmente (sincrónico, no falla)
   localStorage.setItem('wf_local', JSON.stringify(payload));
+  // 2. Marcar como pendiente de subir, antes de intentar el PUT.
+  //    Si el PUT falla, este flag se queda y la próxima vez que abra la app reintenta.
+  localStorage.setItem('wf_pending', JSON.stringify({ payload, ts: Date.now() }));
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
       method: 'PUT',
@@ -904,13 +908,46 @@ async function saveToCloud(isNew) {
       signal: AbortSignal.timeout(15000)
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    // PUT OK → limpiar flag de pendiente
+    localStorage.removeItem('wf_pending');
     setSyncState('ok', '✓ Guardado');
     toast('Datos guardados en la nube', 'ok');
     setTimeout(() => setSyncState('idle', ''), 4000);
+    return true;
   } catch(e) {
-    setSyncState('err', '✗ Error: ' + e.message);
-    toast('Error al guardar: ' + e.message, 'warn');
-    setTimeout(() => setSyncState('idle', ''), 6000);
+    // El cambio quedó en localStorage + wf_pending. Se va a reintentar.
+    setSyncState('err', '⚠ Sin guardar — se reintenta');
+    toast('No se pudo guardar en la nube. Se reintenta automáticamente. (' + e.message + ')', 'warn');
+    // Reintento automático en 5s
+    setTimeout(() => intentarSubirPendientes(), 5000);
+    return false;
+  }
+}
+
+// Intenta subir los cambios marcados como pendientes en localStorage.
+// Se llama: al abrir la app (antes de loadFromCloud) y como reintento si saveToCloud falló.
+async function intentarSubirPendientes() {
+  const raw = localStorage.getItem('wf_pending');
+  if (!raw) return true;  // nada pendiente
+  let pending;
+  try { pending = JSON.parse(raw); } catch(e) { localStorage.removeItem('wf_pending'); return true; }
+  if (!pending || !pending.payload) { localStorage.removeItem('wf_pending'); return true; }
+  setSyncState('loading', 'Subiendo cambios pendientes...');
+  try {
+    const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey},
+      body: JSON.stringify(pending.payload),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    localStorage.removeItem('wf_pending');
+    setSyncState('ok', '✓ Cambios pendientes subidos');
+    setTimeout(() => setSyncState('idle', ''), 4000);
+    return true;
+  } catch(e) {
+    setSyncState('err', '⚠ Cambios sin subir — reintenta');
+    return false;
   }
 }
 
@@ -1277,7 +1314,7 @@ function actualizarNotaParcial() {
   } else if (totalEnt >= totalPed) {
     nota.innerHTML = '<span style="color:#16a34a">✓ Entrega completa → el pedido pasa a <b>Entregado</b>.</span>';
   } else {
-    nota.innerHTML = '<span style="color:#d97706">⚡ Entrega parcial → se crea un nuevo pedido pendiente con las <b>' + (totalPed-totalEnt) + ' cajas restantes</b>.</span>';
+    nota.innerHTML = '<span style="color:#d97706">⚡ Entrega parcial → el pedido queda como <b>"Entregado parcial"</b> con ' + (totalPed-totalEnt) + ' cajas pendientes de entrega.</span>';
   }
 }
 
@@ -1418,6 +1455,9 @@ async function guardarPedido() {
   </tbody></table>`;
   toast(`Pedido #${ped.id} guardado`);
   limpiarPedido();
+  renderPedidos();
+  setTimeout(loadValoresPedidos, 100);
+  renderStock();
 }
 
 function limpiarPedido() {
@@ -1830,6 +1870,9 @@ async function initApp() {
     STATE.nextId        = 1;
   }
   renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
+  // CRÍTICO: si la sesión anterior cerró con cambios sin subir, intentar subirlos AHORA
+  // antes de que loadFromCloud sobrescriba el estado en memoria con datos viejos.
+  await intentarSubirPendientes();
   // Luego sincronizar desde la nube
   await loadFromCloud();
 
@@ -1856,9 +1899,24 @@ async function actualizarDesdeNube() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
-    STATE.pedidos       = d.record.pedidos       || STATE.pedidos;
-    STATE.prodRegistros = d.record.prodRegistros  || STATE.prodRegistros;
-    STATE.nextId        = d.record.nextId         || STATE.nextId;
+    STATE.pedidos          = d.record.pedidos          || STATE.pedidos;
+    STATE.prodRegistros    = d.record.prodRegistros    || STATE.prodRegistros;
+    STATE.nextId           = d.record.nextId           || STATE.nextId;
+    STATE.cobranzas        = d.record.cobranzas        || STATE.cobranzas || {};
+    STATE.historicoPrecios = d.record.historicoPrecios || STATE.historicoPrecios || [];
+    if (d.record.preciosVigentes) {
+      STATE.preciosVigentes = d.record.preciosVigentes;
+      Object.keys(STATE.preciosVigentes).forEach(function(cat) {
+        if (!PRECIOS[cat]) PRECIOS[cat] = {};
+        Object.keys(STATE.preciosVigentes[cat]).forEach(function(prod) {
+          if (!PRECIOS[cat][prod]) PRECIOS[cat][prod] = {};
+          PRECIOS[cat][prod] = Object.assign({}, STATE.preciosVigentes[cat][prod]);
+        });
+      });
+    }
+    if (d.record.costos)       STATE.costos       = d.record.costos;
+    if (d.record.costoParams)  STATE.costoParams  = d.record.costoParams;
+    STATE.ajustesStock = d.record.ajustesStock || STATE.ajustesStock || [];
     localStorage.setItem('wf_local', JSON.stringify(d.record));
     renderStock(); renderPedidos(); setTimeout(loadValoresPedidos, 100); renderProduccion(); renderAnual();
     setSyncState('ok', '✓ Actualizado');
@@ -2056,6 +2114,30 @@ async function fetchTCBNA() {
 
 // Calcular valor de un pedido en ARS
 
+// Devuelve los items relevantes para VALUAR/COBRAR un pedido según su estado:
+// - Pendiente: items del pedido (lo que se va a facturar al entregarse)
+// - Entregado parcial: solo lo entregado (suma de entregas), NO el total ni el pendiente
+// - Entregado sin entregas registradas: items completos (entrega directa de una vez)
+// - Entregado con entregas registradas: solo lo entregado (que suma el total entregado)
+function itemsParaValuar(p) {
+  if (!p) return [];
+  if (p.estado === 'Entregado parcial') {
+    const acc = [];
+    (p.entregas || []).forEach(e => (e.items || []).forEach(it => acc.push(it)));
+    return acc;
+  }
+  if (p.estado === 'Entregado') {
+    if (p.entregas && p.entregas.length > 0) {
+      const acc = [];
+      p.entregas.forEach(e => (e.items || []).forEach(it => acc.push(it)));
+      return acc;
+    }
+    return p.items || [];
+  }
+  // Pendiente / cualquier otro: lo pedido
+  return p.items || [];
+}
+
 async function loadValoresPedidos() {
   const peds = STATE.pedidos.filter(p => !String(p.cliente||'').includes('AJUSTE'));
   for (const p of peds) {
@@ -2071,11 +2153,13 @@ async function loadValoresPedidos() {
 }
 async function calcValorPedido(pedido) {
   const cat = getClienteCat(pedido.cliente, pedido.listaPrecio);
-  const precios = PRECIOS[cat];
+  const pvSrc = (STATE.preciosVigentes && STATE.preciosVigentes[cat]) ? STATE.preciosVigentes : PRECIOS;
+  const precios = pvSrc[cat];
   const esUSD = cat === 'BANDEX_USD';
   const tc = esUSD ? await fetchTCBNA() : 1;
   let total = 0;
-  (pedido.items || []).forEach(it => {
+  const items = itemsParaValuar(pedido);
+  items.forEach(it => {
     const pCaja = precios && precios[it.prod] && precios[it.prod][it.caja];
     if (!pCaja || !it.cajas) return;
     total += pCaja * it.cajas * tc;
@@ -2122,9 +2206,14 @@ async function renderCobranzas() {
   let totalCobrado=0, totalPorCobrar=0, totalUSD=0, totalComisionNitopi=0, totalComisionPendiente=0;
   const rows=[];
   for (const p of peds) {
-    const cat=getClienteCat(p.cliente, p.listaPrecio), precios=PRECIOS[cat], esUSD=cat==='BANDEX_USD';
+    const cat=getClienteCat(p.cliente, p.listaPrecio);
+    const pvSrc = (STATE.preciosVigentes && STATE.preciosVigentes[cat]) ? STATE.preciosVigentes : PRECIOS;
+    const precios = pvSrc[cat];
+    const esUSD = cat==='BANDEX_USD';
+    // Usar items efectivamente facturables según estado (parcial = solo entregado)
+    const itemsFact = itemsParaValuar(p);
     let totalARS=0, usdAmt=0;
-    (p.items||[]).forEach(it=>{
+    itemsFact.forEach(it=>{
       const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
       if(!pr||!it.cajas)return;
       if(esUSD){usdAmt+=pr*it.cajas;totalARS+=pr*it.cajas*tc;}else totalARS+=pr*it.cajas;
@@ -2155,8 +2244,8 @@ async function renderCobranzas() {
         (cob.fecha?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;text-align:right">'+cob.fecha+'</div>':'')+
       '</td>'+
     '</tr>');
-    // Detail row (hidden)
-    const iRows=(p.items||[]).map(it=>{
+    // Detail row (hidden) — usa los mismos items facturables que el total
+    const iRows=itemsFact.map(it=>{
       const pr=precios&&precios[it.prod]&&precios[it.prod][it.caja];
       const arsXcj=pr?(esUSD?pr*tc:pr):0;
       const sub=arsXcj*(it.cajas||0);
@@ -2290,55 +2379,13 @@ async function exportarCobranzas() {
 
 
 async function calcPrecioPreview() {
-  var clienteEl = document.getElementById('np-cliente');
-  var listaEl   = document.getElementById('np-lista');
-  var cliente   = clienteEl ? clienteEl.value.trim() : '';
-  var listaOvr  = listaEl   ? listaEl.value : '';
-  var cat       = getClienteCat(cliente, listaOvr);
-  var precios   = PRECIOS[cat];
-  var esUSD     = cat === 'BANDEX_USD';
-  var tc        = esUSD ? await fetchTCBNA() : 1;
-  var catLabel  = { WINFLEX:'Winflex', NITOPI:'Nitopi', ENVASES_GROUP:'Envases Group', BANDEX_USD:'Bandex (USD)' }[cat] || cat;
-  var totalARS  = 0, usdAmt = 0;
-  var rows = document.querySelectorAll('#np-items-body tr');
-  rows.forEach(function(row) {
-    var sels = row.querySelectorAll('select');
-    var inps = row.querySelectorAll('input');
-    if (sels.length < 2 || inps.length < 1) return;
-    var prod  = sels[0].value;
-    var caja  = parseInt(sels[1].value) || 0;
-    var cajas = parseInt(inps[0].value) || 0;
-    var pr    = precios && precios[prod] && precios[prod][caja];
-    if (!pr || !cajas) return;
-    if (esUSD) { usdAmt += pr * cajas; totalARS += pr * cajas * tc; }
-    else totalARS += pr * cajas;
-  });
-  var prev = document.getElementById('np-precio-preview');
-  var val  = document.getElementById('np-precio-valor');
-  var det  = document.getElementById('np-precio-detalle');
-  if (!prev || !val || !det) return;
-  if (totalARS > 0) {
-    prev.style.display = '';
-    val.textContent    = fmtPeso(totalARS);
-    det.textContent    = 'Lista: ' + catLabel + (esUSD ? ' · USD ' + Math.round(usdAmt).toLocaleString('es-AR') + ' × TC $' + tc.toLocaleString('es-AR') : '');
-  } else {
-    prev.style.display = 'none';
-  }
-}
-
-
-
-
-
-
-
-async function calcPrecioPreview() {
   const clienteEl = document.getElementById('np-cliente');
   const listaEl   = document.getElementById('np-lista');
   const cliente   = clienteEl ? clienteEl.value.trim() : '';
   const listaOvr  = listaEl   ? listaEl.value   : '';
   const cat       = getClienteCat(cliente, listaOvr);
-  const precios   = PRECIOS[cat];
+  const pvSrc     = (STATE.preciosVigentes && STATE.preciosVigentes[cat]) ? STATE.preciosVigentes : PRECIOS;
+  const precios   = pvSrc[cat];
   const esUSD     = cat === 'BANDEX_USD';
   const tc        = esUSD ? await fetchTCBNA() : 1;
   const catLabel  = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex (USD)'}[cat] || cat;
@@ -3385,10 +3432,10 @@ function recalcPrecioTotal() {
 }
 
 async function actualizarPreciosItems() {
-    var tc = await fetchTCBNA(); window._cachedTC = tc;
+  const tc = await fetchTCBNA();
+  window._cachedTC = tc;
   var cliente  = (document.getElementById('np-cliente')||{}).value||'';
   var listaOvr = (document.getElementById('np-lista')||{}).value||'';
-  var tc = (typeof _tcBNA !== 'undefined' && _tcBNA) ? _tcBNA : (window._cachedTC || 1405);
   var PRODS_FORM = ['E900','T900','E910','S900'];
   var totalARS = 0, totalUSD = 0;
   PRODS_FORM.forEach(function(prod) {
@@ -3608,10 +3655,17 @@ async function guardarEditar() {
     const caja  = parseInt(document.getElementById(`ed-${prod}-s`).value) || 0;
     if (cajas > 0) items.push({ prod, cajas, caja, uds: cajas * caja });
   });
-  if (items.length) p.items = items;
+  // Si quedó vacío, pedir confirmación antes de borrar todos los items
+  if (!items.length) {
+    if (p.items && p.items.length > 0) {
+      if (!confirm('Vaciaste todos los productos del pedido. ¿Confirmás dejarlo sin items?\n\n(Si fue por error, hacé Cancelar y agregá al menos un producto.)')) return;
+    }
+  }
+  p.items = items;
 
   await saveToCloud();
   cerrarEditar();
+  renderStock();
   renderPedidos(); setTimeout(loadValoresPedidos, 100);
   toast(`Pedido #${editingId} actualizado`);
 }
