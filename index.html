@@ -143,6 +143,21 @@ tbody tr:hover td { background: var(--surface2); }
 .mc-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text2); }
 .mc-val { font-size: 18px; font-weight: 600; letter-spacing: -.3px; }
 .mc-sub { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+/* Badges de eficiencia (operativa + aprovechamiento) */
+.ef-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.ef-badge { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; line-height: 1.3; }
+.ef-badge .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.75; }
+.ef-badge .val { font-size: 12px; font-weight: 700; }
+.ef-op    { background: #dcfce7; color: #14532d; border: 1px solid #86efac; }
+.ef-aprov { background: #fef3c7; color: #78350f; border: 1px solid #fbbf24; }
+.ef-na    { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+.ef-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 700; cursor: help; border: 1px solid #e2e8f0; margin-left: 4px; transition: all .15s; }
+.ef-info-btn:hover { background: #e2e8f0; color: #475569; }
+.ef-info-card { background: linear-gradient(135deg, #f0fdf4 0%, #fffbeb 100%); border: 1px solid #d1d5db; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; font-size: 12.5px; line-height: 1.55; color: #475569; }
+.ef-info-card h4 { margin: 0 0 8px; font-size: 13px; color: #1a472a; font-weight: 700; }
+.ef-info-card .ef-formula { font-family: 'DM Mono', monospace; font-size: 11.5px; background: white; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px 0; border: 1px solid #e2e8f0; }
+.ef-info-card .ef-row-info { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.ef-info-card .ef-row-info > div { flex: 1; min-width: 240px; }
 
 /* Toast */
 .toast { position: fixed; bottom: 20px; right: 20px; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 999; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
@@ -359,6 +374,30 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
     <div class="page" id="pg-produccion">
       <div class="page-title">Producción</div>
       <div class="page-sub">Registros mensuales de producción</div>
+
+      <!-- Card explicativa de las 2 eficiencias -->
+      <details class="ef-info-card" style="margin-bottom:14px">
+        <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:700;color:#1a472a">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#1a472a;color:white;font-size:11px">i</span>
+          ¿Cómo se calculan las eficiencias?
+          <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-left:auto">click para expandir</span>
+        </summary>
+        <div class="ef-row-info" style="margin-top:12px">
+          <div>
+            <h4><span class="ef-badge ef-op" style="margin-right:4px"><span class="val">Op.</span></span> Eficiencia operativa</h4>
+            <div>Mide qué tan bien funcionó la máquina <strong>cuando estuvo prendida</strong>. No le importa cuántos días paró por falta de pedidos.</div>
+            <div style="margin-top:6px"><span class="ef-formula">producido / capacidad de las horas usadas</span></div>
+            <div style="margin-top:6px;font-size:11.5px;color:#64748b">Útil para detectar problemas de máquina, scrap o paradas no programadas.</div>
+          </div>
+          <div>
+            <h4><span class="ef-badge ef-aprov" style="margin-right:4px"><span class="val">Aprov.</span></span> Aprovechamiento del mes</h4>
+            <div>Mide qué tan ocupada estuvo la planta sobre el <strong>mes completo</strong>. Si no hay pedidos, este número baja aunque la máquina funcione bien.</div>
+            <div style="margin-top:6px"><span class="ef-formula">producido / (22 días × 2 turnos × 9 hs × uds/h)</span></div>
+            <div style="margin-top:6px;font-size:11.5px;color:#64748b">Útil para ver demanda comercial, capacidad ociosa, días perdidos. Los parámetros (días, turnos, hs, uds/h) se editan en Costos.</div>
+          </div>
+        </div>
+      </details>
+
       <div class="month-grid" id="month-grid"></div>
       <div class="card">
         <div class="card-title" id="prod-detail-title">Seleccioná un mes</div>
@@ -1557,10 +1596,16 @@ function renderProduccion() {
     const tot   = regs.reduce((a, r) => a + r.producido, 0);
     const op    = efMensual(regs);
     const aprov = aprovMensual(regs);
+    const badges = tot
+      ? `<div class="ef-row">
+           <span class="ef-badge ef-op" title="Eficiencia operativa: rendimiento cuando la máquina estuvo en uso"><span class="lbl">Op.</span><span class="val">${pct(op)}</span></span>
+           <span class="ef-badge ef-aprov" title="Aprovechamiento: producción real vs capacidad teórica del mes completo"><span class="lbl">Aprov.</span><span class="val">${pct(aprov)}</span></span>
+         </div>`
+      : `<div class="ef-row"><span class="ef-badge ef-na">sin registros</span></div>`;
     return `<div class="month-card ${selMes === m ? 'sel' : ''}" onclick="selMonth('${m}')">
       <div class="mc-name">${m}</div>
       <div class="mc-val">${tot ? fmt(tot) : '—'}</div>
-      <div class="mc-sub">${tot ? 'op. ' + pct(op) + ' · aprov. ' + pct(aprov) : 'sin registros'}</div>
+      ${badges}
     </div>`;
   }).join('');
   if (selMes) renderProdDetail(selMes);
