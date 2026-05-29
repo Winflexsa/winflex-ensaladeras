@@ -1514,12 +1514,23 @@ function limpiarProd() {
   document.getElementById('rp-cajas').value = 0;
 }
 
+// Calcula la eficiencia del mes como (suma de producido) / (suma de capacidad potencial).
+// La capacidad potencial de cada registro se deduce como producido / efic.
+// Esto pondera correctamente: un día que produjo 100 uds pesa menos que uno que produjo 65000.
+function efMensual(regs) {
+  const validos = (regs || []).filter(r => (r.efic || 0) > 0 && (r.producido || 0) > 0);
+  if (!validos.length) return 0;
+  const totalProducido = validos.reduce((a, r) => a + r.producido, 0);
+  const capacidadPotencial = validos.reduce((a, r) => a + (r.producido / r.efic), 0);
+  return capacidadPotencial > 0 ? totalProducido / capacidadPotencial : 0;
+}
+
 function renderProduccion() {
   const g = document.getElementById('month-grid');
   g.innerHTML = MESES.map(m => {
     const regs = STATE.prodRegistros[m] || [];
     const tot  = regs.reduce((a, r) => a + r.producido, 0);
-    const avg  = regs.length ? regs.reduce((a, r) => a + r.efic, 0) / regs.length : 0;
+    const avg  = efMensual(regs);
     return `<div class="month-card ${selMes === m ? 'sel' : ''}" onclick="selMonth('${m}')">
       <div class="mc-name">${m}</div>
       <div class="mc-val">${tot ? fmt(tot) : '—'}</div>
@@ -1778,7 +1789,7 @@ function renderAnual() {
     const e9   = regs.filter(r => r.prod === 'E900').reduce((a, r) => a + r.producido, 0);
     const t9   = regs.filter(r => r.prod === 'T900').reduce((a, r) => a + r.producido, 0);
     const tot  = regs.reduce((a, r) => a + r.producido, 0);
-    const avg  = regs.length ? regs.reduce((a, r) => a + r.efic, 0) / regs.length : 0;
+    const avg  = efMensual(regs);
     return `<tr><td>${m}</td><td>${e9 ? fmt(e9) : '-'}</td><td>${t9 ? fmt(t9) : '-'}</td><td style="font-weight:600">${tot ? fmt(tot) : '-'}</td><td>${tot ? pct(avg) : '-'}</td></tr>`;
   }).join('');
   document.getElementById('anual-vend').innerHTML = '';
@@ -4075,7 +4086,7 @@ function renderGraficos() {
   const prodT900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='T900').reduce((a,r)=>a+r.producido,0));
   const prodE910 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='E910').reduce((a,r)=>a+r.producido,0));
   const prodS900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='S900').reduce((a,r)=>a+r.producido,0));
-  const efics   = meses.map(m => { const regs=(STATE.prodRegistros[m]||[]); return regs.length ? Math.round(regs.reduce((a,r)=>a+r.efic,0)/regs.length*100) : 0; });
+  const efics   = meses.map(m => Math.round(efMensual(STATE.prodRegistros[m]||[])*100));
   const mesesCortos = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   const baseOpts = { responsive: true, plugins: { legend: { labels: { font: { family: 'DM Sans', size: 12 }, color: '#6b6860' } } }, scales: { x: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { display: false } }, y: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { color: '#f0efe9' } } } };
