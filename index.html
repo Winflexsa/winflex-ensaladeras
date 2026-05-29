@@ -430,7 +430,7 @@ code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 
       <div class="page-sub">Totales acumulados 2026</div>
       <div class="metrics" id="anual-metrics"></div>
       <div class="card-grid">
-        <div class="card"><div class="card-title">Producción mensual</div><table><thead><tr><th>Mes</th><th>E900</th><th>T900</th><th>Total</th><th>Efic. prom.</th></tr></thead><tbody id="anual-prod"></tbody></table></div>
+        <div class="card"><div class="card-title">Producción mensual</div><table><thead><tr><th>Mes</th><th>E900</th><th>T900</th><th>Total</th><th>Ef. operativa</th><th>Aprov. mes</th></tr></thead><tbody id="anual-prod"></tbody></table></div>
         <div class="card"><div class="card-title">Pedidos por vendedor</div><table><thead><tr><th>Vendedor</th><th>Total uds</th><th>Entregado</th><th style="color:var(--warn)">Pendiente</th></tr></thead><tbody id="anual-vend"></tbody></table></div>
       </div>
     </div>
@@ -1525,16 +1525,42 @@ function efMensual(regs) {
   return capacidadPotencial > 0 ? totalProducido / capacidadPotencial : 0;
 }
 
+// Capacidad mensual teórica (días hábiles × turnos × hs × uds/hora) para un producto.
+// Usa los parámetros editados en STATE.costoParams si existen, sino los de COSTOS_BASE.
+function capacidadMensual(prod) {
+  const base = COSTOS_BASE[prod] || {};
+  const params = (STATE.costoParams && STATE.costoParams[prod]) || {};
+  const horasTurno   = params.horasTurno   || base.horasTurno   || 9;
+  const turnosPorDia = params.turnosPorDia || base.turnosPorDia || 2;
+  const diasMes      = params.diasMes      || base.diasMes      || 22;
+  const udsHora      = params.udsHora      || base.udsHora      || 7000;
+  return diasMes * turnosPorDia * horasTurno * udsHora;
+}
+
+// Aprovechamiento del mes: cuánto se produjo vs lo que se podría producir en TODO el mes.
+// Considera la capacidad del primer producto producido (todos tienen misma velocidad nominal hoy).
+// Útil para ver carga comercial / capacidad ociosa.
+function aprovMensual(regs) {
+  if (!regs || !regs.length) return 0;
+  const total = regs.reduce((a, r) => a + (r.producido || 0), 0);
+  if (total === 0) return 0;
+  const primero = regs.find(r => r.producido > 0);
+  if (!primero) return 0;
+  const cap = capacidadMensual(primero.prod);
+  return cap > 0 ? total / cap : 0;
+}
+
 function renderProduccion() {
   const g = document.getElementById('month-grid');
   g.innerHTML = MESES.map(m => {
     const regs = STATE.prodRegistros[m] || [];
-    const tot  = regs.reduce((a, r) => a + r.producido, 0);
-    const avg  = efMensual(regs);
+    const tot   = regs.reduce((a, r) => a + r.producido, 0);
+    const op    = efMensual(regs);
+    const aprov = aprovMensual(regs);
     return `<div class="month-card ${selMes === m ? 'sel' : ''}" onclick="selMonth('${m}')">
       <div class="mc-name">${m}</div>
       <div class="mc-val">${tot ? fmt(tot) : '—'}</div>
-      <div class="mc-sub">${tot ? 'ef. ' + pct(avg) : 'sin registros'}</div>
+      <div class="mc-sub">${tot ? 'op. ' + pct(op) + ' · aprov. ' + pct(aprov) : 'sin registros'}</div>
     </div>`;
   }).join('');
   if (selMes) renderProdDetail(selMes);
@@ -1786,11 +1812,12 @@ function renderAnual() {
   `;
   document.getElementById('anual-prod').innerHTML = MESES.map(m => {
     const regs = STATE.prodRegistros[m] || [];
-    const e9   = regs.filter(r => r.prod === 'E900').reduce((a, r) => a + r.producido, 0);
-    const t9   = regs.filter(r => r.prod === 'T900').reduce((a, r) => a + r.producido, 0);
-    const tot  = regs.reduce((a, r) => a + r.producido, 0);
-    const avg  = efMensual(regs);
-    return `<tr><td>${m}</td><td>${e9 ? fmt(e9) : '-'}</td><td>${t9 ? fmt(t9) : '-'}</td><td style="font-weight:600">${tot ? fmt(tot) : '-'}</td><td>${tot ? pct(avg) : '-'}</td></tr>`;
+    const e9    = regs.filter(r => r.prod === 'E900').reduce((a, r) => a + r.producido, 0);
+    const t9    = regs.filter(r => r.prod === 'T900').reduce((a, r) => a + r.producido, 0);
+    const tot   = regs.reduce((a, r) => a + r.producido, 0);
+    const op    = efMensual(regs);
+    const aprov = aprovMensual(regs);
+    return `<tr><td>${m}</td><td>${e9 ? fmt(e9) : '-'}</td><td>${t9 ? fmt(t9) : '-'}</td><td style="font-weight:600">${tot ? fmt(tot) : '-'}</td><td>${tot ? pct(op) : '-'}</td><td>${tot ? pct(aprov) : '-'}</td></tr>`;
   }).join('');
   document.getElementById('anual-vend').innerHTML = '';
   ['Nitopi', 'Winflex'].forEach(v => {
@@ -4086,7 +4113,8 @@ function renderGraficos() {
   const prodT900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='T900').reduce((a,r)=>a+r.producido,0));
   const prodE910 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='E910').reduce((a,r)=>a+r.producido,0));
   const prodS900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='S900').reduce((a,r)=>a+r.producido,0));
-  const efics   = meses.map(m => Math.round(efMensual(STATE.prodRegistros[m]||[])*100));
+  const efics  = meses.map(m => Math.round(efMensual(STATE.prodRegistros[m]||[])*100));
+  const aprov  = meses.map(m => Math.round(aprovMensual(STATE.prodRegistros[m]||[])*100));
   const mesesCortos = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   const baseOpts = { responsive: true, plugins: { legend: { labels: { font: { family: 'DM Sans', size: 12 }, color: '#6b6860' } } }, scales: { x: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { display: false } }, y: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { color: '#f0efe9' } } } };
@@ -4105,13 +4133,16 @@ function renderGraficos() {
     options: { ...baseOpts, plugins: { ...baseOpts.plugins }, scales: { ...baseOpts.scales, x: { ...baseOpts.scales.x, stacked: false }, y: { ...baseOpts.scales.y, stacked: false } } }
   });
 
-  // Chart 2: Eficiencia línea
+  // Chart 2: Eficiencia línea (operativa + aprovechamiento del mes)
   if (chartEfic) chartEfic.destroy();
   chartEfic = new Chart(document.getElementById('chart-efic'), {
     type: 'line',
     data: {
       labels: mesesCortos,
-      datasets: [{ label: 'Eficiencia %', data: efics, borderColor: '#1a472a', backgroundColor: 'rgba(26,71,42,0.08)', tension: 0.4, pointBackgroundColor: '#1a472a', pointRadius: 4, fill: true }]
+      datasets: [
+        { label: 'Ef. operativa %', data: efics, borderColor: '#1a472a', backgroundColor: 'rgba(26,71,42,0.08)', tension: 0.4, pointBackgroundColor: '#1a472a', pointRadius: 4, fill: false },
+        { label: 'Aprov. mes %',    data: aprov, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.08)', tension: 0.4, pointBackgroundColor: '#d97706', pointRadius: 4, fill: false, borderDash: [6,4] }
+      ]
     },
     options: { ...baseOpts, scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y, min: 0, max: 100, ticks: { ...baseOpts.scales.y.ticks, callback: v => v + '%' } } } }
   });
