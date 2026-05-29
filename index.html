@@ -970,7 +970,12 @@ const mesDeDate = s => {
   try { const d = new Date(s + 'T12:00:00'); return isNaN(d) ? null : MESES[d.getMonth()]; }
   catch { return null; }
 };
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+};
 
 // ─── Navegación ────────────────────────────────────────────────
 function goTo(name, btn) {
@@ -1097,7 +1102,7 @@ function renderStock() {
   const totProd  = PRODUCTOS.reduce((a,p) => a + CAJAS.reduce((x,c) => x + (SB[p].prod[c] ||0), 0), 0);
   const e9 = CAJAS.reduce((a,c) => a + (SB['E900'].stock[c]||0), 0);
   const t9 = CAJAS.reduce((a,c) => a + (SB['T900'].stock[c]||0), 0);
-  const pend = (STATE.pedidos||[]).filter(p => p.estado==='Pendiente').reduce((a,p) =>
+  const pend = (STATE.pedidos||[]).filter(p => p.estado==='Pendiente' || p.estado==='Entregado parcial').reduce((a,p) =>
     a + (p.items||[]).reduce((x,it) => x+(it.uds||0), 0), 0);
 
   document.getElementById('stock-metrics').innerHTML =
@@ -1192,7 +1197,7 @@ function renderPedidos() {
   const pend    = list.filter(p => p.estado === 'Pendiente');
   const ent     = list.filter(p => p.estado === 'Entregado');
   const udsPend = pend.reduce((a,p) => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
-  const udsEnt  = ent.reduce((a,p)  => a + p.items.reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
+  const udsEnt  = ent.reduce((a,p)  => a + itemsParaValuar(p).reduce((x,i) => x + (i.uds||(i.cajas||0)*(i.caja||0)||0), 0), 0);
   document.getElementById('ped-metrics').innerHTML =
     '<div class="metric"><div class="metric-label">Mostrando</div><div class="metric-value">'+list.length+'</div><div class="metric-sub">pedidos</div></div>' +
     '<div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn">'+pend.length+'</div><div class="metric-sub">'+fmt(udsPend)+' uds</div></div>' +
@@ -1759,7 +1764,7 @@ function renderAnual() {
   const tots    = STATE.pedidos.length;
   const ent     = STATE.pedidos.filter(p => p.estado === 'Entregado').length;
   const pend    = STATE.pedidos.filter(p => p.estado === 'Pendiente').length;
-  const udsPend = STATE.pedidos.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
+  const udsPend = STATE.pedidos.filter(p => p.estado === 'Pendiente' || p.estado === 'Entregado parcial').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
   const totProd = Object.values(STATE.prodRegistros).flat().reduce((a, r) => a + r.producido, 0);
   document.getElementById('anual-metrics').innerHTML = `
     <div class="metric"><div class="metric-label">Total pedidos</div><div class="metric-value">${tots}</div></div>
@@ -1779,8 +1784,8 @@ function renderAnual() {
   document.getElementById('anual-vend').innerHTML = '';
   ['Nitopi', 'Winflex'].forEach(v => {
     const vp   = STATE.pedidos.filter(p => p.vendedor === v);
-    const ve   = vp.filter(p => p.estado === 'Entregado').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || 0), 0), 0);
-    const vpe  = vp.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || (i.cajas||0)*(i.caja||0)), 0), 0);
+    const ve   = vp.filter(p => p.estado === 'Entregado' || p.estado === 'Entregado parcial').reduce((a, p) => a + itemsParaValuar(p).reduce((x, i) => x + (i.uds || 0), 0), 0);
+    const vpe  = vp.filter(p => p.estado === 'Pendiente' || p.estado === 'Entregado parcial').reduce((a, p) => a + p.items.reduce((x, i) => x + (i.uds || (i.cajas||0)*(i.caja||0)), 0), 0);
     document.getElementById('anual-vend').innerHTML += `<tr><td style="font-weight:600">${v}</td><td>${fmt(ve + vpe)}</td><td style="color:var(--success)">${fmt(ve)}</td><td style="color:var(--warn)">${fmt(vpe)}</td></tr>`;
   });
 }
@@ -2323,7 +2328,7 @@ function toggleCobDet(id) {
 async function toggleCob(id) {
   if (!STATE.cobranzas) STATE.cobranzas = {};
   const cur = (STATE.cobranzas[id]||{}).estado || 'Por cobrar';
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = today();
   if (cur === 'Cobrado') {
     STATE.cobranzas[id] = { estado:'Por cobrar', fecha:'' };
   } else {
@@ -2358,7 +2363,13 @@ async function exportarCobranzas() {
       data.push([p.id,p.fecha,p.cliente,catLabel,vendedor,'','','','','','','','',p.estado,cob.estado,cob.fecha||'']);
       continue;
     }
-    p.items.forEach(it => {
+    const itemsExp = (p.estado === 'Entregado' || p.estado === 'Entregado parcial')
+      ? itemsParaValuar(p) : p.items;
+    if (!itemsExp.length) {
+      data.push([p.id,p.fecha,p.cliente,catLabel,vendedor,'','','','','','','','',p.estado,cob.estado,cob.fecha||'']);
+      continue;
+    }
+    itemsExp.forEach(it => {
       const pr = precios&&precios[it.prod]&&precios[it.prod][it.caja];
       const arsXcj = pr ? (esUSD ? pr*tc : pr) : 0;
       const sub = arsXcj*(it.cajas||0);
@@ -4059,25 +4070,27 @@ let chartProd = null, chartEfic = null, chartClientes = null;
 function renderGraficos() {
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   
-  // Datos producción mensual
+  // Datos producción mensual (4 productos)
   const prodE900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='E900').reduce((a,r)=>a+r.producido,0));
   const prodT900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='T900').reduce((a,r)=>a+r.producido,0));
+  const prodE910 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='E910').reduce((a,r)=>a+r.producido,0));
+  const prodS900 = meses.map(m => (STATE.prodRegistros[m]||[]).filter(r=>r.prod==='S900').reduce((a,r)=>a+r.producido,0));
   const efics   = meses.map(m => { const regs=(STATE.prodRegistros[m]||[]); return regs.length ? Math.round(regs.reduce((a,r)=>a+r.efic,0)/regs.length*100) : 0; });
   const mesesCortos = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   const baseOpts = { responsive: true, plugins: { legend: { labels: { font: { family: 'DM Sans', size: 12 }, color: '#6b6860' } } }, scales: { x: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { display: false } }, y: { ticks: { font: { family: 'DM Sans', size: 11 }, color: '#a8a69a' }, grid: { color: '#f0efe9' } } } };
 
-  // Chart 1: Producción barras
+  // Chart 1: Producción barras — solo mostrar productos con datos
   if (chartProd) chartProd.destroy();
+  const datasetsProd = [
+    { label: 'E900', data: prodE900, backgroundColor: '#1a472a', borderRadius: 4 },
+    { label: 'T900', data: prodT900, backgroundColor: '#86efac', borderRadius: 4 },
+    { label: 'E910', data: prodE910, backgroundColor: '#0f172a', borderRadius: 4 },
+    { label: 'S900', data: prodS900, backgroundColor: '#fbbf24', borderRadius: 4 }
+  ].filter(d => d.data.some(v => v > 0));
   chartProd = new Chart(document.getElementById('chart-prod'), {
     type: 'bar',
-    data: {
-      labels: mesesCortos,
-      datasets: [
-        { label: 'E900', data: prodE900, backgroundColor: '#1a472a', borderRadius: 4 },
-        { label: 'T900', data: prodT900, backgroundColor: '#86efac', borderRadius: 4 }
-      ]
-    },
+    data: { labels: mesesCortos, datasets: datasetsProd },
     options: { ...baseOpts, plugins: { ...baseOpts.plugins }, scales: { ...baseOpts.scales, x: { ...baseOpts.scales.x, stacked: false }, y: { ...baseOpts.scales.y, stacked: false } } }
   });
 
@@ -4093,9 +4106,16 @@ function renderGraficos() {
   });
 
   // Chart 3: Top clientes horizontal bar
+  // Top clientes: contamos lo facturado (entregado + pendiente)
+  // Para entregados con parciales usamos itemsParaValuar (suma de entregas reales)
   const clienteMap = {};
   STATE.pedidos.forEach(p => {
-    const uds = p.items.reduce((a,i)=>a+(i.uds||0),0);
+    let uds;
+    if (p.estado === 'Entregado' || p.estado === 'Entregado parcial') {
+      uds = itemsParaValuar(p).reduce((a,i) => a + (i.uds || 0), 0);
+    } else {
+      uds = (p.items || []).reduce((a,i) => a + (i.uds || 0), 0);
+    }
     if (p.cliente && uds > 0) clienteMap[p.cliente] = (clienteMap[p.cliente]||0) + uds;
   });
   const sorted = Object.entries(clienteMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
@@ -4113,16 +4133,24 @@ function renderGraficos() {
 // ─── EXPORTAR EXCEL ────────────────────────────────────────────
 function exportPedidos(filtro) {
   let lista = STATE.pedidos;
-  if (filtro === 'pendientes') lista = lista.filter(p=>p.estado==='Pendiente');
-  if (filtro === 'entregados') lista = lista.filter(p=>p.estado==='Entregado');
-  
+  if (filtro === 'pendientes') lista = lista.filter(p=>p.estado==='Pendiente' || p.estado==='Entregado parcial');
+  if (filtro === 'entregados') lista = lista.filter(p=>p.estado==='Entregado' || p.estado==='Entregado parcial');
+
   const rows = [['ID','Fecha','Cliente','Producto','Cajas','Tam.Caja','Unidades','Total Uds Pedido','Estado','F.Entrega','Despacho','Vendedor','OC/Obs']];
   lista.forEach(p => {
-    const totalUds = p.items.reduce((a,i)=>a+(i.uds||0),0);
-    p.items.filter(i=>i.cajas>0).forEach((it,idx) => {
+    // Para entregados/parciales mostrar lo realmente entregado; para pendientes lo pedido
+    const itemsExp = (p.estado === 'Entregado' || p.estado === 'Entregado parcial')
+      ? itemsParaValuar(p) : (p.items || []);
+    const totalUds = itemsExp.reduce((a,i)=>a+(i.uds||(i.cajas||0)*(i.caja||0)||0),0);
+    const itemsFilt = itemsExp.filter(i => i.cajas > 0);
+    if (!itemsFilt.length) {
+      rows.push([p.id, p.fecha, p.cliente, '', '', '', '', 0, p.estado, p.entrega||'', p.despacho||'', p.vendedor||'', p.obs||'']);
+      return;
+    }
+    itemsFilt.forEach((it,idx) => {
       rows.push([
         idx===0?p.id:'', idx===0?p.fecha:'', idx===0?p.cliente:'',
-        it.prod, it.cajas, it.caja, it.uds,
+        it.prod, it.cajas, it.caja, it.uds || (it.cajas||0)*(it.caja||0),
         idx===0?totalUds:'',
         idx===0?p.estado:'', idx===0?p.entrega:'',
         idx===0?p.despacho:'', idx===0?p.vendedor:'',
@@ -4172,8 +4200,11 @@ async function exportCompleto() {
   for (const p of peds) {
     const cat = getClienteCat(p.cliente,p.listaPrecio), pv = PRECIOS[cat], esUSD = cat==='BANDEX_USD';
     const catLbl = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex'}[cat]||cat;
-    if (!p.items||!p.items.length) { pedRows.push([p.id,p.fecha,p.cliente,p.vendedor||'',catLbl,'','','','','','','',p.estado,p.obs||'']); continue; }
-    p.items.forEach(it => {
+    // Para entregados/parciales mostrar lo realmente entregado; para pendientes lo pedido
+    const itemsExp = (p.estado === 'Entregado' || p.estado === 'Entregado parcial')
+      ? itemsParaValuar(p) : (p.items || []);
+    if (!itemsExp.length) { pedRows.push([p.id,p.fecha,p.cliente,p.vendedor||'',catLbl,'','','','','','','',p.estado,p.obs||'']); continue; }
+    itemsExp.forEach(it => {
       const pr = pv&&pv[it.prod]&&pv[it.prod][it.caja];
       const arsXcj = pr?(esUSD?pr*tc:pr):0, sub = arsXcj*(it.cajas||0);
       pedRows.push([p.id,p.fecha,p.cliente,p.vendedor||'',catLbl,it.prod,'x'+it.caja,
@@ -4191,8 +4222,10 @@ async function exportCompleto() {
     const cat = getClienteCat(p.cliente,p.listaPrecio), pv = PRECIOS[cat], esUSD = cat==='BANDEX_USD';
     const catLbl = {WINFLEX:'Winflex',NITOPI:'Nitopi',ENVASES_GROUP:'Envases Group',BANDEX_USD:'Bandex'}[cat]||cat;
     const cob = (STATE.cobranzas&&STATE.cobranzas[p.id])||{estado:'Por cobrar',fecha:''};
-    if (!p.items||!p.items.length) { cobRows.push([p.id,p.fecha,p.cliente,catLbl,'','','','','','','',p.estado,cob.estado,cob.fecha||'']); continue; }
-    p.items.forEach(it => {
+    const itemsExp = (p.estado === 'Entregado' || p.estado === 'Entregado parcial')
+      ? itemsParaValuar(p) : (p.items || []);
+    if (!itemsExp.length) { cobRows.push([p.id,p.fecha,p.cliente,catLbl,'','','','','','','',p.estado,cob.estado,cob.fecha||'']); continue; }
+    itemsExp.forEach(it => {
       const pr = pv&&pv[it.prod]&&pv[it.prod][it.caja];
       const arsXcj = pr?(esUSD?pr*tc:pr):0;
       cobRows.push([p.id,p.fecha,p.cliente,catLbl,it.prod,'x'+it.caja,it.cajas||0,
