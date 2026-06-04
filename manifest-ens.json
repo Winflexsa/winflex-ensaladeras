@@ -1,0 +1,32 @@
+{
+  "id": "winflex-ensaladeras",
+  "name": "Winflex Ensaladeras",
+  "short_name": "Ensaladeras",
+  "description": "Gestión de producción de ensaladeras termoformadas — Winflex S.A.",
+  "start_url": ".",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#2e9e5b",
+  "icons": [
+    {
+      "src": "icon-ens-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-ens-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-ens-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
