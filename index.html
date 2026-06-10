@@ -617,6 +617,7 @@ const PROD_INIT = {"Enero":[{"fecha":"2026-01-02","turno":"M1","prod":"E900","pr
 
 // ─── Estado global ─────────────────────────────────────────────
 let STATE = { pedidos: [], prodRegistros: {}, nextId: 71, cobranzas: {}, historicoPrecios: [], costos: {}, preciosVigentes: null, costoParams: {}, ajustesStock: [] };
+let LOAD_OK = false; // true solo si loadFromCloud terminó OK; bloquea saveToCloud si la carga falló
 let CFG = { apiKey: '', binId: '' };
 let selMes = null;
 
@@ -743,9 +744,11 @@ async function loadFromCloud() {
     STATE.ajustesStock = d.record.ajustesStock || [];
     localStorage.setItem('wf_local', JSON.stringify(d.record));
     setSyncState('ok', '✓ Sincronizado');
+    LOAD_OK = true; // carga verificada
     setTimeout(() => setSyncState('idle', ''), 4000);
   } catch(e) {
-    setSyncState('err', '✗ Sin conexión — datos locales');
+    LOAD_OK = false; // carga falló: bloquear guardado para no pisar la nube
+    setSyncState('err', '✗ Sin conexión — datos locales (no se guardará hasta recargar)');
     const local = localStorage.getItem('wf_local');
     if (local) {
       try {
@@ -766,6 +769,7 @@ async function loadFromCloud() {
 }
 
 async function saveToCloud(isNew) {
+  if (!LOAD_OK && !isNew) { setSyncState('err','Guardado bloqueado: la carga falló. Recargá.'); toast('⚠ No se guardó: la carga inicial no se completó. Recargá la página.','warn'); return false; }
   setSyncState('loading', 'Guardando...');
   const payload = {
     pedidos: STATE.pedidos,
@@ -780,13 +784,29 @@ async function saveToCloud(isNew) {
   };
   // 1. Guardar localmente (sincrónico, no falla)
   localStorage.setItem('wf_local', JSON.stringify(payload));
+  // Tripwire: no pisar la nube con pedidos/producción vacíos si la nube tiene datos
+  if (!isNew) {
+    try {
+      const chk = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a/latest', { headers: {'X-Master-Key': CFG.apiKey} });
+      if (chk.ok) {
+        const cur = (await chk.json()).record || {};
+        const curP = (cur.pedidos||[]).length, curR = Object.keys(cur.prodRegistros||{}).length;
+        const newP = (STATE.pedidos||[]).length, newR = Object.keys(STATE.prodRegistros||{}).length;
+        if ((curP>0 && newP===0) || (curR>0 && newR===0)) {
+          setSyncState('err','Guardado bloqueado: evitaría borrar datos.');
+          toast('⛔ Guardado BLOQUEADO: dejaría pedidos/producción en cero y la nube tiene datos. Recargá la página.','warn');
+          return false;
+        }
+      }
+    } catch(_) {}
+  }
   // 2. Marcar como pendiente de subir, antes de intentar el PUT.
   //    Si el PUT falla, este flag se queda y la próxima vez que abra la app reintenta.
   localStorage.setItem('wf_pending', JSON.stringify({ payload, ts: Date.now() }));
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
       method: 'PUT',
-      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey},
+      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000)
     });
@@ -819,7 +839,7 @@ async function intentarSubirPendientes() {
   try {
     const res = await fetch('https://api.jsonbin.io/v3/b/69c18ce8b7ec241ddc96cd8a', {
       method: 'PUT',
-      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey},
+      headers: {'Content-Type':'application/json','X-Master-Key':CFG.apiKey,'X-Bin-Versioning':'true'},
       body: JSON.stringify(pending.payload),
       signal: AbortSignal.timeout(15000)
     });
